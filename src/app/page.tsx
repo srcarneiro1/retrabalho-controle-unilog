@@ -140,6 +140,12 @@ function money(value: number) {
   })
 }
 
+function dateLabel(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value || '—'
+  const [year, month, day] = value.split('-')
+  return `${day}/${month}/${year}`
+}
+
 function csvCell(value: unknown) {
   let text = String(value == null ? '' : value)
   if (/^[=+\-@]/.test(text)) text = "'" + text
@@ -939,11 +945,11 @@ export default function Home() {
                 <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
               </div>
               <DataTable value={items} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
-                <Column field="dataEfetivacao" header="Data" />
+                <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
                 <Column field="sku" header="SKU" />
                 <Column field="descricao" header="Descrição" />
                 <Column field="quantidade" header="Qtd." />
-                <Column field="dataValidade" header="Validade" />
+                <Column field="dataValidade" header="Validade" body={(row: Rework) => dateLabel(row.dataValidade)} />
                 <Column field="nacionalizacao" header="Nacionalização" />
                 <Column field="rfid" header="RFID" />
                 <Column field="valorTotalCobranca" header="Valor" body={(row: Rework) => money(row.valorTotalCobranca)} />
@@ -1001,8 +1007,8 @@ export default function Home() {
               )}
               <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização + adicional RFID. Com os valores iniciais, uma unidade com as duas etiquetas = R$ 0,60.</div>
               <DataTable value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
-                <Column field="vigenciaInicio" header="Início" />
-                <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim || 'Vigente'} />
+                <Column field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
+                <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
                 <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => money(r.valorNacionalizacao)} />
                 <Column field="valorRfidAdicional" header="RFID adicional" body={(r: PriceRow) => money(r.valorRfidAdicional)} />
                 <Column field="observacao" header="Observação" />
@@ -1024,13 +1030,41 @@ export default function Home() {
             </div>
             <div className="page-body">
               <div className="user-form">
-                <InputText placeholder="Matrícula" value={newUser.matricula} onChange={e => setNewUser({ ...newUser, matricula: e.target.value })} />
-                <InputText placeholder="Nome" value={newUser.nome} onChange={e => setNewUser({ ...newUser, nome: e.target.value })} />
-                <select value={newUser.perfil} onChange={e => setNewUser({ ...newUser, perfil: e.target.value as Profile })}>
-                  <option>OPERACIONAL</option><option>SUPERVISOR</option><option>ADMIN</option><option>CLIENTE</option>
-                </select>
-                <InputText placeholder="Senha temporária" type="password" value={newUser.senhaTemporaria} onChange={e => setNewUser({ ...newUser, senhaTemporaria: e.target.value })} />
-                <Button label="Criar" onClick={createUser} loading={saving} className="primary" />
+                <label>
+                  Matrícula
+                  <InputText
+                    placeholder="Ex.: 358038"
+                    value={newUser.matricula}
+                    onChange={e => setNewUser({ ...newUser, matricula: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Nome
+                  <InputText
+                    placeholder="Nome do usuário"
+                    value={newUser.nome}
+                    onChange={e => setNewUser({ ...newUser, nome: e.target.value })}
+                  />
+                </label>
+                <label>
+                  Perfil
+                  <select value={newUser.perfil} onChange={e => setNewUser({ ...newUser, perfil: e.target.value as Profile })}>
+                    <option>OPERACIONAL</option>
+                    <option>SUPERVISOR</option>
+                    <option>ADMIN</option>
+                    <option>CLIENTE</option>
+                  </select>
+                </label>
+                <label>
+                  Senha temporária
+                  <InputText
+                    placeholder="Mínimo de 8 caracteres"
+                    type="password"
+                    value={newUser.senhaTemporaria}
+                    onChange={e => setNewUser({ ...newUser, senhaTemporaria: e.target.value })}
+                  />
+                </label>
+                <Button label="Criar usuário" icon="pi pi-plus" onClick={createUser} loading={saving} className="primary form-submit" />
               </div>
               <DataTable value={users} rows={15} paginator dataKey="matricula">
                 <Column field="matricula" header="Matrícula" />
