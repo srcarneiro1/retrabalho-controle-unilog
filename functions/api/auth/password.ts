@@ -17,18 +17,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ ok: false, error: { message: 'A nova senha deve possuir pelo menos 8 caracteres.' } }, 400)
     }
 
-    const response = await mutateAppsScriptOnce(env, 'auth', {
-      acao: 'TROCAR_SENHA',
-      matricula: user.matricula,
-      novaSenha,
-    })
+    let response: Response | undefined
 
-    const upstream = await parseUpstream(response)
-    if (upstream !== null) {
-      if (!response.ok || !apiSucceeded(upstream)) {
-        throw new Error(upstream?.error?.message || 'Falha ao alterar a senha.')
+    try {
+      response = await mutateAppsScriptOnce(env, 'auth', {
+        acao: 'TROCAR_SENHA',
+        matricula: user.matricula,
+        novaSenha,
+      })
+
+      const upstream = await parseUpstream(response)
+      if (upstream !== null) {
+        if (!response.ok || !apiSucceeded(upstream)) {
+          throw new Error(upstream?.error?.message || 'Falha ao alterar a senha.')
+        }
+        return json({ ok: true })
       }
-      return json({ ok: true })
+    } catch (error) {
+      if (
+        error instanceof Error
+        && error.message
+        && !/fetch|network|invalid|response|connection/i.test(error.message)
+      ) {
+        throw error
+      }
+      // Escrita possivelmente concluída. Não repetir a mutação.
     }
 
     const confirmed = await readJson(env, 'auth', {
