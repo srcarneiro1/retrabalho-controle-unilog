@@ -141,13 +141,21 @@ Publicar como Web App:
 - executar como: usuário que implantou;
 - acesso: qualquer pessoa.
 
-Após configurar as propriedades, executar manualmente uma única vez:
+Para o primeiro ADMIN, adicione temporariamente também:
 
-```javascript
-bootstrapAdmin('MATRICULA', 'Nome do Admin', 'SenhaTemporaria')
+```text
+BOOTSTRAP_ADMIN_MATRICULA=<matrícula>
+BOOTSTRAP_ADMIN_NOME=<nome>
+BOOTSTRAP_ADMIN_PASSWORD=<senha temporária forte>
 ```
 
-O bootstrap é bloqueado automaticamente depois que existir qualquer usuário.
+Depois execute manualmente uma única vez no editor Apps Script:
+
+```javascript
+bootstrapAdminFromProperties()
+```
+
+A função cria o primeiro ADMIN e, após sucesso, remove automaticamente as três propriedades temporárias de bootstrap. O bootstrap também é bloqueado se já existir qualquer usuário.
 
 ## Cloudflare Pages
 
