@@ -1,3 +1,25 @@
+const API_VERSION = '2026.10.01.1';
+
+function doGet(e) {
+  const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
+  if (route === 'health') {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        ok: true,
+        service: 'retrabalho-controle-unilog-api',
+        version: API_VERSION
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      ok: false,
+      error: { message: 'Rota GET inválida.' }
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function doPost(e) {
   try {
     const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
