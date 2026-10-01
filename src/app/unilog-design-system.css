@@ -1,0 +1,425 @@
+/* Canonical Unilog visual language.
+   Aligned with Extra Cost Control + BI Logistico V2 after visual parity merges. */
+:root{
+  --unilog-red:#db0812;
+  --unilog-red-dark:#b8070f;
+  --unilog-red-soft:#fdecee;
+  --unilog-ink:#171b24;
+  --unilog-ink-2:#242a36;
+  --unilog-graphite:#494a56;
+  --unilog-graphite-2:#676d77;
+  --unilog-muted:#8a9099;
+  --unilog-border:#e2e5e9;
+  --unilog-border-soft:#edf0f2;
+  --unilog-canvas:#f5f6f8;
+  --unilog-surface:#fff;
+  --unilog-surface-soft:#f8f9fb;
+  --unilog-success:#3f7c59;
+  --unilog-warning:#a87900;
+  --unilog-danger:#c91a23;
+  --unilog-radius:14px;
+  --unilog-control-radius:10px;
+  --unilog-shadow:0 6px 22px rgba(18,24,34,.045);
+  --unilog-shadow-raised:0 18px 44px rgba(18,24,34,.12);
+
+  --primary-color:var(--unilog-red);
+  --primary-color-text:#fff;
+  --highlight-bg:var(--unilog-red-soft);
+  --highlight-text-color:var(--unilog-ink-2);
+  --focus-ring:0 0 0 .2rem rgba(219,8,18,.11);
+}
+
+html{min-width:320px;background:var(--unilog-canvas)}
+body{
+  min-width:320px;
+  min-height:100vh;
+  background:var(--unilog-canvas)!important;
+  color:var(--unilog-ink-2);
+  font-family:Inter,Roboto,Arial,Helvetica,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.p-component{font-family:inherit}
+
+/* PrimeReact normalization: Lara remains only the technical base.
+   No indigo/blue theme color may remain visible. */
+.p-button{
+  border-radius:var(--unilog-control-radius)!important;
+  box-shadow:none!important;
+  font-weight:700;
+}
+.p-button:not(.p-button-text):not(.p-button-outlined):not(.p-button-secondary):not(.p-button-danger):not(.p-button-success):not(.p-button-warning),
+.primary.p-button{
+  background:var(--unilog-red)!important;
+  border-color:var(--unilog-red)!important;
+  color:#fff!important;
+}
+.p-button:not(.p-button-text):not(.p-button-outlined):not(.p-button-secondary):not(.p-button-danger):not(.p-button-success):not(.p-button-warning):enabled:hover,
+.primary.p-button:enabled:hover{
+  background:var(--unilog-red-dark)!important;
+  border-color:var(--unilog-red-dark)!important;
+}
+.p-button.p-button-outlined{
+  background:#fff!important;
+  color:var(--unilog-graphite)!important;
+  border-color:#d7dbe0!important;
+}
+.p-button.p-button-outlined:enabled:hover{
+  background:#f7f8f9!important;
+  color:var(--unilog-ink)!important;
+  border-color:#c9cdd2!important;
+}
+.p-button.p-button-text{color:var(--unilog-graphite)!important}
+.p-button.p-button-text:enabled:hover{background:#f2f3f5!important;color:var(--unilog-ink)!important}
+.p-inputtext,.p-password-input,.p-inputnumber-input,.p-calendar .p-inputtext,
+.form-grid select,.user-form select,.month-control select{
+  border-radius:var(--unilog-control-radius)!important;
+  border-color:#d9dde3!important;
+  box-shadow:none!important;
+}
+.p-inputtext:enabled:focus,.p-password-input:enabled:focus,.p-inputnumber-input:enabled:focus,
+.form-grid select:focus,.user-form select:focus,.month-control select:focus{
+  border-color:var(--unilog-red)!important;
+  box-shadow:0 0 0 3px rgba(219,8,18,.08)!important;
+  outline:none;
+}
+.p-datepicker .p-datepicker-header{border-color:var(--unilog-border-soft)!important}
+.p-datepicker table td>span.p-highlight,
+.p-datepicker .p-monthpicker .p-monthpicker-month.p-highlight,
+.p-datepicker .p-yearpicker .p-yearpicker-year.p-highlight{
+  background:var(--unilog-red)!important;
+  color:#fff!important;
+}
+.p-datepicker table td.p-datepicker-today>span:not(.p-highlight){
+  background:var(--unilog-red-soft)!important;
+  color:var(--unilog-red)!important;
+}
+.p-datepicker .p-datepicker-header .p-datepicker-title button:enabled:hover,
+.p-datepicker .p-datepicker-header button:enabled:hover{color:var(--unilog-red)!important}
+.p-paginator .p-paginator-page.p-highlight{
+  background:var(--unilog-ink)!important;
+  color:#fff!important;
+  border-color:var(--unilog-ink)!important;
+}
+.p-paginator .p-paginator-page:not(.p-highlight):not(.p-disabled):hover,
+.p-paginator button:not(.p-disabled):hover{
+  background:#f2f3f5!important;
+  color:var(--unilog-ink)!important;
+}
+.p-datatable .p-datatable-thead>tr>th{
+  background:var(--unilog-surface-soft)!important;
+  color:#59616c!important;
+  border-color:var(--unilog-border-soft)!important;
+  font-size:10px!important;
+  font-weight:750!important;
+}
+.p-datatable .p-datatable-tbody>tr>td{
+  border-color:var(--unilog-border-soft)!important;
+  color:#444b55!important;
+  font-size:11px!important;
+}
+.p-datatable .p-datatable-tbody>tr:hover{background:#fbfcfd!important}
+.p-datatable .p-sortable-column.p-highlight{color:var(--unilog-red)!important}
+.p-datatable .p-sortable-column:focus{box-shadow:inset 0 0 0 2px rgba(219,8,18,.10)!important}
+.p-dialog{
+  border:1px solid var(--unilog-border)!important;
+  border-radius:18px!important;
+  box-shadow:var(--unilog-shadow-raised)!important;
+}
+.p-dialog .p-dialog-header,.p-dialog .p-dialog-footer{
+  background:#fbfcfd!important;
+  border-color:var(--unilog-border-soft)!important;
+}
+.p-dialog .p-dialog-header .p-dialog-header-icon:enabled:hover{background:#f2f3f5!important;color:var(--unilog-ink)!important}
+.p-tag.p-tag-success{background:#edf6f0!important;color:#35694a!important}
+.p-tag.p-tag-warning{background:#fff6d8!important;color:#8c6800!important}
+.p-tag.p-tag-danger{background:#fff0f1!important;color:#a81920!important}
+.p-tag.p-tag-secondary{background:#f1f2f4!important;color:#59616c!important}
+.p-tag:not(.p-tag-success):not(.p-tag-warning):not(.p-tag-danger):not(.p-tag-secondary){
+  background:#f1f2f4!important;
+  color:#59616c!important;
+}
+
+/* Login: same anatomy as Extra Cost / BI Logistico. */
+.login-page{
+  min-height:100vh!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:32px!important;
+  background:
+    radial-gradient(circle at 15% 10%,rgba(219,8,18,.055),transparent 34%),
+    linear-gradient(180deg,#f8f9fb 0%,#f3f5f7 100%)!important;
+}
+.login-card{
+  width:min(1020px,100%)!important;
+  min-height:590px!important;
+  grid-template-columns:minmax(0,.96fr) minmax(0,1.04fr)!important;
+  border:1px solid var(--unilog-border)!important;
+  border-radius:24px!important;
+  box-shadow:0 24px 70px rgba(15,23,42,.12)!important;
+}
+.login-brand{
+  position:relative!important;
+  overflow:hidden!important;
+  gap:42px!important;
+  padding:42px!important;
+  background:linear-gradient(150deg,#131722 0%,#232936 52%,#353d4e 100%)!important;
+}
+.login-brand:before{
+  content:'';
+  position:absolute;
+  width:360px;
+  height:360px;
+  border-radius:50%;
+  right:-180px;
+  top:-170px;
+  border:1px solid rgba(255,255,255,.055);
+  box-shadow:0 0 0 48px rgba(255,255,255,.018),0 0 0 96px rgba(255,255,255,.012);
+}
+.login-brand-topline{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.login-brand-topline img{width:150px;max-width:52%;height:auto}
+.product-chip{
+  padding:7px 10px;
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:999px;
+  background:rgba(255,255,255,.045);
+  font-size:9px!important;
+  font-weight:800!important;
+  letter-spacing:.07em!important;
+  text-transform:uppercase;
+  color:rgba(255,255,255,.72)!important;
+}
+.login-brand-copy{position:relative;z-index:1;max-width:390px}
+.login-brand-copy .overline{
+  display:block;
+  font-size:10px!important;
+  font-weight:800!important;
+  letter-spacing:.14em!important;
+  color:rgba(255,255,255,.58)!important;
+}
+.login-brand-copy h1{
+  margin:11px 0 0!important;
+  font-size:clamp(31px,4vw,49px)!important;
+  line-height:1.03!important;
+  letter-spacing:-.04em!important;
+  color:#fff!important;
+}
+.login-brand-copy p{
+  max-width:365px!important;
+  margin:18px 0 0!important;
+  font-size:14px!important;
+  line-height:1.65!important;
+  color:rgba(255,255,255,.68)!important;
+}
+.proof{position:relative;z-index:1;color:rgba(255,255,255,.6)!important;font-weight:600}
+.proof span{display:flex;align-items:center;gap:7px}
+.proof i{font-size:13px;color:#fff}
+.login-form{
+  justify-content:center!important;
+  padding:58px 66px!important;
+  background:#fff;
+}
+.login-form .login-overline{
+  display:block;
+  font-size:10px!important;
+  font-weight:800!important;
+  letter-spacing:.14em!important;
+  color:#858a93!important;
+}
+.login-form h2{
+  margin:8px 0 7px!important;
+  font-size:32px!important;
+  line-height:1.1!important;
+  letter-spacing:-.035em!important;
+  color:var(--unilog-ink)!important;
+}
+.login-form p{margin:0 0 24px;font-size:13px;color:#737985}
+.login-form label{color:#4e5560!important}
+.login-form .p-inputtext,.login-form .p-password-input{min-height:46px;font-size:12px}
+.login-form>.p-button{min-height:46px;margin-top:12px!important}
+.login-security-note{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  margin-top:20px;
+  padding-top:18px;
+  border-top:1px solid var(--unilog-border-soft);
+  color:var(--unilog-muted);
+  font-size:10px;
+  line-height:1.5;
+}
+
+/* Shell */
+.app{
+  grid-template-columns:244px minmax(0,1fr)!important;
+  background:var(--unilog-canvas)!important;
+}
+.sidebar{
+  position:sticky!important;
+  top:0!important;
+  height:100dvh!important;
+  padding:18px 12px max(15px,env(safe-area-inset-bottom))!important;
+  overflow:hidden!important;
+  background:linear-gradient(180deg,#171b24 0%,#202632 100%)!important;
+}
+.sidebar-brand{
+  height:54px!important;
+  min-height:54px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:10px!important;
+  padding:0 4px!important;
+  margin-bottom:18px!important;
+  border-bottom:0!important;
+}
+.sidebar-brand img{
+  width:96px;
+  height:42px;
+  object-fit:contain;
+  object-position:left center;
+  flex:0 0 auto;
+}
+.sidebar nav{display:grid!important;align-content:start;grid-auto-rows:max-content;gap:5px!important}
+.nav{
+  min-height:44px!important;
+  gap:11px!important;
+  padding:10px 12px!important;
+  border-radius:10px!important;
+  color:#e2e5e9!important;
+  font-size:12px!important;
+  font-weight:650!important;
+  text-align:left;
+}
+.nav i{width:18px;text-align:center;font-size:15px;color:#b9bec7}
+.nav:hover{background:rgba(255,255,255,.065)!important;color:#fff!important}
+.nav.active{
+  background:#303642!important;
+  color:#fff!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.025)!important;
+}
+.nav.active:before{
+  top:9px!important;
+  bottom:9px!important;
+  width:3px!important;
+  border-radius:3px!important;
+  background:var(--unilog-red)!important;
+}
+.nav-section{
+  margin-top:8px;
+  border-top:1px solid rgba(255,255,255,.09);
+}
+.nav-caption{
+  display:block;
+  padding:17px 12px 6px;
+  font-size:8px;
+  font-weight:700;
+  letter-spacing:.13em;
+  color:#aeb0b6;
+}
+.user-card{
+  margin-top:auto!important;
+  padding:14px 3px 0!important;
+  border-top:1px solid rgba(255,255,255,.10)!important;
+  grid-template-columns:36px minmax(0,1fr) auto!important;
+}
+.avatar{background:#515968!important}
+.user-card strong{font-size:11px!important;color:#fff}
+.user-card span{font-size:8px!important;color:#aeb4be!important}
+.user-actions{gap:2px}
+.user-actions button{
+  width:36px!important;
+  height:36px!important;
+  border-radius:9px!important;
+  color:#c8cdd5!important;
+}
+.user-actions button:hover{background:rgba(255,255,255,.07)!important;color:#fff!important}
+
+/* Header/content follows the Extra Cost density. */
+.content{
+  max-width:1540px;
+  width:100%;
+  margin:0 auto;
+  padding:0 34px 48px!important;
+}
+.topbar{
+  min-height:62px!important;
+  height:62px!important;
+  margin:0 -34px 24px;
+  padding:0 34px;
+  border-bottom:1px solid var(--unilog-border);
+  background:rgba(255,255,255,.94);
+  backdrop-filter:blur(14px);
+}
+.topbar small{color:#959aa3!important}
+.topbar h1{
+  margin:3px 0 0!important;
+  font-size:23px!important;
+  line-height:1.15;
+  letter-spacing:-.035em;
+  color:var(--unilog-ink)!important;
+}
+.topbar-actions{gap:9px!important}
+.month-control span{color:var(--unilog-muted)!important}
+.month-control select{background:#fff;color:var(--unilog-ink-2)!important}
+
+/* Cards / panels */
+.metrics article,.panel{
+  border:1px solid var(--unilog-border)!important;
+  background:var(--unilog-surface)!important;
+  box-shadow:var(--unilog-shadow)!important;
+}
+.metrics article{border-radius:var(--unilog-radius)!important}
+.metrics i{background:#f1f2f4!important;color:var(--unilog-graphite)!important}
+.metrics span{color:var(--unilog-muted)!important}
+.metrics strong{color:var(--unilog-ink-2)!important}
+.panel{border-radius:var(--unilog-radius)!important}
+.panel-head{
+  padding:16px 18px!important;
+  border-bottom:1px solid var(--unilog-border-soft)!important;
+  background:linear-gradient(180deg,#fff 0%,#fcfcfd 100%);
+}
+.panel-head h2{color:var(--unilog-ink-2)!important}
+.panel-head p{color:var(--unilog-graphite-2)!important}
+
+.billing-preview,.price-create{
+  border-color:var(--unilog-border)!important;
+  background:var(--unilog-surface-soft)!important;
+}
+.billing-total strong{color:var(--unilog-red)!important}
+.price-rule{border-left-color:var(--unilog-red)!important;color:var(--unilog-graphite-2)!important}
+.dialog-note{
+  border-color:#eadb9f!important;
+  background:#fff6d8!important;
+  color:#765b08!important;
+}
+.error{
+  border-color:#f0c9cc!important;
+  background:#fff1f2!important;
+  color:#a81920!important;
+}
+
+@media(max-width:900px){
+  .content{padding:0 18px 38px!important}
+  .topbar{margin:0 -18px 22px;padding:0 18px}
+  .login-card{grid-template-columns:1fr!important}
+  .login-brand{display:none!important}
+  .login-form{padding:42px 28px!important}
+}
+@media(max-width:560px){
+  .app{display:block!important}
+  .sidebar{position:static!important;height:auto!important;min-height:64px;padding:10px 12px!important;flex-direction:row!important;align-items:center!important}
+  .sidebar-brand{height:44px!important;min-height:44px!important;margin:0!important}
+  .sidebar-brand img{width:88px;height:38px}
+  .sidebar nav{display:flex!important;margin-left:auto!important}
+  .user-card{display:none!important}
+  .content{padding:0 12px 30px!important}
+  .topbar{height:auto!important;min-height:58px!important;margin:0 -12px 16px;padding:12px!important}
+  .login-page{padding:14px!important}
+  .login-form{padding:36px 22px!important}
+}
