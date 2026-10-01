@@ -12,6 +12,7 @@ import { Password } from 'primereact/password'
 import { Tag } from 'primereact/tag'
 
 type Profile = 'OPERACIONAL' | 'SUPERVISOR' | 'ADMIN' | 'CLIENTE'
+type Section = 'lancamentos' | 'auditoria' | 'precos' | 'usuarios'
 
 type User = {
   matricula: string
@@ -168,6 +169,10 @@ export default function Home() {
   const [matricula, setMatricula] = useState('')
   const [senha, setSenha] = useState('')
   const [authError, setAuthError] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [section, setSection] = useState<Section>('lancamentos')
+  const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   const [items, setItems] = useState<Rework[]>([])
   const [months, setMonths] = useState<string[]>([])
@@ -178,7 +183,6 @@ export default function Home() {
   const [form, setForm] = useState(createForm)
   const [dialog, setDialog] = useState(false)
 
-  const [usersDialog, setUsersDialog] = useState(false)
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [newUser, setNewUser] = useState({
     matricula: '',
@@ -188,11 +192,9 @@ export default function Home() {
   })
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null)
 
-  const [auditDialog, setAuditDialog] = useState(false)
   const [audits, setAudits] = useState<AuditRow[]>([])
   const [selectedAudit, setSelectedAudit] = useState<AuditRow | null>(null)
 
-  const [pricesDialog, setPricesDialog] = useState(false)
   const [prices, setPrices] = useState<PriceRow[]>([])
   const [priceForm, setPriceForm] = useState(createPriceForm)
 
@@ -269,6 +271,7 @@ export default function Home() {
   }
 
   useEffect(() => {
+    setCollapsed(localStorage.getItem('retrabalho-unilog:sidebar') === 'collapsed')
     api('/api/auth/me')
       .then(r => setUser(r.user))
       .catch(() => setUser(null))
@@ -289,6 +292,8 @@ export default function Home() {
 
   async function login(e: React.FormEvent) {
     e.preventDefault()
+    if (authLoading) return
+    setAuthLoading(true)
     setAuthError('')
     try {
       const data = await api('/api/auth/login', {
@@ -299,6 +304,8 @@ export default function Home() {
       setSenha('')
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : 'Falha no login.')
+    } finally {
+      setAuthLoading(false)
     }
   }
 
@@ -363,9 +370,10 @@ export default function Home() {
   }
 
   async function openUsers() {
+    setSection('usuarios')
+    setMobileOpen(false)
     const data = await api('/api/usuarios')
     setUsers(data.data || [])
-    setUsersDialog(true)
   }
 
   async function reloadUsers() {
@@ -451,17 +459,33 @@ export default function Home() {
 
   async function openAudit() {
     if (!canAudit) return
+    setSection('auditoria')
+    setMobileOpen(false)
     const query = isClient
       ? '?audit=1&mes=' + encodeURIComponent(selectedMonth)
       : '?audit=1'
     const data = await api('/api/retrabalhos' + query)
     setAudits(data.data || [])
-    setAuditDialog(true)
   }
 
   async function openPrices() {
+    if (!canViewPrices) return
+    setSection('precos')
+    setMobileOpen(false)
     await loadPrices()
-    setPricesDialog(true)
+  }
+
+  function openReworks() {
+    setSection('lancamentos')
+    setMobileOpen(false)
+  }
+
+  function toggleSidebar() {
+    setCollapsed(current => {
+      const next = !current
+      localStorage.setItem('retrabalho-unilog:sidebar', next ? 'collapsed' : 'expanded')
+      return next
+    })
   }
 
   async function createPrice() {
@@ -628,6 +652,7 @@ export default function Home() {
                 autoComplete="username"
                 placeholder="Digite sua matrícula"
                 required
+                disabled={authLoading}
               />
             </span>
 
@@ -641,6 +666,9 @@ export default function Home() {
               autoComplete="current-password"
               placeholder="Digite sua senha"
               required
+              disabled={authLoading}
+              className="login-password"
+              inputClassName="login-password-input"
             />
 
             {authError && (
@@ -649,7 +677,13 @@ export default function Home() {
               </div>
             )}
 
-            <Button label="Entrar" icon="pi pi-arrow-right" iconPos="right" className="primary" />
+            <Button
+              label={authLoading ? 'Entrando…' : 'Entrar'}
+              icon={authLoading ? 'pi pi-spin pi-spinner' : 'pi pi-arrow-right'}
+              iconPos="right"
+              className="primary"
+              disabled={authLoading}
+            />
 
             <div className="login-security-note">
               <i className="pi pi-info-circle" />
@@ -699,6 +733,8 @@ export default function Home() {
               autoComplete="new-password"
               placeholder="Mínimo de 8 caracteres"
               required
+              className="login-password"
+              inputClassName="login-password-input"
             />
 
             <label htmlFor="first-confirm-password">Confirmar nova senha</label>
@@ -711,7 +747,20 @@ export default function Home() {
               autoComplete="new-password"
               placeholder="Repita a nova senha"
               required
+              className="login-password"
+              inputClassName="login-password-input"
             />
+
+            <div className="password-rules" aria-live="polite">
+              <span className={newPassword.length >= 8 ? 'is-valid' : ''}>
+                <i className={newPassword.length >= 8 ? 'pi pi-check-circle' : 'pi pi-circle'} />
+                Pelo menos 8 caracteres
+              </span>
+              <span className={newPassword.length > 0 && newPassword === confirmPassword ? 'is-valid' : ''}>
+                <i className={newPassword.length > 0 && newPassword === confirmPassword ? 'pi pi-check-circle' : 'pi pi-circle'} />
+                As duas senhas devem coincidir
+              </span>
+            </div>
 
             {passwordError && (
               <div className="error">
@@ -740,40 +789,69 @@ export default function Home() {
   }
 
   return (
-    <main className="app">
-      <aside className="sidebar">
+    <main className={`app ${collapsed ? 'sidebar-collapsed' : ''}`}>
+      {mobileOpen && (
+        <button
+          className="sidebar-backdrop"
+          type="button"
+          aria-label="Fechar menu"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`} aria-label="Navegação principal">
         <div className="sidebar-brand">
           <img src="/brand/unilog-logo-white-transparent.svg" alt="Unilog Express" />
+          <button
+            type="button"
+            className="sidebar-collapse"
+            onClick={toggleSidebar}
+            title={collapsed ? 'Expandir menu' : 'Recolher menu'}
+            aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+          >
+            <i className={collapsed ? 'pi pi-angle-right' : 'pi pi-angle-left'} />
+          </button>
+          <button
+            type="button"
+            className="sidebar-mobile-close"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Fechar menu"
+          >
+            <i className="pi pi-times" />
+          </button>
         </div>
 
         <nav>
-          <button className="nav active">
+          <button className={`nav ${section === 'lancamentos' ? 'active' : ''}`} onClick={openReworks} title={collapsed ? (isClient ? 'Acompanhamento' : 'Lançamentos') : undefined}>
             <i className="pi pi-clipboard" />
-            {isClient ? 'Acompanhamento' : 'Lançamentos'}
+            <span className="nav-label">{isClient ? 'Acompanhamento' : 'Lançamentos'}</span>
           </button>
           {canAudit && (
-            <button className="nav" onClick={openAudit}>
-              <i className="pi pi-history" /> Auditoria
+            <button className={`nav ${section === 'auditoria' ? 'active' : ''}`} onClick={() => void openAudit()} title={collapsed ? 'Auditoria' : undefined}>
+              <i className="pi pi-history" />
+              <span className="nav-label">Auditoria</span>
             </button>
           )}
           {canViewPrices && (
-            <button className="nav" onClick={openPrices}>
-              <i className="pi pi-dollar" /> Preços
+            <button className={`nav ${section === 'precos' ? 'active' : ''}`} onClick={() => void openPrices()} title={collapsed ? 'Preços' : undefined}>
+              <i className="pi pi-dollar" />
+              <span className="nav-label">Preços</span>
             </button>
           )}
           {canUsers && (
             <div className="nav-section">
               <span className="nav-caption">ADMINISTRAÇÃO</span>
-              <button className="nav" onClick={openUsers}>
-                <i className="pi pi-users" /> Usuários
+              <button className={`nav ${section === 'usuarios' ? 'active' : ''}`} onClick={() => void openUsers()} title={collapsed ? 'Usuários' : undefined}>
+                <i className="pi pi-users" />
+                <span className="nav-label">Usuários</span>
               </button>
             </div>
           )}
         </nav>
 
         <div className="user-card">
-          <div className="avatar">{user.nome.slice(0, 2).toUpperCase()}</div>
-          <div>
+          <div className="avatar">{user.nome.slice(0, 1).toUpperCase()}</div>
+          <div className="user-copy">
             <strong>{user.nome}</strong>
             <span>{user.matricula} · {user.perfil}</span>
           </div>
@@ -790,13 +868,33 @@ export default function Home() {
 
       <section className="content">
         <header className="topbar">
-          <div>
-            <small>{isClient ? 'CLIENTE / ACOMPANHAMENTO' : 'OPERAÇÃO / CONTROLE'}</small>
-            <h1>{isClient ? 'Acompanhamento mensal' : 'Retrabalho'}</h1>
+          <div className="topbar-title">
+            <button
+              type="button"
+              className="mobile-menu-button"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Abrir menu"
+            >
+              <i className="pi pi-bars" />
+            </button>
+            <div>
+              <small>RETRABALHO CONTROLE</small>
+              <h1>
+                {section === 'auditoria'
+                  ? 'Auditoria'
+                  : section === 'precos'
+                    ? 'Tabela de preços'
+                    : section === 'usuarios'
+                      ? 'Usuários'
+                      : isClient
+                        ? 'Acompanhamento mensal'
+                        : 'Retrabalho'}
+              </h1>
+            </div>
           </div>
 
           <div className="topbar-actions">
-            {isClient && (
+            {isClient && (section === 'lancamentos' || section === 'auditoria') && (
               <label className="month-control">
                 <span>Competência</span>
                 <select
@@ -810,99 +908,141 @@ export default function Home() {
                 </select>
               </label>
             )}
-            {canExport && (
-              <Button
-                label="Exportar"
-                icon="pi pi-download"
-                outlined
-                className="compact"
-                onClick={exportReworks}
-                disabled={!items.length}
-              />
+            {section === 'lancamentos' && canExport && (
+              <Button label="Exportar" icon="pi pi-download" outlined className="compact" onClick={exportReworks} disabled={!items.length} />
             )}
-            {canCreate && (
-              <Button
-                label="Novo lançamento"
-                icon="pi pi-plus"
-                className="primary compact"
-                onClick={openNew}
-              />
+            {section === 'lancamentos' && canCreate && (
+              <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} />
+            )}
+            {section === 'auditoria' && canExport && (
+              <Button label="Exportar auditoria" icon="pi pi-download" outlined className="compact" onClick={exportAudits} disabled={!audits.length} />
             )}
           </div>
         </header>
 
-        <div className="metrics metrics-4">
-          <article>
-            <i className="pi pi-list" />
-            <div><span>Registros</span><strong>{totals.registros}</strong></div>
-          </article>
-          <article>
-            <i className="pi pi-box" />
-            <div><span>Unidades retrabalhadas</span><strong>{totals.unidades.toLocaleString('pt-BR')}</strong></div>
-          </article>
-          <article>
-            <i className="pi pi-tags" />
-            <div><span>Etiquetas aplicadas</span><strong>{totals.etiquetas.toLocaleString('pt-BR')}</strong></div>
-          </article>
-          <article>
-            <i className="pi pi-wallet" />
-            <div><span>Valor a cobrar</span><strong>{money(totals.valor)}</strong></div>
-          </article>
-        </div>
-
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h2>{isClient ? 'Detalhamento da competência' : 'Histórico de retrabalho'}</h2>
-              <p>
-                {isClient
-                  ? `Consulta somente leitura · ${monthLabel(selectedMonth)}`
-                  : 'Operacional inclui registros; Supervisor e Admin podem corrigir dados com auditoria.'}
-              </p>
+        {section === 'lancamentos' && (
+          <>
+            <div className="metrics metrics-4">
+              <article><i className="pi pi-list" /><div><span>Registros</span><strong>{totals.registros}</strong></div></article>
+              <article><i className="pi pi-box" /><div><span>Unidades retrabalhadas</span><strong>{totals.unidades.toLocaleString('pt-BR')}</strong></div></article>
+              <article><i className="pi pi-tags" /><div><span>Etiquetas aplicadas</span><strong>{totals.etiquetas.toLocaleString('pt-BR')}</strong></div></article>
+              <article><i className="pi pi-wallet" /><div><span>Valor a cobrar</span><strong>{money(totals.valor)}</strong></div></article>
             </div>
-            <Button
-              icon="pi pi-refresh"
-              text
-              rounded
-              onClick={() => void loadItems(isClient ? selectedMonth : undefined)}
-              loading={loading}
-            />
-          </div>
 
-          <DataTable
-            value={items}
-            loading={loading}
-            paginator
-            rows={15}
-            dataKey="id"
-            emptyMessage="Nenhum retrabalho registrado para o período."
-            onRowDoubleClick={e => openEdit(e.data as Rework)}
-            stripedRows
-            scrollable
-          >
-            <Column field="dataEfetivacao" header="Data" />
-            <Column field="sku" header="SKU" />
-            <Column field="descricao" header="Descrição" />
-            <Column field="quantidade" header="Qtd." />
-            <Column field="dataValidade" header="Validade" />
-            <Column field="nacionalizacao" header="Nacionalização" />
-            <Column field="rfid" header="RFID" />
-            <Column
-              field="valorTotalCobranca"
-              header="Valor"
-              body={(row: Rework) => money(row.valorTotalCobranca)}
-            />
-            <Column field="matriculaCriacao" header="Criado por" />
-            <Column
-              header=""
-              body={(row: Rework) =>
-                canEdit
-                  ? <Button icon="pi pi-pencil" text rounded onClick={() => openEdit(row)} />
-                  : null
-              }
-            />
-          </DataTable>
-        </section>
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <small className="panel-eyebrow">CONTROLE OPERACIONAL</small>
+                  <h2>{isClient ? 'Detalhamento da competência' : 'Histórico de retrabalho'}</h2>
+                  <p>{isClient ? `Consulta somente leitura · ${monthLabel(selectedMonth)}` : 'Registros, quantidades, etiquetas aplicadas e cobrança histórica.'}</p>
+                </div>
+                <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
+              </div>
+              <DataTable value={items} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
+                <Column field="dataEfetivacao" header="Data" />
+                <Column field="sku" header="SKU" />
+                <Column field="descricao" header="Descrição" />
+                <Column field="quantidade" header="Qtd." />
+                <Column field="dataValidade" header="Validade" />
+                <Column field="nacionalizacao" header="Nacionalização" />
+                <Column field="rfid" header="RFID" />
+                <Column field="valorTotalCobranca" header="Valor" body={(row: Rework) => money(row.valorTotalCobranca)} />
+                <Column field="matriculaCriacao" header="Criado por" />
+                <Column header="" body={(row: Rework) => canEdit ? <Button icon="pi pi-pencil" text rounded onClick={() => openEdit(row)} /> : null} />
+              </DataTable>
+            </section>
+          </>
+        )}
+
+        {section === 'auditoria' && (
+          <section className="panel workspace-page">
+            <div className="panel-head">
+              <div>
+                <small className="panel-eyebrow">GOVERNANÇA</small>
+                <h2>Histórico de auditoria</h2>
+                <p>{isClient ? `Eventos vinculados à competência ${monthLabel(selectedMonth)}.` : 'Alterações relevantes registradas com autor, versão e estado anterior/posterior.'}</p>
+              </div>
+              <Button icon="pi pi-refresh" text rounded onClick={() => void openAudit()} />
+            </div>
+            <div className="page-table">
+              <DataTable value={audits} paginator rows={20} scrollable dataKey="idAuditoria" emptyMessage="Nenhum evento de auditoria encontrado.">
+                <Column field="dataHora" header="Data/hora" />
+                <Column field="entidade" header="Entidade" />
+                <Column field="idRegistro" header="Registro" />
+                <Column field="acao" header="Ação" />
+                <Column field="matriculaAutor" header="Autor" />
+                <Column field="versaoAnterior" header="Versão anterior" />
+                <Column field="versaoNova" header="Versão nova" />
+                <Column header="" body={(r: AuditRow) => <Button icon="pi pi-search" text rounded title="Ver detalhes" onClick={() => setSelectedAudit(r)} />} />
+              </DataTable>
+            </div>
+          </section>
+        )}
+
+        {section === 'precos' && (
+          <section className="panel workspace-page">
+            <div className="panel-head">
+              <div>
+                <small className="panel-eyebrow">PRECIFICAÇÃO</small>
+                <h2>Tabela de preços</h2>
+                <p>Vigências preservam o histórico financeiro dos lançamentos já efetivados.</p>
+              </div>
+              <Button icon="pi pi-refresh" text rounded onClick={() => void loadPrices()} />
+            </div>
+            <div className="page-body">
+              {canManagePrices && (
+                <div className="price-create">
+                  <label>Nova vigência<Calendar value={priceForm.vigenciaInicio} onChange={e => setPriceForm({ ...priceForm, vigenciaInicio: e.value as Date })} dateFormat="dd/mm/yy" /></label>
+                  <label>Nacionalização<InputNumber value={priceForm.valorNacionalizacao} onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} /></label>
+                  <label>RFID adicional<InputNumber value={priceForm.valorRfidAdicional} onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} /></label>
+                  <label className="price-observation">Observação<InputText value={priceForm.observacao} onChange={e => setPriceForm({ ...priceForm, observacao: e.target.value })} placeholder="Motivo ou referência da alteração" /></label>
+                  <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
+                </div>
+              )}
+              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização + adicional RFID. Com os valores iniciais, uma unidade com as duas etiquetas = R$ 0,60.</div>
+              <DataTable value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
+                <Column field="vigenciaInicio" header="Início" />
+                <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim || 'Vigente'} />
+                <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => money(r.valorNacionalizacao)} />
+                <Column field="valorRfidAdicional" header="RFID adicional" body={(r: PriceRow) => money(r.valorRfidAdicional)} />
+                <Column field="observacao" header="Observação" />
+                <Column field="criadoPor" header="Criado por" />
+              </DataTable>
+            </div>
+          </section>
+        )}
+
+        {section === 'usuarios' && canUsers && (
+          <section className="panel workspace-page">
+            <div className="panel-head">
+              <div>
+                <small className="panel-eyebrow">ADMINISTRAÇÃO</small>
+                <h2>Controle de usuários</h2>
+                <p>Criação, perfil, status e primeiro acesso por matrícula.</p>
+              </div>
+              <Button icon="pi pi-refresh" text rounded onClick={() => void reloadUsers()} />
+            </div>
+            <div className="page-body">
+              <div className="user-form">
+                <InputText placeholder="Matrícula" value={newUser.matricula} onChange={e => setNewUser({ ...newUser, matricula: e.target.value })} />
+                <InputText placeholder="Nome" value={newUser.nome} onChange={e => setNewUser({ ...newUser, nome: e.target.value })} />
+                <select value={newUser.perfil} onChange={e => setNewUser({ ...newUser, perfil: e.target.value as Profile })}>
+                  <option>OPERACIONAL</option><option>SUPERVISOR</option><option>ADMIN</option><option>CLIENTE</option>
+                </select>
+                <InputText placeholder="Senha temporária" type="password" value={newUser.senhaTemporaria} onChange={e => setNewUser({ ...newUser, senhaTemporaria: e.target.value })} />
+                <Button label="Criar" onClick={createUser} loading={saving} className="primary" />
+              </div>
+              <DataTable value={users} rows={15} paginator dataKey="matricula">
+                <Column field="matricula" header="Matrícula" />
+                <Column field="nome" header="Nome" />
+                <Column field="perfil" header="Perfil" body={(r: ManagedUser) => <Tag value={r.perfil} />} />
+                <Column field="ativo" header="Ativo" body={(r: ManagedUser) => <Tag severity={r.ativo === 'SIM' ? 'success' : 'secondary'} value={r.ativo} />} />
+                <Column field="trocaSenhaObrigatoria" header="Troca pendente" />
+                <Column header="" body={(r: ManagedUser) => <Button icon="pi pi-pencil" text rounded onClick={() => setEditingUser({ ...r })} />} />
+              </DataTable>
+            </div>
+          </section>
+        )}
       </section>
 
       <Dialog
@@ -996,63 +1136,6 @@ export default function Home() {
       </Dialog>
 
       <Dialog
-        header="Usuários"
-        visible={usersDialog}
-        onHide={() => setUsersDialog(false)}
-        maximizable
-        style={{ width: 'min(1040px, 96vw)' }}
-      >
-        <div className="user-form">
-          <InputText
-            placeholder="Matrícula"
-            value={newUser.matricula}
-            onChange={e => setNewUser({ ...newUser, matricula: e.target.value })}
-          />
-          <InputText
-            placeholder="Nome"
-            value={newUser.nome}
-            onChange={e => setNewUser({ ...newUser, nome: e.target.value })}
-          />
-          <select
-            value={newUser.perfil}
-            onChange={e => setNewUser({ ...newUser, perfil: e.target.value as Profile })}
-          >
-            <option>OPERACIONAL</option>
-            <option>SUPERVISOR</option>
-            <option>ADMIN</option>
-            <option>CLIENTE</option>
-          </select>
-          <InputText
-            placeholder="Senha temporária"
-            type="password"
-            value={newUser.senhaTemporaria}
-            onChange={e => setNewUser({ ...newUser, senhaTemporaria: e.target.value })}
-          />
-          <Button label="Criar" onClick={createUser} loading={saving} className="primary" />
-        </div>
-
-        <DataTable value={users} rows={15} paginator dataKey="matricula">
-          <Column field="matricula" header="Matrícula" />
-          <Column field="nome" header="Nome" />
-          <Column field="perfil" header="Perfil" body={(r: ManagedUser) => <Tag value={r.perfil} />} />
-          <Column
-            field="ativo"
-            header="Ativo"
-            body={(r: ManagedUser) => (
-              <Tag severity={r.ativo === 'SIM' ? 'success' : 'secondary'} value={r.ativo} />
-            )}
-          />
-          <Column field="trocaSenhaObrigatoria" header="Troca pendente" />
-          <Column
-            header=""
-            body={(r: ManagedUser) => (
-              <Button icon="pi pi-pencil" text rounded onClick={() => setEditingUser({ ...r })} />
-            )}
-          />
-        </DataTable>
-      </Dialog>
-
-      <Dialog
         header="Editar usuário"
         visible={Boolean(editingUser)}
         onHide={() => !saving && setEditingUser(null)}
@@ -1094,133 +1177,6 @@ export default function Home() {
           <Button label="Cancelar" text disabled={saving} onClick={() => setEditingUser(null)} />
           <Button label="Salvar" className="primary" loading={saving} onClick={updateUser} />
         </div>
-      </Dialog>
-
-      <Dialog
-        header="Tabela de preços"
-        visible={pricesDialog}
-        onHide={() => setPricesDialog(false)}
-        maximizable
-        style={{ width: 'min(1080px, 96vw)' }}
-      >
-        {canManagePrices && (
-          <div className="price-create">
-            <label>
-              Nova vigência
-              <Calendar
-                value={priceForm.vigenciaInicio}
-                onChange={e => setPriceForm({ ...priceForm, vigenciaInicio: e.value as Date })}
-                dateFormat="dd/mm/yy"
-              />
-            </label>
-            <label>
-              Nacionalização
-              <InputNumber
-                value={priceForm.valorNacionalizacao}
-                onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })}
-                mode="currency"
-                currency="BRL"
-                locale="pt-BR"
-                min={0}
-              />
-            </label>
-            <label>
-              RFID adicional
-              <InputNumber
-                value={priceForm.valorRfidAdicional}
-                onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })}
-                mode="currency"
-                currency="BRL"
-                locale="pt-BR"
-                min={0}
-              />
-            </label>
-            <label className="price-observation">
-              Observação
-              <InputText
-                value={priceForm.observacao}
-                onChange={e => setPriceForm({ ...priceForm, observacao: e.target.value })}
-                placeholder="Motivo ou referência da alteração"
-              />
-            </label>
-            <Button
-              label="Criar vigência"
-              icon="pi pi-plus"
-              className="primary"
-              loading={saving}
-              onClick={createPrice}
-            />
-          </div>
-        )}
-
-        <div className="price-rule">
-          <strong>Regra de cobrança:</strong> Nacionalização + adicional RFID.
-          Com os valores iniciais, uma unidade com as duas etiquetas = R$ 0,60.
-        </div>
-
-        <DataTable value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
-          <Column field="vigenciaInicio" header="Início" />
-          <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim || 'Vigente'} />
-          <Column
-            field="valorNacionalizacao"
-            header="Nacionalização"
-            body={(r: PriceRow) => money(r.valorNacionalizacao)}
-          />
-          <Column
-            field="valorRfidAdicional"
-            header="RFID adicional"
-            body={(r: PriceRow) => money(r.valorRfidAdicional)}
-          />
-          <Column field="observacao" header="Observação" />
-          <Column field="criadoPor" header="Criado por" />
-        </DataTable>
-      </Dialog>
-
-      <Dialog
-        header="Auditoria"
-        visible={auditDialog}
-        onHide={() => setAuditDialog(false)}
-        maximizable
-        style={{ width: 'min(1200px, 96vw)' }}
-      >
-        <div className="audit-toolbar">
-          <div>
-            <strong>{isClient ? monthLabel(selectedMonth) : 'Histórico completo'}</strong>
-            <span>{audits.length} evento(s)</span>
-          </div>
-          {canExport && (
-            <Button
-              label="Exportar auditoria"
-              icon="pi pi-download"
-              outlined
-              className="compact"
-              onClick={exportAudits}
-              disabled={!audits.length}
-            />
-          )}
-        </div>
-
-        <DataTable value={audits} paginator rows={20} scrollable dataKey="idAuditoria">
-          <Column field="dataHora" header="Data/hora" />
-          <Column field="entidade" header="Entidade" />
-          <Column field="idRegistro" header="Registro" />
-          <Column field="acao" header="Ação" />
-          <Column field="matriculaAutor" header="Autor" />
-          <Column field="versaoAnterior" header="Versão anterior" />
-          <Column field="versaoNova" header="Versão nova" />
-          <Column
-            header=""
-            body={(r: AuditRow) => (
-              <Button
-                icon="pi pi-search"
-                text
-                rounded
-                title="Ver detalhes"
-                onClick={() => setSelectedAudit(r)}
-              />
-            )}
-          />
-        </DataTable>
       </Dialog>
 
       <Dialog
@@ -1286,6 +1242,17 @@ export default function Home() {
               feedback={false}
             />
           </label>
+          <div className="password-rules" aria-live="polite">
+            <span className={newPassword.length >= 8 ? 'is-valid' : ''}>
+              <i className={newPassword.length >= 8 ? 'pi pi-check-circle' : 'pi pi-circle'} />
+              Pelo menos 8 caracteres
+            </span>
+            <span className={newPassword.length > 0 && newPassword === confirmPassword ? 'is-valid' : ''}>
+              <i className={newPassword.length > 0 && newPassword === confirmPassword ? 'pi pi-check-circle' : 'pi pi-circle'} />
+              As duas senhas devem coincidir
+            </span>
+          </div>
+
           {passwordError && (
             <div className="error">
               <i className="pi pi-exclamation-circle" />{passwordError}
