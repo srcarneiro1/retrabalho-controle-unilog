@@ -8,6 +8,7 @@ import { DataTable } from 'primereact/datatable'
 import { Dialog } from 'primereact/dialog'
 import { InputNumber } from 'primereact/inputnumber'
 import { InputText } from 'primereact/inputtext'
+import { MultiSelect } from 'primereact/multiselect'
 import { Password } from 'primereact/password'
 import { Tag } from 'primereact/tag'
 
@@ -19,6 +20,13 @@ type User = {
   nome: string
   perfil: Profile
   trocaSenhaObrigatoria?: boolean
+}
+
+type Branch = {
+  cnpj: string
+  nomeCliente: string
+  filial: string
+  ativo: string
 }
 
 type Rework = {
@@ -38,6 +46,9 @@ type Rework = {
   valorNacionalizacao: number
   valorRfidAdicional: number
   valorTotalCobranca: number
+  cnpjCliente: string
+  nomeCliente: string
+  filial: string
   matriculaCriacao: string
   criadoEm: string
   matriculaAtualizacao?: string
@@ -52,6 +63,7 @@ type ManagedUser = {
   ativo: 'SIM' | 'NAO'
   trocaSenhaObrigatoria: 'SIM' | 'NAO'
   versao: number
+  cnpjs: string[]
 }
 
 type PriceRow = {
@@ -89,6 +101,7 @@ function createForm() {
     dataEfetivacao: new Date(),
     sku: '',
     descricao: '',
+    cnpjCliente: '',
     quantidade: 0,
     dataValidade: null as Date | null,
     nacionalizacao: 0,
@@ -144,6 +157,16 @@ function dateLabel(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value || '—'
   const [year, month, day] = value.split('-')
   return `${day}/${month}/${year}`
+}
+
+function cnpjLabel(value: string) {
+  const digits = String(value || '').replace(/\D/g, '')
+  if (digits.length !== 14) return value
+  return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+}
+
+function branchLabel(branch: Branch) {
+  return `${branch.nomeCliente} · ${branch.filial} · ${cnpjLabel(branch.cnpj)}`
 }
 
 function csvCell(value: unknown) {
@@ -202,6 +225,8 @@ export default function Home() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   const [items, setItems] = useState<Rework[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
+  const [allBranches, setAllBranches] = useState<Branch[]>([])
   const [months, setMonths] = useState<string[]>([])
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [loading, setLoading] = useState(false)
@@ -216,6 +241,7 @@ export default function Home() {
     nome: '',
     perfil: 'OPERACIONAL' as Profile,
     senhaTemporaria: '',
+    cnpjs: [] as string[],
   })
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null)
 
@@ -253,6 +279,28 @@ export default function Home() {
       throw new Error(data?.error?.message || 'Falha na operação.')
     }
     return data
+  }
+
+  async function loadBranches() {
+    try {
+      const data = await api('/api/filiais')
+      setBranches(data.data || [])
+      return data.data || []
+    } catch {
+      setBranches([])
+      return []
+    }
+  }
+
+  async function loadAllBranches() {
+    try {
+      const data = await api('/api/filiais?all=1')
+      setAllBranches(data.data || [])
+      return data.data || []
+    } catch {
+      setAllBranches([])
+      return []
+    }
   }
 
   async function loadPrices() {
@@ -310,6 +358,8 @@ export default function Home() {
     if (user.trocaSenhaObrigatoria) return
 
     void loadPrices()
+    void loadBranches()
+    if (user.perfil === 'ADMIN') void loadAllBranches()
     if (user.perfil === 'CLIENTE') {
       void loadClientDashboard()
     } else {
@@ -345,7 +395,9 @@ export default function Home() {
 
   function openNew() {
     if (!canCreate) return
-    setForm(createForm())
+    const next = createForm()
+    if (branches.length === 1) next.cnpjCliente = branches[0].cnpj
+    setForm(next)
     setDialog(true)
   }
 
@@ -357,6 +409,7 @@ export default function Home() {
       dataEfetivacao: fromIso(row.dataEfetivacao) || new Date(),
       sku: row.sku,
       descricao: row.descricao,
+      cnpjCliente: row.cnpjCliente,
       quantidade: row.quantidade,
       dataValidade: fromIso(row.dataValidade),
       nacionalizacao: row.nacionalizacao,
@@ -380,6 +433,7 @@ export default function Home() {
         dataEfetivacao: isoDate(form.dataEfetivacao),
         sku: form.sku.trim(),
         descricao: form.descricao.trim(),
+        cnpjCliente: form.cnpjCliente,
         quantidade: form.quantidade,
         dataValidade: isoDate(form.dataValidade),
         nacionalizacao: form.nacionalizacao,
@@ -403,7 +457,10 @@ export default function Home() {
   async function openUsers() {
     setSection('usuarios')
     setMobileOpen(false)
-    const data = await api('/api/usuarios')
+    const [data] = await Promise.all([
+      api('/api/usuarios'),
+      loadAllBranches(),
+    ])
     setUsers(data.data || [])
   }
 
@@ -426,6 +483,7 @@ export default function Home() {
         nome: '',
         perfil: 'OPERACIONAL',
         senhaTemporaria: '',
+        cnpjs: [],
       })
     } finally {
       setSaving(false)
@@ -548,6 +606,9 @@ export default function Home() {
         'Data efetivação',
         'SKU',
         'Descrição',
+        'Cliente',
+        'Filial',
+        'CNPJ',
         'Qtd retrabalhada',
         'Validade inserida',
         'Etiquetas Nacionalização',
@@ -568,6 +629,9 @@ export default function Home() {
         item.dataEfetivacao,
         item.sku,
         item.descricao,
+        item.nomeCliente,
+        item.filial,
+        cnpjLabel(item.cnpjCliente),
         item.quantidade,
         item.dataValidade,
         item.nacionalizacao,
@@ -973,6 +1037,8 @@ export default function Home() {
                 <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
                 <Column field="sku" header="SKU" />
                 <Column field="descricao" header="Descrição" />
+                <Column field="nomeCliente" header="Cliente" />
+                <Column field="filial" header="Filial" />
                 <Column field="quantidade" header="Qtd." />
                 <Column field="dataValidade" header="Validade" body={(row: Rework) => dateLabel(row.dataValidade)} />
                 <Column field="nacionalizacao" header="Nacionalização" />
@@ -1089,6 +1155,17 @@ export default function Home() {
                     onChange={e => setNewUser({ ...newUser, senhaTemporaria: e.target.value })}
                   />
                 </label>
+                <label className="user-branches-field">
+                  Filiais / CNPJs
+                  <MultiSelect
+                    value={newUser.cnpjs}
+                    options={allBranches.map(branch => ({ label: branchLabel(branch), value: branch.cnpj }))}
+                    onChange={e => setNewUser({ ...newUser, cnpjs: e.value || [] })}
+                    placeholder={newUser.perfil === 'ADMIN' ? 'Vazio = todas as filiais' : 'Selecione uma ou mais filiais'}
+                    display="chip"
+                    filter
+                  />
+                </label>
                 <Button label="Criar usuário" icon="pi pi-plus" onClick={createUser} loading={saving} className="primary form-submit" />
               </div>
               <DataTable className="mobile-record-table users-record-table" value={users} rows={15} paginator dataKey="matricula">
@@ -1097,6 +1174,10 @@ export default function Home() {
                 <Column field="perfil" header="Perfil" body={(r: ManagedUser) => <Tag value={r.perfil} />} />
                 <Column field="ativo" header="Ativo" body={(r: ManagedUser) => <Tag severity={r.ativo === 'SIM' ? 'success' : 'secondary'} value={r.ativo} />} />
                 <Column field="trocaSenhaObrigatoria" header="Troca pendente" />
+                <Column
+                  header="Filiais"
+                  body={(r: ManagedUser) => r.cnpjs?.length ? `${r.cnpjs.length} vinculada(s)` : r.perfil === 'ADMIN' ? 'Todas' : 'Nenhuma'}
+                />
                 <Column header="" body={(r: ManagedUser) => <Button icon="pi pi-pencil" text rounded onClick={() => setEditingUser({ ...r })} />} />
               </DataTable>
             </div>
@@ -1118,6 +1199,19 @@ export default function Home() {
               onChange={e => setForm({ ...form, dataEfetivacao: e.value as Date })}
               dateFormat="dd/mm/yy"
             />
+          </label>
+          <label className="span-2">
+            Cliente / filial
+            <select
+              value={form.cnpjCliente}
+              onChange={e => setForm({ ...form, cnpjCliente: e.target.value })}
+              required
+            >
+              <option value="">Selecione a filial</option>
+              {branches.map(branch => (
+                <option key={branch.cnpj} value={branch.cnpj}>{branchLabel(branch)}</option>
+              ))}
+            </select>
           </label>
           <label>
             SKU
@@ -1228,6 +1322,17 @@ export default function Home() {
                 <option value="SIM">Ativo</option>
                 <option value="NAO">Inativo</option>
               </select>
+            </label>
+            <label>
+              Filiais / CNPJs
+              <MultiSelect
+                value={editingUser.cnpjs || []}
+                options={allBranches.map(branch => ({ label: branchLabel(branch), value: branch.cnpj }))}
+                onChange={e => setEditingUser({ ...editingUser, cnpjs: e.value || [] })}
+                placeholder={editingUser.perfil === 'ADMIN' ? 'Vazio = todas as filiais' : 'Selecione uma ou mais filiais'}
+                display="chip"
+                filter
+              />
             </label>
           </div>
         )}
