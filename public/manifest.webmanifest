@@ -1,7 +1,7 @@
 {
-  "name": "Retrabalho Controle",
+  "name": "Retrabalho | Unilog Express",
   "short_name": "Retrabalho",
-  "description": "Retrabalho Controle — Unilog Express",
+  "description": "Retrabalho — Unilog Express",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
