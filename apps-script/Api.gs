@@ -76,3 +76,24 @@ function bootstrapAdmin(matricula, nome, senhaTemporaria) {
     matriculaAutor: matricula
   });
 }
+
+function bootstrapAdminFromProperties() {
+  const props = PropertiesService.getScriptProperties();
+  const matricula = String(props.getProperty('BOOTSTRAP_ADMIN_MATRICULA') || '').trim();
+  const nome = String(props.getProperty('BOOTSTRAP_ADMIN_NOME') || '').trim();
+  const senhaTemporaria = String(props.getProperty('BOOTSTRAP_ADMIN_PASSWORD') || '');
+
+  if (!matricula || !nome || !senhaTemporaria) {
+    throw new Error(
+      'Configure BOOTSTRAP_ADMIN_MATRICULA, BOOTSTRAP_ADMIN_NOME e BOOTSTRAP_ADMIN_PASSWORD nas Script Properties.'
+    );
+  }
+
+  const result = bootstrapAdmin(matricula, nome, senhaTemporaria);
+
+  props.deleteProperty('BOOTSTRAP_ADMIN_MATRICULA');
+  props.deleteProperty('BOOTSTRAP_ADMIN_NOME');
+  props.deleteProperty('BOOTSTRAP_ADMIN_PASSWORD');
+
+  return result;
+}
