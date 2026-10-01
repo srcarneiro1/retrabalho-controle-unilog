@@ -249,6 +249,8 @@ export default function Home() {
   const [allBranches, setAllBranches] = useState<Branch[]>([])
   const [months, setMonths] = useState<string[]>([])
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
+  const [clientBranchFilter, setClientBranchFilter] = useState('')
+  const [clientSearch, setClientSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [workspaceReady, setWorkspaceReady] = useState(false)
@@ -791,7 +793,7 @@ export default function Home() {
         'Atualizado em',
         'Versão',
       ],
-      items.map(item => [
+      (isClient ? visibleItems : items).map(item => [
         item.dataEfetivacao,
         item.sku,
         item.descricao,
@@ -854,12 +856,28 @@ export default function Home() {
     )
   }
 
+  const visibleItems = useMemo(() => {
+    if (!isClient) return items
+    const query = clientSearch.trim().toLowerCase()
+    return items.filter(item => {
+      if (clientBranchFilter && item.cnpjCliente !== clientBranchFilter) return false
+      if (!query) return true
+      return [
+        item.sku,
+        item.descricao,
+        item.nomeCliente,
+        item.filial,
+        item.cnpjCliente,
+      ].some(value => String(value || '').toLowerCase().includes(query))
+    })
+  }, [items, isClient, clientBranchFilter, clientSearch])
+
   const totals = useMemo(() => ({
-    registros: items.length,
-    unidades: items.reduce((a, b) => a + Number(b.quantidade || 0), 0),
-    etiquetas: items.reduce((a, b) => a + Number(b.totalEtiquetas || 0), 0),
-    valor: items.reduce((a, b) => a + Number(b.valorCobrancaEfetiva || 0), 0),
-  }), [items])
+    registros: visibleItems.length,
+    unidades: visibleItems.reduce((a, b) => a + Number(b.quantidade || 0), 0),
+    etiquetas: visibleItems.reduce((a, b) => a + Number(b.totalEtiquetas || 0), 0),
+    valor: visibleItems.reduce((a, b) => a + Number(b.valorCobrancaEfetiva || 0), 0),
+  }), [visibleItems])
 
   const previewPrice = useMemo(() => {
     const date = isoDate(form.dataEfetivacao)
@@ -1223,8 +1241,30 @@ export default function Home() {
           </div>
         </header>
 
+        <div className="workspace-body">
         {section === 'lancamentos' && (
           <>
+            {isClient && (
+              <div className="client-dashboard-filters">
+                <label>
+                  <span>Filial / CNPJ</span>
+                  <select value={clientBranchFilter} onChange={e => setClientBranchFilter(e.target.value)}>
+                    <option value="">Todas as filiais</option>
+                    {branches.map(branch => (
+                      <option key={branch.cnpj} value={branch.cnpj}>{branchLabel(branch)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="client-search">
+                  <span>Buscar lançamento</span>
+                  <InputText
+                    value={clientSearch}
+                    onChange={e => setClientSearch(e.target.value)}
+                    placeholder="SKU, descrição, filial ou CNPJ"
+                  />
+                </label>
+              </div>
+            )}
             {workspaceReady && canCreate && !branches.length && (
               <div className="branch-warning">
                 <i className="pi pi-info-circle" />
@@ -1247,7 +1287,7 @@ export default function Home() {
                 </div>
                 <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
               </div>
-              <DataTable className="mobile-record-table rework-record-table" value={items} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
+              <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
                 <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
                 <Column field="sku" header="SKU" />
                 <Column field="descricao" header="Descrição" />
@@ -1429,6 +1469,8 @@ export default function Home() {
           </section>
         )}
       </section>
+
+        </div>
 
       <Dialog
         header={form.id ? 'Editar retrabalho' : 'Novo retrabalho'}
