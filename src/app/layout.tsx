@@ -8,23 +8,23 @@ import './component-geometry.css'
 import './mobile-polish.css'
 
 export const metadata: Metadata = {
-  applicationName: 'Retrabalho Controle',
-  title: 'Retrabalho Controle',
-  description: 'Retrabalho Controle — Unilog Express',
+  applicationName: 'Retrabalho | Unilog Express',
+  title: 'Retrabalho | Unilog Express',
+  description: 'Retrabalho — Unilog Express',
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: '/brand/unilog-favicon-red.svg?v=20261001-4',
-    shortcut: '/brand/unilog-favicon-red.svg?v=20261001-4',
+    icon: '/brand/unilog-favicon-red.svg?v=20261001-5',
+    shortcut: '/brand/unilog-favicon-red.svg?v=20261001-5',
   },
   appleWebApp: {
     capable: true,
-    title: 'Retrabalho Controle',
+    title: 'Retrabalho | Unilog Express',
     statusBarStyle: 'black-translucent',
   },
   openGraph: {
-    title: 'Retrabalho Controle',
-    siteName: 'Retrabalho Controle',
-    description: 'Retrabalho Controle — Unilog Express',
+    title: 'Retrabalho | Unilog Express',
+    siteName: 'Retrabalho | Unilog Express',
+    description: 'Retrabalho — Unilog Express',
     type: 'website',
   },
 }
