@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.01.1';
+const API_VERSION = '2026.10.01.2';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -35,8 +35,8 @@ function doPost(e) {
 
     if (route === 'retrabalhos') {
       const action = String(payload.acao || '').toUpperCase();
-      if (action === 'LISTAR') return ok_({ data: ReworkService.list(payload.mes) });
-      if (action === 'MESES') return ok_({ data: ReworkService.months() });
+      if (action === 'LISTAR') return ok_({ data: ReworkService.list(payload.mes, payload.matriculaAutor, payload.perfilAutor) });
+      if (action === 'MESES') return ok_({ data: ReworkService.months(payload.matriculaAutor, payload.perfilAutor) });
       if (action === 'CRIAR') return ok_(ReworkService.create(payload));
       if (action === 'EDITAR') return ok_(ReworkService.edit(payload));
       throw new Error('Ação de retrabalho inválida.');
@@ -57,9 +57,22 @@ function doPost(e) {
       throw new Error('Ação de usuário inválida.');
     }
 
+    if (route === 'filiais') {
+      const action = String(payload.acao || '').toUpperCase();
+      const perfil = String(payload.perfilAutor || '').toUpperCase();
+      if (action === 'LISTAR') {
+        return ok_({ data: ClientBranchService.availableForUser(payload.matriculaAutor, perfil) });
+      }
+      if (action === 'LISTAR_TODAS') {
+        if (perfil !== 'ADMIN') throw new Error('Sem permissão.');
+        return ok_({ data: ClientBranchService.allActive() });
+      }
+      throw new Error('Ação de filial inválida.');
+    }
+
     if (route === 'audit') {
       if (String(payload.acao || '').toUpperCase() === 'LISTAR') {
-        return ok_({ data: AuditService.list(payload.mes) });
+        return ok_({ data: AuditService.list(payload.mes, payload.matriculaAutor, payload.perfilAutor) });
       }
       throw new Error('Ação de auditoria inválida.');
     }
