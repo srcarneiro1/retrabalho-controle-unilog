@@ -236,6 +236,7 @@ export default function Home() {
   const [dialog, setDialog] = useState(false)
 
   const [users, setUsers] = useState<ManagedUser[]>([])
+  const [userError, setUserError] = useState('')
   const [newUser, setNewUser] = useState({
     matricula: '',
     nome: '',
@@ -471,6 +472,7 @@ export default function Home() {
 
   async function createUser() {
     if (saving) return
+    setUserError('')
     setSaving(true)
     try {
       await api('/api/usuarios', {
@@ -485,6 +487,8 @@ export default function Home() {
         senhaTemporaria: '',
         cnpjs: [],
       })
+    } catch (error) {
+      setUserError(error instanceof Error ? error.message : 'Falha ao criar usuário.')
     } finally {
       setSaving(false)
     }
@@ -492,6 +496,7 @@ export default function Home() {
 
   async function updateUser() {
     if (!editingUser || saving) return
+    setUserError('')
     setSaving(true)
     try {
       await api('/api/usuarios', {
@@ -506,6 +511,8 @@ export default function Home() {
       })
       setEditingUser(null)
       await reloadUsers()
+    } catch (error) {
+      setUserError(error instanceof Error ? error.message : 'Falha ao atualizar usuário.')
     } finally {
       setSaving(false)
     }
@@ -1018,6 +1025,12 @@ export default function Home() {
 
         {section === 'lancamentos' && (
           <>
+            {canCreate && !branches.length && (
+              <div className="branch-warning">
+                <i className="pi pi-info-circle" />
+                Nenhuma filial ativa está disponível para o seu usuário. Cadastre/vincule uma filial antes de criar lançamentos.
+              </div>
+            )}
             <div className="metrics metrics-4">
               <article><i className="pi pi-list" /><div><span>Registros</span><strong>{totals.registros}</strong></div></article>
               <article><i className="pi pi-box" /><div><span>Unidades retrabalhadas</span><strong>{totals.unidades.toLocaleString('pt-BR')}</strong></div></article>
@@ -1040,6 +1053,7 @@ export default function Home() {
                 <Column field="descricao" header="Descrição" />
                 <Column field="nomeCliente" header="Cliente" />
                 <Column field="filial" header="Filial" />
+                <Column field="cnpjCliente" header="CNPJ" body={(row: Rework) => cnpjLabel(row.cnpjCliente)} />
                 <Column field="quantidade" header="Qtd." />
                 <Column field="dataValidade" header="Validade" body={(row: Rework) => dateLabel(row.dataValidade)} />
                 <Column field="nacionalizacao" header="Nacionalização" />
@@ -1169,6 +1183,11 @@ export default function Home() {
                 </label>
                 <Button label="Criar usuário" icon="pi pi-plus" onClick={createUser} loading={saving} className="primary form-submit" />
               </div>
+              {userError && (
+                <div className="error user-error">
+                  <i className="pi pi-exclamation-circle" />{userError}
+                </div>
+              )}
               <DataTable className="mobile-record-table users-record-table" value={users} rows={15} paginator dataKey="matricula">
                 <Column field="matricula" header="Matrícula" />
                 <Column field="nome" header="Nome" />
@@ -1179,7 +1198,7 @@ export default function Home() {
                   header="Filiais"
                   body={(r: ManagedUser) => r.cnpjs?.length ? `${r.cnpjs.length} vinculada(s)` : r.perfil === 'ADMIN' ? 'Todas' : 'Nenhuma'}
                 />
-                <Column header="" body={(r: ManagedUser) => <Button icon="pi pi-pencil" text rounded onClick={() => setEditingUser({ ...r })} />} />
+                <Column header="" body={(r: ManagedUser) => <Button icon="pi pi-pencil" text rounded onClick={() => { setUserError(''); setEditingUser({ ...r }) }} />} />
               </DataTable>
             </div>
           </section>
@@ -1338,8 +1357,14 @@ export default function Home() {
           </div>
         )}
 
+        {userError && (
+          <div className="error user-error">
+            <i className="pi pi-exclamation-circle" />{userError}
+          </div>
+        )}
+
         <div className="dialog-actions">
-          <Button label="Cancelar" text disabled={saving} onClick={() => setEditingUser(null)} />
+          <Button label="Cancelar" text disabled={saving} onClick={() => { setEditingUser(null); setUserError('') }} />
           <Button label="Salvar" className="primary" loading={saving} onClick={updateUser} />
         </div>
       </Dialog>
