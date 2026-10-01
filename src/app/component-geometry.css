@@ -300,3 +300,29 @@
 .app.sidebar-collapsed .sidebar .nav-section{
   width:100%!important;
 }
+
+
+/* Branch access controls */
+.p-multiselect{
+  width:100%!important;
+  min-height:var(--ui-control-h)!important;
+  border-radius:var(--unilog-control-radius)!important;
+  border-color:#d9dde3!important;
+  box-shadow:none!important;
+}
+.p-multiselect:not(.p-disabled).p-focus{
+  border-color:var(--unilog-red)!important;
+  box-shadow:0 0 0 3px rgba(219,8,18,.08)!important;
+}
+.p-multiselect .p-multiselect-label{
+  min-height:calc(var(--ui-control-h) - 2px)!important;
+  padding:10px 12px!important;
+  font-size:var(--ui-control-font)!important;
+  line-height:1.2!important;
+}
+.p-multiselect .p-multiselect-trigger{
+  width:38px!important;
+}
+.user-branches-field{
+  grid-column:span 2!important;
+}
