@@ -101,8 +101,8 @@ function createPriceForm() {
   return {
     requestId: crypto.randomUUID(),
     vigenciaInicio: new Date(),
-    valorNacionalizacao: 0.4,
-    valorRfidAdicional: 0.2,
+    valorNacionalizacao: 0.41,
+    valorRfidAdicional: 0.19,
     observacao: '',
   }
 }
@@ -370,6 +370,10 @@ export default function Home() {
     if (saving || !canCreate) return
     setSaving(true)
     try {
+      if (Number(form.rfid || 0) > Number(form.nacionalizacao || 0)) {
+        throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.')
+      }
+
       const payload = {
         id: form.id || undefined,
         requestId: form.requestId,
@@ -1026,7 +1030,7 @@ export default function Home() {
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
                 </div>
               )}
-              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização + adicional RFID. Com os valores iniciais, uma unidade com as duas etiquetas = R$ 0,60.</div>
+              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização somente = R$ 0,41. Quando houver RFID, aplica-se adicional de R$ 0,19 por unidade, totalizando R$ 0,60 para Nacionalização + RFID.</div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
