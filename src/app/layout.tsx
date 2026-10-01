@@ -4,12 +4,26 @@ import 'primereact/resources/primereact.min.css'
 import 'primeicons/primeicons.css'
 import './styles.css'
 import './unilog-design-system.css'
+import './component-geometry.css'
 
 export const metadata: Metadata = {
-  title: 'Retrabalho Controle | Unilog Express',
+  applicationName: 'Retrabalho Controle | Unilog Express',
+  title: {
+    default: 'Retrabalho Controle | Unilog Express',
+    template: '%s | Unilog Express',
+  },
   description: 'Retrabalho Controle — Unilog Express',
   icons: {
-    icon: '/brand/unilog-favicon-red.svg',
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/brand/unilog-favicon-red.svg?v=20261001-1', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Retrabalho Controle',
+    statusBarStyle: 'black-translucent',
   },
 }
 
