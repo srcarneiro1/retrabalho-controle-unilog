@@ -15,9 +15,11 @@ Referência visual e arquitetural: Extra Cost Control Unilog.
 
 ## Preços
 Regra vigente desde 01/10/2026:
-- Nacionalização somente = R$ 0,41 por unidade.
-- RFID é adicional à Nacionalização = R$ 0,19 por unidade.
-- Nacionalização + RFID = R$ 0,60 por unidade.
+- Nacionalização somente = R$ 0,4100 por unidade.
+- RFID é adicional à Nacionalização = R$ 0,1900 por unidade.
+- Nacionalização + RFID = R$ 0,6000 por unidade.
+- Etiqueta de Validade = R$ 0,4114 por unidade.
+- tarifas unitárias são persistidas e exibidas com 4 casas decimais.
 - Quantidade RFID não pode ser maior que a quantidade de Nacionalização.
 
 Preço é controlado em `TABELA_PRECOS` por vigência.
@@ -139,3 +141,19 @@ Regras:
 - listagem, meses, auditoria, criação e edição são filtrados/validados também no backend por matrícula + perfil.
 - o dropdown de novo retrabalho exibe apenas filiais ativas permitidas ao usuário.
 - renomear cliente/filial no cadastro não altera snapshots históricos já gravados.
+
+
+## Cancelamento de cobrança
+- SUPERVISOR e ADMIN podem cancelar a cobrança de um retrabalho.
+- cancelamento exige motivo.
+- o registro operacional não é excluído.
+- valores originais permanecem gravados para rastreabilidade.
+- `valorCobrancaEfetiva` passa a 0 na API quando `COBRANCA_CANCELADA=SIM`.
+- KPIs e exportação distinguem valor original e valor efetivo.
+- cancelamento grava data, matrícula, motivo e evento `CANCELAR_COBRANCA` na AUDITORIA.
+- registro com cobrança cancelada não pode ser editado posteriormente.
+
+## Carregamento do workspace
+- após o login, a aplicação pré-carrega todos os módulos permitidos ao perfil antes de liberar o workspace.
+- alternar entre Lançamentos, Auditoria, Preços e Usuários não dispara nova leitura.
+- novas leituras ocorrem em atualização explícita, mutações e mudança de competência do CLIENTE.
