@@ -614,19 +614,47 @@ export default function Home() {
           </aside>
 
           <form className="login-form" onSubmit={login}>
-            <small>ACESSO AO SISTEMA</small>
-            <h2>Entrar</h2>
-            <p>Use sua matrícula e senha.</p>
-            <label>Matrícula</label>
-            <InputText value={matricula} onChange={e => setMatricula(e.target.value)} required />
-            <label>Senha</label>
-            <Password value={senha} onChange={e => setSenha(e.target.value)} feedback={false} toggleMask required />
+            <span className="login-overline">ACESSO À PLATAFORMA</span>
+            <h2>Bem-vindo de volta</h2>
+            <p>Entre com a matrícula cadastrada pela administração.</p>
+
+            <label htmlFor="login-matricula">Matrícula</label>
+            <span className="p-input-icon-left login-field-icon">
+              <i className="pi pi-user" />
+              <InputText
+                id="login-matricula"
+                value={matricula}
+                onChange={e => setMatricula(e.target.value)}
+                autoComplete="username"
+                placeholder="Digite sua matrícula"
+                required
+              />
+            </span>
+
+            <label htmlFor="login-senha">Senha</label>
+            <Password
+              inputId="login-senha"
+              value={senha}
+              onChange={e => setSenha(e.target.value)}
+              feedback={false}
+              toggleMask
+              autoComplete="current-password"
+              placeholder="Digite sua senha"
+              required
+            />
+
             {authError && (
               <div className="error">
                 <i className="pi pi-exclamation-circle" />{authError}
               </div>
             )}
-            <Button label="Acessar" icon="pi pi-sign-in" className="primary" />
+
+            <Button label="Entrar" icon="pi pi-arrow-right" iconPos="right" className="primary" />
+
+            <div className="login-security-note">
+              <i className="pi pi-info-circle" />
+              <span>O acesso respeita o perfil cadastrado e todas as alterações relevantes permanecem auditáveis.</span>
+            </div>
           </form>
         </section>
       </main>
@@ -715,8 +743,7 @@ export default function Home() {
     <main className="app">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <b>UNILOG</b>
-          <small>RETRABALHO</small>
+          <img src="/brand/unilog-logo-white-transparent.svg" alt="Unilog Express" />
         </div>
 
         <nav>
