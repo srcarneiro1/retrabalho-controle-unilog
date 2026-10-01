@@ -23,4 +23,4 @@ jobs:
           grep -o '<link[^>]*rel="[^"]*icon[^"]*"[^>]*>' dist/index.html || true
           grep -q '<title>Retrabalho | Unilog Express</title>' dist/index.html
           test -s dist/favicon.ico
-          grep -q '/favicon.ico' dist/index.html
+          grep -q '/favicon.ico?v=20261001-10' dist/index.html
