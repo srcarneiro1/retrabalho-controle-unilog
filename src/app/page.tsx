@@ -39,13 +39,21 @@ type Rework = {
   dataValidade: string
   nacionalizacao: number
   rfid: number
+  validade: number
   totalEtiquetas: number
   idPreco: string
   precoNacionalizacaoUnit: number
   precoRfidAdicionalUnit: number
+  precoValidadeUnit: number
   valorNacionalizacao: number
   valorRfidAdicional: number
+  valorValidade: number
   valorTotalCobranca: number
+  valorCobrancaEfetiva: number
+  cobrancaCancelada: boolean
+  canceladoEm: string
+  canceladoPor: string
+  motivoCancelamento: string
   cnpjCliente: string
   nomeCliente: string
   filial: string
@@ -72,6 +80,7 @@ type PriceRow = {
   vigenciaFim: string
   valorNacionalizacao: number
   valorRfidAdicional: number
+  valorValidade: number
   ativo: string
   criadoEm: string
   criadoPor: string
@@ -106,6 +115,7 @@ function createForm() {
     dataValidade: null as Date | null,
     nacionalizacao: 0,
     rfid: 0,
+    validade: 0,
     versao: 0,
   }
 }
@@ -114,8 +124,9 @@ function createPriceForm() {
   return {
     requestId: crypto.randomUUID(),
     vigenciaInicio: new Date(),
-    valorNacionalizacao: 0.41,
-    valorRfidAdicional: 0.19,
+    valorNacionalizacao: 0.4100,
+    valorRfidAdicional: 0.1900,
+    valorValidade: 0.4114,
     observacao: '',
   }
 }
@@ -150,6 +161,15 @@ function money(value: number) {
   return Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+  })
+}
+
+function rateMoney(value: number) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
   })
 }
 
@@ -252,6 +272,9 @@ export default function Home() {
 
   const [audits, setAudits] = useState<AuditRow[]>([])
   const [selectedAudit, setSelectedAudit] = useState<AuditRow | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<Rework | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelError, setCancelError] = useState('')
 
   const [prices, setPrices] = useState<PriceRow[]>([])
   const [priceForm, setPriceForm] = useState(createPriceForm)
@@ -347,7 +370,21 @@ export default function Home() {
 
   async function changeMonth(value: string) {
     setSelectedMonth(value)
-    await loadItems(value)
+    setLoading(true)
+    try {
+      if (isClient) {
+        const [itemData, auditData] = await Promise.all([
+          api('/api/retrabalhos?mes=' + encodeURIComponent(value)),
+          api('/api/retrabalhos?audit=1&mes=' + encodeURIComponent(value)),
+        ])
+        setItems(itemData.data || [])
+        setAudits(auditData.data || [])
+      } else {
+        await loadItems(value)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -389,8 +426,12 @@ export default function Home() {
         const chosen = available[0] || currentMonth()
         setSelectedMonth(chosen)
 
-        const itemData = await api('/api/retrabalhos?mes=' + encodeURIComponent(chosen))
+        const [itemData, auditData] = await Promise.all([
+          api('/api/retrabalhos?mes=' + encodeURIComponent(chosen)),
+          api('/api/retrabalhos?audit=1&mes=' + encodeURIComponent(chosen)),
+        ])
         setItems(itemData.data || [])
+        setAudits(auditData.data || [])
       } else {
         const requests: Promise<any>[] = [
           api('/api/precos'),
@@ -398,13 +439,34 @@ export default function Home() {
           api('/api/retrabalhos'),
         ]
 
-        if (currentUser.perfil === 'ADMIN') requests.push(api('/api/filiais?all=1'))
+        const includeAudit = currentUser.perfil === 'SUPERVISOR' || currentUser.perfil === 'ADMIN'
+        const includeAdmin = currentUser.perfil === 'ADMIN'
+        if (includeAudit) requests.push(api('/api/retrabalhos?audit=1'))
+        if (includeAdmin) {
+          requests.push(api('/api/filiais?all=1'))
+          requests.push(api('/api/usuarios'))
+        }
 
-        const [priceData, branchData, itemData, allBranchData] = await Promise.all(requests)
+        const result = await Promise.all(requests)
+        let index = 0
+        const priceData = result[index++]
+        const branchData = result[index++]
+        const itemData = result[index++]
+
         setPrices(priceData.data || [])
         setBranches(branchData.data || [])
         setItems(itemData.data || [])
-        if (currentUser.perfil === 'ADMIN') setAllBranches(allBranchData?.data || [])
+
+        if (includeAudit) {
+          const auditData = result[index++]
+          setAudits(auditData.data || [])
+        }
+        if (includeAdmin) {
+          const allBranchData = result[index++]
+          const userData = result[index++]
+          setAllBranches(allBranchData.data || [])
+          setUsers(userData.data || [])
+        }
       }
 
       setWorkspaceReady(true)
@@ -471,6 +533,7 @@ export default function Home() {
       dataValidade: fromIso(row.dataValidade),
       nacionalizacao: row.nacionalizacao,
       rfid: row.rfid,
+      validade: row.validade,
       versao: row.versao,
     })
     setDialog(true)
@@ -495,6 +558,7 @@ export default function Home() {
         dataValidade: isoDate(form.dataValidade),
         nacionalizacao: form.nacionalizacao,
         rfid: form.rfid,
+        validade: form.validade,
         versao: form.versao,
       }
 
@@ -504,21 +568,15 @@ export default function Home() {
       })
 
       setDialog(false)
-      await loadPrices()
-      await loadItems()
+      await loadItems(isClient ? selectedMonth : undefined)
     } finally {
       setSaving(false)
     }
   }
 
-  async function openUsers() {
+  function openUsers() {
     setSection('usuarios')
     setMobileOpen(false)
-    const [data] = await Promise.all([
-      api('/api/usuarios'),
-      loadAllBranches(),
-    ])
-    setUsers(data.data || [])
   }
 
   async function reloadUsers() {
@@ -610,10 +668,14 @@ export default function Home() {
     }
   }
 
-  async function openAudit() {
+  function openAudit() {
     if (!canAudit) return
     setSection('auditoria')
     setMobileOpen(false)
+  }
+
+  async function reloadAudit() {
+    if (!canAudit) return
     const query = isClient
       ? '?audit=1&mes=' + encodeURIComponent(selectedMonth)
       : '?audit=1'
@@ -621,11 +683,10 @@ export default function Home() {
     setAudits(data.data || [])
   }
 
-  async function openPrices() {
+  function openPrices() {
     if (!canViewPrices) return
     setSection('precos')
     setMobileOpen(false)
-    await loadPrices()
   }
 
   function openReworks() {
@@ -652,11 +713,44 @@ export default function Home() {
           vigenciaInicio: isoDate(priceForm.vigenciaInicio),
           valorNacionalizacao: priceForm.valorNacionalizacao,
           valorRfidAdicional: priceForm.valorRfidAdicional,
+          valorValidade: priceForm.valorValidade,
           observacao: priceForm.observacao.trim(),
         }),
       })
       await loadPrices()
       setPriceForm(createPriceForm())
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function cancelCharge() {
+    if (!cancelTarget || saving) return
+    const motivo = cancelReason.trim()
+    if (!motivo) {
+      setCancelError('Informe o motivo do cancelamento da cobrança.')
+      return
+    }
+
+    setSaving(true)
+    setCancelError('')
+    try {
+      const result = await api('/api/retrabalhos', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: cancelTarget.id,
+          versao: cancelTarget.versao,
+          motivo,
+        }),
+      })
+
+      const updated = result.data as Rework
+      setItems(current => current.map(item => item.id === updated.id ? updated : item))
+      setCancelTarget(null)
+      setCancelReason('')
+      await reloadAudit()
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : 'Falha ao cancelar cobrança.')
     } finally {
       setSaving(false)
     }
@@ -677,11 +771,19 @@ export default function Home() {
         'Validade inserida',
         'Etiquetas Nacionalização',
         'Etiquetas RFID',
-        'Preço unit. Nacionalização',
-        'Preço adicional RFID',
+        'Etiquetas Validade',
+        'Tarifa Nacionalização',
+        'Tarifa adicional RFID',
+        'Tarifa Etiqueta de Validade',
         'Valor Nacionalização',
         'Valor RFID',
-        'Valor total cobrança',
+        'Valor Validade',
+        'Valor original cobrança',
+        'Valor efetivo cobrança',
+        'Cobrança cancelada',
+        'Cancelado em',
+        'Cancelado por',
+        'Motivo cancelamento',
         'ID preço',
         'Criado por',
         'Criado em',
@@ -700,11 +802,19 @@ export default function Home() {
         item.dataValidade,
         item.nacionalizacao,
         item.rfid,
-        item.precoNacionalizacaoUnit.toFixed(2).replace('.', ','),
-        item.precoRfidAdicionalUnit.toFixed(2).replace('.', ','),
-        item.valorNacionalizacao.toFixed(2).replace('.', ','),
-        item.valorRfidAdicional.toFixed(2).replace('.', ','),
-        item.valorTotalCobranca.toFixed(2).replace('.', ','),
+        item.validade,
+        item.precoNacionalizacaoUnit.toFixed(4).replace('.', ','),
+        item.precoRfidAdicionalUnit.toFixed(4).replace('.', ','),
+        item.precoValidadeUnit.toFixed(4).replace('.', ','),
+        item.valorNacionalizacao.toFixed(4).replace('.', ','),
+        item.valorRfidAdicional.toFixed(4).replace('.', ','),
+        item.valorValidade.toFixed(4).replace('.', ','),
+        item.valorTotalCobranca.toFixed(4).replace('.', ','),
+        item.valorCobrancaEfetiva.toFixed(4).replace('.', ','),
+        item.cobrancaCancelada ? 'SIM' : 'NAO',
+        item.canceladoEm || '',
+        item.canceladoPor || '',
+        item.motivoCancelamento || '',
         item.idPreco,
         item.matriculaCriacao,
         item.criadoEm,
@@ -748,7 +858,7 @@ export default function Home() {
     registros: items.length,
     unidades: items.reduce((a, b) => a + Number(b.quantidade || 0), 0),
     etiquetas: items.reduce((a, b) => a + Number(b.totalEtiquetas || 0), 0),
-    valor: items.reduce((a, b) => a + Number(b.valorTotalCobranca || 0), 0),
+    valor: items.reduce((a, b) => a + Number(b.valorCobrancaEfetiva || 0), 0),
   }), [items])
 
   const previewPrice = useMemo(() => {
@@ -760,13 +870,15 @@ export default function Home() {
 
     const nat = Number(form.nacionalizacao || 0) * Number(price.valorNacionalizacao || 0)
     const rfid = Number(form.rfid || 0) * Number(price.valorRfidAdicional || 0)
+    const validade = Number(form.validade || 0) * Number(price.valorValidade || 0)
     return {
       price,
       nat,
       rfid,
-      total: nat + rfid,
+      validade,
+      total: nat + rfid + validade,
     }
-  }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, prices])
+  }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, form.validade, prices])
 
   if (loadingSession) {
     return (
@@ -1018,13 +1130,13 @@ export default function Home() {
             <span className="nav-label">{isClient ? 'Acompanhamento' : 'Lançamentos'}</span>
           </button>
           {canAudit && (
-            <button className={`nav ${section === 'auditoria' ? 'active' : ''}`} onClick={() => void openAudit()} title={collapsed ? 'Auditoria' : undefined}>
+            <button className={`nav ${section === 'auditoria' ? 'active' : ''}`} onClick={openAudit} title={collapsed ? 'Auditoria' : undefined}>
               <i className="pi pi-history" />
               <span className="nav-label">Auditoria</span>
             </button>
           )}
           {canViewPrices && (
-            <button className={`nav ${section === 'precos' ? 'active' : ''}`} onClick={() => void openPrices()} title={collapsed ? 'Preços' : undefined}>
+            <button className={`nav ${section === 'precos' ? 'active' : ''}`} onClick={openPrices} title={collapsed ? 'Preços' : undefined}>
               <i className="pi pi-dollar" />
               <span className="nav-label">Preços</span>
             </button>
@@ -1032,7 +1144,7 @@ export default function Home() {
           {canUsers && (
             <div className="nav-section">
               <span className="nav-caption">ADMINISTRAÇÃO</span>
-              <button className={`nav ${section === 'usuarios' ? 'active' : ''}`} onClick={() => void openUsers()} title={collapsed ? 'Usuários' : undefined}>
+              <button className={`nav ${section === 'usuarios' ? 'active' : ''}`} onClick={openUsers} title={collapsed ? 'Usuários' : undefined}>
                 <i className="pi pi-users" />
                 <span className="nav-label">Usuários</span>
               </button>
@@ -1146,9 +1258,32 @@ export default function Home() {
                 <Column field="dataValidade" header="Validade" body={(row: Rework) => dateLabel(row.dataValidade)} />
                 <Column field="nacionalizacao" header="Nacionalização" />
                 <Column field="rfid" header="RFID" />
-                <Column field="valorTotalCobranca" header="Valor" body={(row: Rework) => money(row.valorTotalCobranca)} />
+                <Column field="validade" header="Etq. validade" />
+                <Column
+                  field="valorCobrancaEfetiva"
+                  header="Cobrança"
+                  body={(row: Rework) => row.cobrancaCancelada
+                    ? <Tag severity="danger" value="CANCELADA" />
+                    : money(row.valorCobrancaEfetiva)}
+                />
                 <Column field="matriculaCriacao" header="Criado por" />
-                <Column header="" body={(row: Rework) => canEdit ? <Button icon="pi pi-pencil" text rounded onClick={() => openEdit(row)} /> : null} />
+                <Column
+                  header=""
+                  body={(row: Rework) => canEdit ? (
+                    <div className="row-actions">
+                      <Button icon="pi pi-pencil" text rounded disabled={row.cobrancaCancelada} onClick={() => openEdit(row)} />
+                      <Button
+                        icon="pi pi-ban"
+                        text
+                        rounded
+                        severity="danger"
+                        disabled={row.cobrancaCancelada}
+                        title={row.cobrancaCancelada ? 'Cobrança já cancelada' : 'Cancelar cobrança'}
+                        onClick={() => { setCancelError(''); setCancelReason(''); setCancelTarget(row) }}
+                      />
+                    </div>
+                  ) : null}
+                />
               </DataTable>
             </section>
           </>
@@ -1162,7 +1297,7 @@ export default function Home() {
                 <h2>Histórico de auditoria</h2>
                 <p>{isClient ? `Eventos vinculados à competência ${monthLabel(selectedMonth)}.` : 'Alterações relevantes registradas com autor, versão e estado anterior/posterior.'}</p>
               </div>
-              <Button icon="pi pi-refresh" text rounded onClick={() => void openAudit()} />
+              <Button icon="pi pi-refresh" text rounded onClick={() => void reloadAudit()} />
             </div>
             <div className="page-table">
               <DataTable className="mobile-record-table audit-record-table" value={audits} paginator rows={20} scrollable dataKey="idAuditoria" emptyMessage="Nenhum evento de auditoria encontrado.">
@@ -1193,18 +1328,20 @@ export default function Home() {
               {canManagePrices && (
                 <div className="price-create">
                   <label>Nova vigência<Calendar value={priceForm.vigenciaInicio} onChange={e => setPriceForm({ ...priceForm, vigenciaInicio: e.value as Date })} dateFormat="dd/mm/yy" /></label>
-                  <label>Nacionalização<InputNumber value={priceForm.valorNacionalizacao} onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} /></label>
-                  <label>RFID adicional<InputNumber value={priceForm.valorRfidAdicional} onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} /></label>
+                  <label>Nacionalização<InputNumber value={priceForm.valorNacionalizacao} onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>RFID adicional<InputNumber value={priceForm.valorRfidAdicional} onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>Etiqueta de validade<InputNumber value={priceForm.valorValidade} onValueChange={e => setPriceForm({ ...priceForm, valorValidade: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label className="price-observation">Observação<InputText value={priceForm.observacao} onChange={e => setPriceForm({ ...priceForm, observacao: e.target.value })} placeholder="Motivo ou referência da alteração" /></label>
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
                 </div>
               )}
-              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização somente = R$ 0,41. Quando houver RFID, aplica-se adicional de R$ 0,19 por unidade, totalizando R$ 0,60 para Nacionalização + RFID.</div>
+              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização = R$ 0,4100; RFID adicional = R$ 0,1900; Nacionalização + RFID = R$ 0,6000; Etiqueta de Validade = R$ 0,4114. As tarifas são mantidas com 4 casas decimais.</div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
-                <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => money(r.valorNacionalizacao)} />
-                <Column field="valorRfidAdicional" header="RFID adicional" body={(r: PriceRow) => money(r.valorRfidAdicional)} />
+                <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => rateMoney(r.valorNacionalizacao)} />
+                <Column field="valorRfidAdicional" header="RFID adicional" body={(r: PriceRow) => rateMoney(r.valorRfidAdicional)} />
+                <Column field="valorValidade" header="Etiqueta validade" body={(r: PriceRow) => rateMoney(r.valorValidade)} />
                 <Column field="observacao" header="Observação" />
                 <Column field="criadoPor" header="Criado por" />
               </DataTable>
@@ -1362,6 +1499,14 @@ export default function Home() {
               min={0}
             />
           </label>
+          <label>
+            Etiquetas de validade
+            <InputNumber
+              value={form.validade}
+              onValueChange={e => setForm({ ...form, validade: e.value || 0 })}
+              min={0}
+            />
+          </label>
         </div>
 
         <div className="billing-preview">
@@ -1370,7 +1515,7 @@ export default function Home() {
             <strong>{previewPrice ? money(previewPrice.nat) : 'Sem vigência'}</strong>
             <small>
               {previewPrice
-                ? `${form.nacionalizacao} × ${money(previewPrice.price.valorNacionalizacao)}`
+                ? `${form.nacionalizacao} × ${rateMoney(previewPrice.price.valorNacionalizacao)}`
                 : 'Cadastre uma tabela válida para a data.'}
             </small>
           </div>
@@ -1379,7 +1524,16 @@ export default function Home() {
             <strong>{previewPrice ? money(previewPrice.rfid) : '—'}</strong>
             <small>
               {previewPrice
-                ? `${form.rfid} × ${money(previewPrice.price.valorRfidAdicional)}`
+                ? `${form.rfid} × ${rateMoney(previewPrice.price.valorRfidAdicional)}`
+                : '—'}
+            </small>
+          </div>
+          <div>
+            <span>Etiqueta de validade</span>
+            <strong>{previewPrice ? money(previewPrice.validade) : '—'}</strong>
+            <small>
+              {previewPrice
+                ? `${form.validade} × ${rateMoney(previewPrice.price.valorValidade)}`
                 : '—'}
             </small>
           </div>
@@ -1393,6 +1547,39 @@ export default function Home() {
         <div className="dialog-actions">
           <Button label="Cancelar" text disabled={saving} onClick={() => setDialog(false)} />
           <Button label="Salvar" icon="pi pi-check" className="primary" loading={saving} onClick={save} />
+        </div>
+      </Dialog>
+
+      <Dialog
+        header="Cancelar cobrança"
+        visible={Boolean(cancelTarget)}
+        onHide={() => !saving && setCancelTarget(null)}
+        style={{ width: 'min(520px, 94vw)' }}
+      >
+        {cancelTarget && (
+          <div className="cancel-charge">
+            <div className="cancel-summary">
+              <span>Registro</span>
+              <strong>{cancelTarget.id}</strong>
+              <span>Valor original</span>
+              <strong>{money(cancelTarget.valorTotalCobranca)}</strong>
+            </div>
+            <p>O retrabalho continuará no histórico. Apenas a cobrança deixará de compor os totais financeiros.</p>
+            <label>
+              Motivo do cancelamento
+              <InputText
+                value={cancelReason}
+                onChange={e => setCancelReason(e.target.value)}
+                placeholder="Ex.: lançamento duplicado"
+                autoFocus
+              />
+            </label>
+            {cancelError && <div className="error"><i className="pi pi-exclamation-circle" />{cancelError}</div>}
+          </div>
+        )}
+        <div className="dialog-actions">
+          <Button label="Voltar" text disabled={saving} onClick={() => setCancelTarget(null)} />
+          <Button label="Cancelar cobrança" icon="pi pi-ban" severity="danger" loading={saving} onClick={cancelCharge} />
         </div>
       </Dialog>
 
