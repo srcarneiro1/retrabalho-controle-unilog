@@ -120,3 +120,22 @@ Regras obrigatórias:
 ## Primeiro acesso
 A senha inicial é temporária.
 Ao autenticar com `TROCA_SENHA_OBRIGATORIA=SIM`, o usuário permanece na experiência de primeiro acesso, define a nova senha e o frontend renova a autenticação de forma transparente com a nova credencial. Não deve haver logout visual nem necessidade de novo login manual.
+
+
+## Clientes, filiais e escopo de acesso
+Estrutura:
+- `CLIENTES_FILIAIS` (visível): cadastro manual de CNPJ, nome do cliente, filial e status.
+- `USUARIO_FILIAIS` (oculta): relação N:N entre matrícula e CNPJ.
+- `RETRABALHOS` grava snapshot de `CNPJ_CLIENTE`, `NOME_CLIENTE` e `FILIAL`.
+
+Regras:
+- CNPJ é a chave única da filial; deve possuir 14 dígitos após normalização.
+- Não apagar filial que possua histórico; marcar `ATIVO=NAO`.
+- filial inativa não pode receber novos lançamentos, mas permanece disponível para histórico.
+- ADMIN sem vínculo explícito tem acesso a todas as filiais cadastradas.
+- ADMIN pode ser restringido a várias filiais por vínculo explícito.
+- OPERACIONAL e SUPERVISOR devem possuir ao menos uma filial vinculada.
+- CLIENTE deve possuir ao menos uma filial e pode ter vários CNPJs, desde que todos pertençam ao mesmo `NOME_CLIENTE`.
+- listagem, meses, auditoria, criação e edição são filtrados/validados também no backend por matrícula + perfil.
+- o dropdown de novo retrabalho exibe apenas filiais ativas permitidas ao usuário.
+- renomear cliente/filial no cadastro não altera snapshots históricos já gravados.
