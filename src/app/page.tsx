@@ -1316,8 +1316,7 @@ export default function Home() {
                         icon="pi pi-ban"
                         text
                         rounded
-                        severity="danger"
-                        className="danger-action"
+                        className="table-action danger-action"
                         disabled={row.cobrancaCancelada}
                         title={row.cobrancaCancelada ? 'Cobrança já cancelada' : 'Cancelar cobrança'}
                         onClick={() => { setCancelError(''); setCancelReason(''); setCancelTarget(row) }}
