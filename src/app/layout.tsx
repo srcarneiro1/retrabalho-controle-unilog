@@ -1,10 +1,18 @@
-import 'primereact/resources/themes/lara-light-red/theme.css'
+import type { Metadata, Viewport } from 'next'
+import 'primereact/resources/themes/lara-light-indigo/theme.css'
+import 'primereact/resources/primereact.min.css'
 import 'primeicons/primeicons.css'
 import './styles.css'
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Retrabalho Controle | Unilog',
   description: 'Controle operacional de retrabalho e etiquetagem',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#171b24',
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
