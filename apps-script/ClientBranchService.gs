@@ -44,11 +44,9 @@ const ClientBranchService = (() => {
     return branch;
   }
 
-  function setAssignments(input) {
-    const matricula = text_(input.matricula);
-    const perfil = upper_(input.perfil);
-    const author = text_(input.matriculaAutor);
-    const requested = Array.isArray(input.cnpjs) ? input.cnpjs.map(cnpj_).filter(Boolean) : [];
+  function validateAssignments(perfilValue, cnpjsValue) {
+    const perfil = upper_(perfilValue);
+    const requested = Array.isArray(cnpjsValue) ? cnpjsValue.map(cnpj_).filter(Boolean) : [];
     const unique = [...new Set(requested)];
     const valid = {};
     allActive().forEach(branch => { valid[branch.cnpj] = branch; });
@@ -57,12 +55,25 @@ const ClientBranchService = (() => {
       if (!valid[cnpj]) throw new Error('Filial/CNPJ inválido ou inativo: ' + cnpj);
     });
 
+    if (perfil !== 'ADMIN' && unique.length === 0) {
+      throw new Error('Vincule pelo menos uma filial ao usuário.');
+    }
+
     if (perfil === 'CLIENTE' && unique.length) {
       const clients = [...new Set(unique.map(cnpj => valid[cnpj].nomeCliente.toUpperCase()))];
       if (clients.length > 1) {
         throw new Error('Um usuário CLIENTE só pode ser vinculado a CNPJs do mesmo cliente.');
       }
     }
+
+    return unique;
+  }
+
+  function setAssignments(input) {
+    const matricula = text_(input.matricula);
+    const perfil = upper_(input.perfil);
+    const author = text_(input.matriculaAutor);
+    const unique = validateAssignments(perfil, input.cnpjs);
 
     const currentRows = Repository.list('USUARIO_FILIAIS')
       .filter(x => text_(x.record.MATRICULA) === matricula);
@@ -106,5 +117,5 @@ const ClientBranchService = (() => {
     return allowedForUser(matricula, perfil).map(x => x.cnpj);
   }
 
-  return { allActive, allowedForUser, assertAllowed, setAssignments, cnpjsForUser };
+  return { allActive, allowedForUser, assertAllowed, validateAssignments, setAssignments, cnpjsForUser };
 })();
