@@ -35,9 +35,17 @@ async function mutate_(env: Env, payload: Record<string, unknown>) {
   const action = String(payload.acao || '').toUpperCase()
 
   if (action === 'CRIAR' && found) return { ok: true, data: found, reconciled: true }
-  if (action === 'ATUALIZAR' && found &&
-      String(found.perfil || '') === String(payload.perfil || '') &&
-      String(found.ativo || '') === String(payload.ativo || '')) return { ok: true, data: found, reconciled: true }
+  if (action === 'ATUALIZAR' && found) {
+    const foundCnpjs = Array.isArray(found.cnpjs) ? found.cnpjs.map(String).sort().join('|') : ''
+    const payloadCnpjs = Array.isArray(payload.cnpjs) ? payload.cnpjs.map(String).sort().join('|') : ''
+    if (
+      String(found.perfil || '') === String(payload.perfil || '')
+      && String(found.ativo || '') === String(payload.ativo || '')
+      && foundCnpjs === payloadCnpjs
+    ) {
+      return { ok: true, data: found, reconciled: true }
+    }
+  }
 
   throw new Error('Não foi possível confirmar a alteração de usuário. Recarregue a lista antes de tentar novamente.')
 }
