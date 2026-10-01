@@ -1,0 +1,88 @@
+const UserService = (() => {
+  const ALLOWED = ['OPERACIONAL','SUPERVISOR','ADMIN'];
+
+  function clean_(value) { return String(value == null ? '' : value).trim(); }
+  function upper_(value) { return clean_(value).toUpperCase(); }
+
+  function authenticate(input) {
+    const matricula = clean_(input.matricula);
+    const senha = String(input.senha || '');
+    const hit = Repository.find('USUARIOS','MATRICULA',matricula);
+    if (!hit || upper_(hit.record.ATIVO) !== 'SIM') throw new Error('Matrícula ou senha inválida.');
+    if (!SecurityService.verify(senha, hit.record.SENHA_SALT, hit.record.SENHA_HASH)) throw new Error('Matrícula ou senha inválida.');
+
+    Repository.update('USUARIOS', hit.rowNumber, { ULTIMO_LOGIN_EM: new Date() }, []);
+    return {
+      matricula,
+      nome: clean_(hit.record.NOME),
+      perfil: upper_(hit.record.PERFIL),
+      trocaSenhaObrigatoria: upper_(hit.record.TROCA_SENHA_OBRIGATORIA) === 'SIM'
+    };
+  }
+
+  function list() {
+    return Repository.list('USUARIOS').map(x => ({
+      matricula: clean_(x.record.MATRICULA),
+      nome: clean_(x.record.NOME),
+      perfil: upper_(x.record.PERFIL),
+      ativo: upper_(x.record.ATIVO),
+      trocaSenhaObrigatoria: upper_(x.record.TROCA_SENHA_OBRIGATORIA),
+      ultimoLoginEm: x.record.ULTIMO_LOGIN_EM || ''
+    }));
+  }
+
+  function create(input) {
+    const matricula = clean_(input.matricula);
+    const nome = clean_(input.nome);
+    const perfil = upper_(input.perfil);
+    const senha = String(input.senhaTemporaria || '');
+    const author = clean_(input.matriculaAutor);
+
+    if (!matricula) throw new Error('Informe a matrícula.');
+    if (!nome) throw new Error('Informe o nome.');
+    if (ALLOWED.indexOf(perfil) < 0) throw new Error('Perfil inválido.');
+    if (Repository.find('USUARIOS','MATRICULA',matricula)) throw new Error('Matrícula já cadastrada.');
+
+    const credential = SecurityService.makePassword(senha);
+    const now = new Date();
+    Repository.append('USUARIOS', {
+      MATRICULA: matricula,
+      NOME: nome,
+      PERFIL: perfil,
+      SENHA_HASH: credential.hash,
+      SENHA_SALT: credential.salt,
+      TROCA_SENHA_OBRIGATORIA: 'SIM',
+      ATIVO: 'SIM',
+      CRIADO_EM: now,
+      CRIADO_POR: author,
+      ATUALIZADO_EM: now,
+      ATUALIZADO_POR: author,
+      ULTIMO_LOGIN_EM: '',
+      VERSAO: 1
+    }, ['MATRICULA','CRIADO_POR','ATUALIZADO_POR']);
+
+    AuditService.log('USUARIO', matricula, 'CRIAR', author, null, { matricula, nome, perfil, ativo:'SIM' }, null, 1);
+    return { ok: true, user: { matricula, nome, perfil, ativo:'SIM' } };
+  }
+
+  function changePassword(input) {
+    const matricula = clean_(input.matricula);
+    const newPassword = String(input.novaSenha || '');
+    const hit = Repository.find('USUARIOS','MATRICULA',matricula);
+    if (!hit) throw new Error('Usuário não encontrado.');
+    const credential = SecurityService.makePassword(newPassword);
+    const version = Number(hit.record.VERSAO || 0) + 1;
+    Repository.update('USUARIOS', hit.rowNumber, {
+      SENHA_HASH: credential.hash,
+      SENHA_SALT: credential.salt,
+      TROCA_SENHA_OBRIGATORIA: 'NAO',
+      ATUALIZADO_EM: new Date(),
+      ATUALIZADO_POR: matricula,
+      VERSAO: version
+    }, []);
+    AuditService.log('USUARIO', matricula, 'TROCAR_SENHA', matricula, null, { trocaSenhaObrigatoria:'NAO' }, Number(hit.record.VERSAO || 0), version);
+    return { ok: true };
+  }
+
+  return { authenticate, list, create, changePassword };
+})();
