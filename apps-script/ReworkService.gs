@@ -211,7 +211,7 @@ const ReworkService = (() => {
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
     const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
-    const validade = int_(input.validade, 'Quantidade de etiquetas de validade', true);
+    const validade = int_(input.validade == null || input.validade === '' ? 0 : input.validade, 'Quantidade de etiquetas de validade', true);
     if (rfid > nacionalizacao) {
       throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.');
     }
