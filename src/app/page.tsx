@@ -170,6 +170,27 @@ function downloadCsv(filename: string, headers: string[], rows: unknown[][]) {
 }
 
 export default function Home() {
+  useEffect(() => {
+    const title = 'Retrabalho | Unilog Express'
+    const iconHref = '/brand/unilog-favicon-red.svg?v=20261001-6'
+
+    document.title = title
+
+    const ensureIcon = (rel: 'icon' | 'shortcut icon') => {
+      let link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`)
+      if (!link) {
+        link = document.createElement('link')
+        link.rel = rel
+        link.type = 'image/svg+xml'
+        document.head.appendChild(link)
+      }
+      link.href = iconHref
+    }
+
+    ensureIcon('icon')
+    ensureIcon('shortcut icon')
+  }, [])
+
   const [user, setUser] = useState<User | null>(null)
   const [loadingSession, setLoadingSession] = useState(true)
   const [matricula, setMatricula] = useState('')
