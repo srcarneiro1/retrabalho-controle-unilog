@@ -153,8 +153,9 @@ function currentMonth() {
 function monthLabel(value: string) {
   if (!/^\d{4}-\d{2}$/.test(value)) return value
   const [y, m] = value.split('-').map(Number)
-  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' })
+  const month = new Intl.DateTimeFormat('pt-BR', { month: 'long' })
     .format(new Date(y, m - 1, 1))
+  return month.charAt(0).toUpperCase() + month.slice(1) + ' ' + y
 }
 
 function money(value: number) {
@@ -856,11 +857,15 @@ export default function Home() {
     )
   }
 
+  const effectiveClientBranchFilter = isClient && branches.length === 1
+    ? branches[0].cnpj
+    : clientBranchFilter
+
   const visibleItems = useMemo(() => {
     if (!isClient) return items
     const query = clientSearch.trim().toLowerCase()
     return items.filter(item => {
-      if (clientBranchFilter && item.cnpjCliente !== clientBranchFilter) return false
+      if (effectiveClientBranchFilter && item.cnpjCliente !== effectiveClientBranchFilter) return false
       if (!query) return true
       return [
         item.sku,
@@ -870,7 +875,7 @@ export default function Home() {
         item.cnpjCliente,
       ].some(value => String(value || '').toLowerCase().includes(query))
     })
-  }, [items, isClient, clientBranchFilter, clientSearch])
+  }, [items, isClient, effectiveClientBranchFilter, clientSearch])
 
   const totals = useMemo(() => ({
     registros: visibleItems.length,
@@ -1230,7 +1235,14 @@ export default function Home() {
               </label>
             )}
             {section === 'lancamentos' && canExport && (
-              <Button label="Exportar" icon="pi pi-download" outlined className="compact" onClick={exportReworks} disabled={!items.length} />
+              <Button
+                label={isClient ? 'Baixar CSV' : 'Exportar'}
+                icon={isClient ? 'pi pi-file-export' : 'pi pi-download'}
+                outlined
+                className={isClient ? 'compact client-export' : 'compact'}
+                onClick={exportReworks}
+                disabled={isClient ? !visibleItems.length : !items.length}
+              />
             )}
             {section === 'lancamentos' && canCreate && (
               <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} disabled={!branches.length} />
@@ -1245,22 +1257,24 @@ export default function Home() {
         {section === 'lancamentos' && (
           <>
             {isClient && (
-              <div className="client-dashboard-filters">
-                <label>
-                  <span>Filial / CNPJ</span>
-                  <select value={clientBranchFilter} onChange={e => setClientBranchFilter(e.target.value)}>
-                    <option value="">Todas as filiais</option>
-                    {branches.map(branch => (
-                      <option key={branch.cnpj} value={branch.cnpj}>{branchLabel(branch)}</option>
-                    ))}
-                  </select>
-                </label>
+              <div className={`client-dashboard-filters ${branches.length <= 1 ? 'single-filter' : ''}`}>
+                {branches.length > 1 && (
+                  <label>
+                    <span>Filial / CNPJ</span>
+                    <select value={clientBranchFilter} onChange={e => setClientBranchFilter(e.target.value)}>
+                      <option value="">Todas as filiais</option>
+                      {branches.map(branch => (
+                        <option key={branch.cnpj} value={branch.cnpj}>{branchLabel(branch)}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label className="client-search">
                   <span>Buscar lançamento</span>
                   <InputText
                     value={clientSearch}
                     onChange={e => setClientSearch(e.target.value)}
-                    placeholder="SKU, descrição, filial ou CNPJ"
+                    placeholder={branches.length === 1 ? 'SKU ou descrição' : 'SKU, descrição, filial ou CNPJ'}
                   />
                 </label>
               </div>
