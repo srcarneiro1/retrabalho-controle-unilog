@@ -27,7 +27,8 @@ const UserService = (() => {
       perfil: upper_(x.record.PERFIL),
       ativo: upper_(x.record.ATIVO),
       trocaSenhaObrigatoria: upper_(x.record.TROCA_SENHA_OBRIGATORIA),
-      ultimoLoginEm: x.record.ULTIMO_LOGIN_EM || ''
+      ultimoLoginEm: x.record.ULTIMO_LOGIN_EM || '',
+      versao: Number(x.record.VERSAO || 0)
     }));
   }
 
@@ -62,7 +63,36 @@ const UserService = (() => {
     }, ['MATRICULA','CRIADO_POR','ATUALIZADO_POR']);
 
     AuditService.log('USUARIO', matricula, 'CRIAR', author, null, { matricula, nome, perfil, ativo:'SIM' }, null, 1);
-    return { ok: true, user: { matricula, nome, perfil, ativo:'SIM' } };
+    return { ok: true, user: { matricula, nome, perfil, ativo:'SIM', versao:1 } };
+  }
+
+  function update(input) {
+    const matricula = clean_(input.matricula);
+    const hit = Repository.find('USUARIOS','MATRICULA',matricula);
+    if (!hit) throw new Error('Usuário não encontrado.');
+
+    const perfil = upper_(input.perfil);
+    const ativo = upper_(input.ativo);
+    if (ALLOWED.indexOf(perfil) < 0) throw new Error('Perfil inválido.');
+    if (['SIM','NAO'].indexOf(ativo) < 0) throw new Error('Status inválido.');
+
+    const oldVersion = Number(hit.record.VERSAO || 0);
+    const informedVersion = Number(input.versao || 0);
+    if (oldVersion !== informedVersion) throw new Error('O usuário foi alterado por outra sessão. Atualize a lista.');
+
+    const before = { matricula, nome:clean_(hit.record.NOME), perfil:upper_(hit.record.PERFIL), ativo:upper_(hit.record.ATIVO) };
+    const newVersion = oldVersion + 1;
+    Repository.update('USUARIOS', hit.rowNumber, {
+      PERFIL: perfil,
+      ATIVO: ativo,
+      ATUALIZADO_EM: new Date(),
+      ATUALIZADO_POR: clean_(input.matriculaAutor),
+      VERSAO: newVersion
+    }, ['ATUALIZADO_POR']);
+
+    const after = { matricula, nome:clean_(hit.record.NOME), perfil, ativo };
+    AuditService.log('USUARIO', matricula, 'ATUALIZAR', clean_(input.matriculaAutor), before, after, oldVersion, newVersion);
+    return { ok:true, user:Object.assign({}, after, { versao:newVersion }) };
   }
 
   function changePassword(input) {
@@ -71,7 +101,8 @@ const UserService = (() => {
     const hit = Repository.find('USUARIOS','MATRICULA',matricula);
     if (!hit) throw new Error('Usuário não encontrado.');
     const credential = SecurityService.makePassword(newPassword);
-    const version = Number(hit.record.VERSAO || 0) + 1;
+    const oldVersion = Number(hit.record.VERSAO || 0);
+    const version = oldVersion + 1;
     Repository.update('USUARIOS', hit.rowNumber, {
       SENHA_HASH: credential.hash,
       SENHA_SALT: credential.salt,
@@ -80,9 +111,9 @@ const UserService = (() => {
       ATUALIZADO_POR: matricula,
       VERSAO: version
     }, []);
-    AuditService.log('USUARIO', matricula, 'TROCAR_SENHA', matricula, null, { trocaSenhaObrigatoria:'NAO' }, Number(hit.record.VERSAO || 0), version);
+    AuditService.log('USUARIO', matricula, 'TROCAR_SENHA', matricula, null, { trocaSenhaObrigatoria:'NAO' }, oldVersion, version);
     return { ok: true };
   }
 
-  return { authenticate, list, create, changePassword };
+  return { authenticate, list, create, update, changePassword };
 })();
