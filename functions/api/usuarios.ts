@@ -6,6 +6,7 @@ interface Env extends GatewayAuthEnv { APPS_SCRIPT_URL: string; APPS_SCRIPT_GATE
 async function admin(request: Request, env: Env) {
   const user = await authorize(request, env)
   if (!user) throw new Error('UNAUTHORIZED')
+  if (user.trocaSenhaObrigatoria) throw new Error('PASSWORD_CHANGE_REQUIRED')
   if (user.perfil !== 'ADMIN') throw new Error('FORBIDDEN')
   return user
 }
@@ -45,6 +46,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try { await admin(request, env); return json(await list_(env)) }
   catch (e) {
     const m = e instanceof Error ? e.message : 'Falha.'
+    if (m === 'PASSWORD_CHANGE_REQUIRED') return json({ ok:false,error:{message:'Troque a senha temporária antes de utilizar o sistema.'}},403)
     return json({ ok:false,error:{message:m==='FORBIDDEN'?'Sem permissão.':'Sessão inválida.'}}, m==='FORBIDDEN'?403:401)
   }
 }
