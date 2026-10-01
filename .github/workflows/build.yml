@@ -15,3 +15,10 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run build
+      - name: Validate exported browser identity
+        run: |
+          echo "TITLE_FROM_EXPORT:"
+          grep -o '<title>[^<]*</title>' dist/index.html || true
+          echo "ICON_LINKS_FROM_EXPORT:"
+          grep -o '<link[^>]*rel="[^"]*icon[^"]*"[^>]*>' dist/index.html || true
+          grep -q '<title>Retrabalho | Unilog Express</title>' dist/index.html
