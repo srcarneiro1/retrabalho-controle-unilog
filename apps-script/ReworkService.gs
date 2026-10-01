@@ -45,6 +45,8 @@ const ReworkService = (() => {
   }
 
   function map_(r) {
+    const cancelada = upper_(r.COBRANCA_CANCELADA) === 'SIM';
+    const valorOriginal = Number(r.VALOR_TOTAL_COBRANCA || 0);
     return {
       id: text_(r.ID_RETRABALHO),
       requestId: text_(r.REQUEST_ID),
@@ -55,13 +57,21 @@ const ReworkService = (() => {
       dataValidade: iso_(r.DATA_VALIDADE_INSERIDA),
       nacionalizacao: Number(r.ETIQUETAS_NACIONALIZACAO || 0),
       rfid: Number(r.ETIQUETAS_RFID || 0),
+      validade: Number(r.ETIQUETAS_VALIDADE || 0),
       totalEtiquetas: Number(r.TOTAL_ETIQUETAS || 0),
       idPreco: text_(r.ID_PRECO),
       precoNacionalizacaoUnit: Number(r.PRECO_NACIONALIZACAO_UNIT || 0),
       precoRfidAdicionalUnit: Number(r.PRECO_RFID_ADICIONAL_UNIT || 0),
+      precoValidadeUnit: Number(r.PRECO_VALIDADE_UNIT || 0),
       valorNacionalizacao: Number(r.VALOR_NACIONALIZACAO || 0),
       valorRfidAdicional: Number(r.VALOR_RFID_ADICIONAL || 0),
-      valorTotalCobranca: Number(r.VALOR_TOTAL_COBRANCA || 0),
+      valorValidade: Number(r.VALOR_VALIDADE || 0),
+      valorTotalCobranca: valorOriginal,
+      valorCobrancaEfetiva: cancelada ? 0 : valorOriginal,
+      cobrancaCancelada: cancelada,
+      canceladoEm: dt_(r.CANCELADO_EM),
+      canceladoPor: text_(r.CANCELADO_POR),
+      motivoCancelamento: text_(r.MOTIVO_CANCELAMENTO),
       cnpjCliente: text_(r.CNPJ_CLIENTE).replace(/\D/g,''),
       nomeCliente: text_(r.NOME_CLIENTE),
       filial: text_(r.FILIAL),
@@ -79,7 +89,7 @@ const ReworkService = (() => {
     const allowed = allowedSet_(matricula, perfil);
     return Repository.list('RETRABALHOS')
       .map(x => x.record)
-      .filter(r => text_(r.ATIVO).toUpperCase() !== 'NAO')
+      .filter(r => upper_(r.ATIVO) !== 'NAO')
       .map(map_)
       .filter(r => Boolean(allowed[r.cnpjCliente]))
       .filter(r => !filterMonth || r.dataEfetivacao.slice(0, 7) === filterMonth)
@@ -119,10 +129,11 @@ const ReworkService = (() => {
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
     const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
+    const validade = int_(input.validade, 'Quantidade de etiquetas de validade', true);
     if (rfid > nacionalizacao) {
       throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.');
     }
-    const price = PriceService.calculate(date, nacionalizacao, rfid);
+    const price = PriceService.calculate(date, nacionalizacao, rfid, validade);
 
     const now = new Date();
     const id = 'RT-' + Utilities.formatDate(now, AppConfig.TIMEZONE, 'yyyyMMddHHmmss') + '-' + Utilities.getUuid().slice(0,8).toUpperCase();
@@ -135,7 +146,7 @@ const ReworkService = (() => {
       DATA_VALIDADE_INSERIDA: parseDate_(input.dataValidade,'Data de validade',false),
       ETIQUETAS_NACIONALIZACAO: nacionalizacao,
       ETIQUETAS_RFID: rfid,
-      TOTAL_ETIQUETAS: nacionalizacao + rfid,
+      TOTAL_ETIQUETAS: nacionalizacao + rfid + validade,
       MATRICULA_CRIACAO: author,
       CRIADO_EM: now,
       MATRICULA_ATUALIZACAO: '',
@@ -151,13 +162,20 @@ const ReworkService = (() => {
       VALOR_TOTAL_COBRANCA: price.valorTotalCobranca,
       CNPJ_CLIENTE: branch.cnpj,
       NOME_CLIENTE: branch.nomeCliente,
-      FILIAL: branch.filial
+      FILIAL: branch.filial,
+      ETIQUETAS_VALIDADE: validade,
+      PRECO_VALIDADE_UNIT: price.precoValidadeUnit,
+      VALOR_VALIDADE: price.valorValidade,
+      COBRANCA_CANCELADA: 'NAO',
+      CANCELADO_EM: '',
+      CANCELADO_POR: '',
+      MOTIVO_CANCELAMENTO: ''
     };
 
     Repository.append(
       'RETRABALHOS',
       record,
-      ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO','CNPJ_CLIENTE']
+      ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO','CNPJ_CLIENTE','CANCELADO_POR']
     );
     AuditService.log('RETRABALHO', id, 'CRIAR', author, null, map_(record), null, 1);
     return { ok: true, data: map_(record) };
@@ -175,6 +193,10 @@ const ReworkService = (() => {
     if (!hit) throw new Error('Registro não encontrado.');
 
     const current = map_(hit.record);
+    if (current.cobrancaCancelada) {
+      throw new Error('A cobrança deste registro já foi cancelada e o histórico não pode ser editado.');
+    }
+
     const scope = allowedSet_(author, perfil);
     if (!scope[current.cnpjCliente]) throw new Error('Você não possui acesso a este registro.');
 
@@ -189,10 +211,11 @@ const ReworkService = (() => {
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
     const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
+    const validade = int_(input.validade, 'Quantidade de etiquetas de validade', true);
     if (rfid > nacionalizacao) {
       throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.');
     }
-    const price = PriceService.calculate(date, nacionalizacao, rfid);
+    const price = PriceService.calculate(date, nacionalizacao, rfid, validade);
     const nextVersion = currentVersion + 1;
 
     const updates = {
@@ -203,12 +226,15 @@ const ReworkService = (() => {
       DATA_VALIDADE_INSERIDA: parseDate_(input.dataValidade,'Data de validade',false),
       ETIQUETAS_NACIONALIZACAO: nacionalizacao,
       ETIQUETAS_RFID: rfid,
-      TOTAL_ETIQUETAS: nacionalizacao + rfid,
+      ETIQUETAS_VALIDADE: validade,
+      TOTAL_ETIQUETAS: nacionalizacao + rfid + validade,
       ID_PRECO: price.idPreco,
       PRECO_NACIONALIZACAO_UNIT: price.precoNacionalizacaoUnit,
       PRECO_RFID_ADICIONAL_UNIT: price.precoRfidAdicionalUnit,
+      PRECO_VALIDADE_UNIT: price.precoValidadeUnit,
       VALOR_NACIONALIZACAO: price.valorNacionalizacao,
       VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
+      VALOR_VALIDADE: price.valorValidade,
       VALOR_TOTAL_COBRANCA: price.valorTotalCobranca,
       CNPJ_CLIENTE: branch.cnpj,
       NOME_CLIENTE: branch.nomeCliente,
@@ -230,5 +256,46 @@ const ReworkService = (() => {
     return { ok: true, data: after };
   }
 
-  return { list, months, idsForScope, create, edit };
+  function cancelCharge(input) {
+    const id = text_(input.id);
+    const author = text_(input.matriculaAutor);
+    const perfil = upper_(input.perfilAutor);
+    const reason = text_(input.motivo);
+
+    if (perfil !== 'SUPERVISOR' && perfil !== 'ADMIN') {
+      throw new Error('Somente SUPERVISOR e ADMIN podem cancelar uma cobrança.');
+    }
+    if (!reason) throw new Error('Informe o motivo do cancelamento da cobrança.');
+
+    const hit = Repository.find('RETRABALHOS','ID_RETRABALHO',id);
+    if (!hit) throw new Error('Registro não encontrado.');
+
+    const before = map_(hit.record);
+    const scope = allowedSet_(author, perfil);
+    if (!scope[before.cnpjCliente]) throw new Error('Você não possui acesso a este registro.');
+    if (before.cobrancaCancelada) return { ok:true, data:before, idempotent:true };
+
+    const currentVersion = Number(hit.record.VERSAO || 0);
+    const informedVersion = Number(input.versao || 0);
+    if (informedVersion !== currentVersion) {
+      throw new Error('O registro foi alterado por outro usuário. Atualize a lista antes de cancelar.');
+    }
+
+    const nextVersion = currentVersion + 1;
+    Repository.update('RETRABALHOS', hit.rowNumber, {
+      COBRANCA_CANCELADA: 'SIM',
+      CANCELADO_EM: new Date(),
+      CANCELADO_POR: author,
+      MOTIVO_CANCELAMENTO: reason,
+      MATRICULA_ATUALIZACAO: author,
+      ATUALIZADO_EM: new Date(),
+      VERSAO: nextVersion
+    }, ['CANCELADO_POR','MATRICULA_ATUALIZACAO']);
+
+    const after = map_(Repository.rowObject('RETRABALHOS', hit.rowNumber));
+    AuditService.log('RETRABALHO', id, 'CANCELAR_COBRANCA', author, before, after, currentVersion, nextVersion);
+    return { ok:true, data:after };
+  }
+
+  return { list, months, idsForScope, create, edit, cancelCharge };
 })();
