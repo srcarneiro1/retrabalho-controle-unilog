@@ -23,6 +23,7 @@ function doPost(e) {
       const action = String(payload.acao || '').toUpperCase();
       if (action === 'LISTAR') return ok_({ data: UserService.list() });
       if (action === 'CRIAR') return ok_(UserService.create(payload));
+      if (action === 'ATUALIZAR') return ok_(UserService.update(payload));
       throw new Error('Ação de usuário inválida.');
     }
 
