@@ -195,7 +195,7 @@ function downloadCsv(filename: string, headers: string[], rows: unknown[][]) {
 export default function Home() {
   useEffect(() => {
     const title = 'Retrabalho | Unilog Express'
-    const iconHref = '/brand/unilog-favicon-red.svg?v=20261001-6'
+    const iconHref = '/favicon.ico?v=20261001-8'
 
     document.title = title
 
@@ -204,7 +204,7 @@ export default function Home() {
       if (!link) {
         link = document.createElement('link')
         link.rel = rel
-        link.type = 'image/svg+xml'
+        link.type = 'image/x-icon'
         document.head.appendChild(link)
       }
       link.href = iconHref
@@ -230,6 +230,10 @@ export default function Home() {
   const [months, setMonths] = useState<string[]>([])
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [loading, setLoading] = useState(false)
+  const [workspaceLoading, setWorkspaceLoading] = useState(false)
+  const [workspaceReady, setWorkspaceReady] = useState(false)
+  const [workspaceSlow, setWorkspaceSlow] = useState(false)
+  const [workspaceError, setWorkspaceError] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState(createForm)
@@ -355,18 +359,66 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    if (!user) return
-    if (user.trocaSenhaObrigatoria) return
-
-    void loadPrices()
-    void loadBranches()
-    if (user.perfil === 'ADMIN') void loadAllBranches()
-    if (user.perfil === 'CLIENTE') {
-      void loadClientDashboard()
-    } else {
-      void loadItems()
-    }
+    if (!user || user.trocaSenhaObrigatoria) return
+    void initializeWorkspace(user)
   }, [user])
+
+  async function initializeWorkspace(currentUser: User) {
+    if (currentUser.trocaSenhaObrigatoria) return
+
+    setWorkspaceLoading(true)
+    setWorkspaceReady(false)
+    setWorkspaceSlow(false)
+    setWorkspaceError('')
+
+    const slowTimer = window.setTimeout(() => setWorkspaceSlow(true), 3500)
+
+    try {
+      if (currentUser.perfil === 'CLIENTE') {
+        const [priceData, branchData, monthData] = await Promise.all([
+          api('/api/precos'),
+          api('/api/filiais'),
+          api('/api/retrabalhos?months=1'),
+        ])
+
+        setPrices(priceData.data || [])
+        setBranches(branchData.data || [])
+
+        const available: string[] = monthData.data || []
+        setMonths(available)
+        const chosen = available[0] || currentMonth()
+        setSelectedMonth(chosen)
+
+        const itemData = await api('/api/retrabalhos?mes=' + encodeURIComponent(chosen))
+        setItems(itemData.data || [])
+      } else {
+        const requests: Promise<any>[] = [
+          api('/api/precos'),
+          api('/api/filiais'),
+          api('/api/retrabalhos'),
+        ]
+
+        if (currentUser.perfil === 'ADMIN') requests.push(api('/api/filiais?all=1'))
+
+        const [priceData, branchData, itemData, allBranchData] = await Promise.all(requests)
+        setPrices(priceData.data || [])
+        setBranches(branchData.data || [])
+        setItems(itemData.data || [])
+        if (currentUser.perfil === 'ADMIN') setAllBranches(allBranchData?.data || [])
+      }
+
+      setWorkspaceReady(true)
+    } catch (error) {
+      setWorkspaceError(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível carregar os dados iniciais.'
+      )
+    } finally {
+      window.clearTimeout(slowTimer)
+      setWorkspaceLoading(false)
+    }
+  }
 
   async function login(e: React.FormEvent) {
     e.preventDefault()
@@ -392,6 +444,10 @@ export default function Home() {
     setUser(null)
     setPasswordDialog(false)
     setItems([])
+    setBranches([])
+    setAllBranches([])
+    setWorkspaceReady(false)
+    setWorkspaceError('')
   }
 
   function openNew() {
@@ -891,6 +947,38 @@ export default function Home() {
     )
   }
 
+  if (workspaceLoading || !workspaceReady) {
+    return (
+      <main className="workspace-gate">
+        <section className="workspace-gate-card" aria-live="polite">
+          <img src="/brand/unilog-logo-white-transparent.svg" alt="Unilog Express" />
+          {workspaceError ? (
+            <>
+              <i className="pi pi-exclamation-triangle workspace-gate-error-icon" />
+              <h2>Não foi possível carregar o ambiente</h2>
+              <p>{workspaceError}</p>
+              <Button
+                label="Tentar novamente"
+                icon="pi pi-refresh"
+                className="primary"
+                onClick={() => void initializeWorkspace(user)}
+              />
+            </>
+          ) : (
+            <>
+              <i className="pi pi-spin pi-spinner workspace-gate-spinner" />
+              <h2>Preparando seu ambiente</h2>
+              <p>Carregando filiais, preços e lançamentos antes de liberar a tela.</p>
+              {workspaceSlow && (
+                <small>A conexão com a base está levando mais tempo que o normal. Aguarde mais alguns segundos.</small>
+              )}
+            </>
+          )}
+        </section>
+      </main>
+    )
+  }
+
   return (
     <main className={`app ${collapsed ? 'sidebar-collapsed' : ''}`}>
       {mobileOpen && (
@@ -1025,10 +1113,10 @@ export default function Home() {
 
         {section === 'lancamentos' && (
           <>
-            {canCreate && !branches.length && (
+            {workspaceReady && canCreate && !branches.length && (
               <div className="branch-warning">
                 <i className="pi pi-info-circle" />
-                Nenhuma filial ativa está disponível para o seu usuário. Cadastre/vincule uma filial antes de criar lançamentos.
+                <span>Nenhuma filial ativa está disponível para o seu usuário. Cadastre/vincule uma filial antes de criar lançamentos.</span>
               </div>
             )}
             <div className="metrics metrics-4">
