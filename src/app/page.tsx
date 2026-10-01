@@ -254,7 +254,9 @@ export default function Home() {
       setNewPassword('')
       setConfirmPassword('')
       setPasswordDialog(false)
-      setUser(current => current ? { ...current, trocaSenhaObrigatoria: false } : current)
+      await api('/api/auth/logout', { method: 'POST', body: '{}' }).catch(() => null)
+      setUser(null)
+      setMatricula(user?.matricula || '')
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : 'Falha ao trocar senha.')
     } finally {
