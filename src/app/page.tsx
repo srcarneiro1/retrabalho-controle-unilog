@@ -350,7 +350,7 @@ export default function Home() {
             <div><h2>Histórico de retrabalho</h2><p>Operacional inclui registros; Supervisor e Admin podem corrigir dados com auditoria.</p></div>
             <Button icon="pi pi-refresh" text rounded onClick={loadItems} loading={loading} />
           </div>
-          <DataTable value={items} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado." onRowDoubleClick={e => openEdit(e.data)} stripedRows>
+          <DataTable value={items} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows>
             <Column field="dataEfetivacao" header="Data" />
             <Column field="sku" header="SKU" />
             <Column field="descricao" header="Descrição" />
