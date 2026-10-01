@@ -1,5 +1,6 @@
 const ReworkService = (() => {
   function text_(v) { return String(v == null ? '' : v).trim(); }
+  function upper_(v) { return text_(v).toUpperCase(); }
 
   function int_(v, label, allowZero) {
     const n = Number(v);
@@ -37,6 +38,12 @@ const ReworkService = (() => {
     return /^\d{4}-\d{2}$/.test(value) ? value : '';
   }
 
+  function allowedSet_(matricula, perfil) {
+    const set = {};
+    ClientBranchService.scopeCnpjs(matricula, perfil).forEach(cnpj => { set[cnpj] = true; });
+    return set;
+  }
+
   function map_(r) {
     return {
       id: text_(r.ID_RETRABALHO),
@@ -55,6 +62,9 @@ const ReworkService = (() => {
       valorNacionalizacao: Number(r.VALOR_NACIONALIZACAO || 0),
       valorRfidAdicional: Number(r.VALOR_RFID_ADICIONAL || 0),
       valorTotalCobranca: Number(r.VALOR_TOTAL_COBRANCA || 0),
+      cnpjCliente: text_(r.CNPJ_CLIENTE).replace(/\D/g,''),
+      nomeCliente: text_(r.NOME_CLIENTE),
+      filial: text_(r.FILIAL),
       matriculaCriacao: text_(r.MATRICULA_CRIACAO),
       criadoEm: dt_(r.CRIADO_EM),
       matriculaAtualizacao: text_(r.MATRICULA_ATUALIZACAO),
@@ -64,37 +74,43 @@ const ReworkService = (() => {
     };
   }
 
-  function list(month) {
+  function list(month, matricula, perfil) {
     const filterMonth = validMonth_(month);
+    const allowed = allowedSet_(matricula, perfil);
     return Repository.list('RETRABALHOS')
       .map(x => x.record)
       .filter(r => text_(r.ATIVO).toUpperCase() !== 'NAO')
       .map(map_)
+      .filter(r => Boolean(allowed[r.cnpjCliente]))
       .filter(r => !filterMonth || r.dataEfetivacao.slice(0, 7) === filterMonth)
       .sort((a,b) => (b.dataEfetivacao + b.criadoEm).localeCompare(a.dataEfetivacao + a.criadoEm));
   }
 
-  function months() {
+  function months(matricula, perfil) {
     const unique = {};
-    list().forEach(item => {
+    list('', matricula, perfil).forEach(item => {
       const month = item.dataEfetivacao.slice(0, 7);
       if (month) unique[month] = true;
     });
     return Object.keys(unique).sort().reverse();
   }
 
-  function idsForMonth(month) {
-    return list(month).map(item => item.id);
+  function idsForScope(month, matricula, perfil) {
+    return list(month, matricula, perfil).map(item => item.id);
   }
 
   function create(input) {
     const author = text_(input.matriculaAutor);
+    const perfil = upper_(input.perfilAutor);
+    if (perfil === 'CLIENTE') throw new Error('Perfil CLIENTE é somente leitura.');
+
     const requestId = text_(input.requestId);
     if (!requestId) throw new Error('Identificador da requisição ausente.');
 
     const prior = Repository.find('RETRABALHOS','REQUEST_ID',requestId);
     if (prior) return { ok: true, data: map_(prior.record), idempotent: true };
 
+    const branch = ClientBranchService.assertAllowed(author, perfil, input.cnpjCliente);
     const sku = text_(input.sku);
     const descricao = text_(input.descricao);
     if (!sku) throw new Error('Informe o SKU.');
@@ -132,13 +148,16 @@ const ReworkService = (() => {
       PRECO_RFID_ADICIONAL_UNIT: price.precoRfidAdicionalUnit,
       VALOR_NACIONALIZACAO: price.valorNacionalizacao,
       VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
-      VALOR_TOTAL_COBRANCA: price.valorTotalCobranca
+      VALOR_TOTAL_COBRANCA: price.valorTotalCobranca,
+      CNPJ_CLIENTE: branch.cnpj,
+      NOME_CLIENTE: branch.nomeCliente,
+      FILIAL: branch.filial
     };
 
     Repository.append(
       'RETRABALHOS',
       record,
-      ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO']
+      ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO','CNPJ_CLIENTE']
     );
     AuditService.log('RETRABALHO', id, 'CRIAR', author, null, map_(record), null, 1);
     return { ok: true, data: map_(record) };
@@ -147,8 +166,17 @@ const ReworkService = (() => {
   function edit(input) {
     const id = text_(input.id);
     const author = text_(input.matriculaAutor);
+    const perfil = upper_(input.perfilAutor);
+    if (perfil === 'OPERACIONAL' || perfil === 'CLIENTE') {
+      throw new Error('Seu perfil não pode editar registros.');
+    }
+
     const hit = Repository.find('RETRABALHOS','ID_RETRABALHO',id);
     if (!hit) throw new Error('Registro não encontrado.');
+
+    const current = map_(hit.record);
+    const scope = allowedSet_(author, perfil);
+    if (!scope[current.cnpjCliente]) throw new Error('Você não possui acesso a este registro.');
 
     const currentVersion = Number(hit.record.VERSAO || 0);
     const informedVersion = Number(input.versao || 0);
@@ -156,7 +184,8 @@ const ReworkService = (() => {
       throw new Error('O registro foi alterado por outro usuário. Atualize a lista antes de editar.');
     }
 
-    const before = map_(hit.record);
+    const before = current;
+    const branch = ClientBranchService.assertAllowed(author, perfil, input.cnpjCliente);
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
     const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
@@ -181,6 +210,9 @@ const ReworkService = (() => {
       VALOR_NACIONALIZACAO: price.valorNacionalizacao,
       VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
       VALOR_TOTAL_COBRANCA: price.valorTotalCobranca,
+      CNPJ_CLIENTE: branch.cnpj,
+      NOME_CLIENTE: branch.nomeCliente,
+      FILIAL: branch.filial,
       MATRICULA_ATUALIZACAO: author,
       ATUALIZADO_EM: new Date(),
       VERSAO: nextVersion
@@ -190,7 +222,7 @@ const ReworkService = (() => {
       'RETRABALHOS',
       hit.rowNumber,
       updates,
-      ['SKU','ID_PRECO','MATRICULA_ATUALIZACAO']
+      ['SKU','ID_PRECO','CNPJ_CLIENTE','MATRICULA_ATUALIZACAO']
     );
 
     const after = map_(Repository.rowObject('RETRABALHOS', hit.rowNumber));
@@ -198,5 +230,5 @@ const ReworkService = (() => {
     return { ok: true, data: after };
   }
 
-  return { list, months, idsForMonth, create, edit };
+  return { list, months, idsForScope, create, edit };
 })();
