@@ -2,6 +2,7 @@ const AuditService = (() => {
   function uuid_() { return Utilities.getUuid(); }
   function now_() { return new Date(); }
   function text_(v) { return String(v == null ? '' : v).trim(); }
+  function upper_(v) { return text_(v).toUpperCase(); }
 
   function log(entity, id, action, author, beforeData, afterData, oldVersion, newVersion) {
     Repository.append('AUDITORIA', {
@@ -19,11 +20,12 @@ const AuditService = (() => {
     }, ['ID_AUDITORIA','ID_REGISTRO','MATRICULA_AUTOR']);
   }
 
-  function list(month) {
+  function list(month, matricula, perfil) {
     const filterMonth = /^\d{4}-\d{2}$/.test(text_(month)) ? text_(month) : '';
-    const allowedIds = filterMonth ? ReworkService.idsForMonth(filterMonth) : null;
+    const profile = upper_(perfil);
+    const scopedIds = ReworkService.idsForScope(filterMonth, matricula, profile);
     const allowed = {};
-    if (allowedIds) allowedIds.forEach(id => { allowed[id] = true; });
+    scopedIds.forEach(id => { allowed[id] = true; });
 
     return Repository.list('AUDITORIA')
       .map(x => ({
@@ -39,7 +41,10 @@ const AuditService = (() => {
         dadosDepois: text_(x.record.DADOS_DEPOIS_JSON),
         origem: text_(x.record.ORIGEM)
       }))
-      .filter(item => !filterMonth || (item.entidade === 'RETRABALHO' && allowed[item.idRegistro]))
+      .filter(item => {
+        if (profile === 'ADMIN' && !filterMonth) return true;
+        return item.entidade === 'RETRABALHO' && Boolean(allowed[item.idRegistro]);
+      })
       .reverse();
   }
 
