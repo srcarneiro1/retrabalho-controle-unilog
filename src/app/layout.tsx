@@ -5,6 +5,7 @@ import 'primeicons/primeicons.css'
 import './styles.css'
 import './unilog-design-system.css'
 import './component-geometry.css'
+import './mobile-polish.css'
 
 export const metadata: Metadata = {
   title: 'Retrabalho | Unilog Express',
