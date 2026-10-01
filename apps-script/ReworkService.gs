@@ -29,6 +29,7 @@ const ReworkService = (() => {
   function map_(r) {
     return {
       id: text_(r.ID_RETRABALHO),
+      requestId: text_(r.REQUEST_ID),
       dataEfetivacao: iso_(r.DATA_EFETIVACAO),
       sku: text_(r.SKU),
       descricao: text_(r.DESCRICAO),
@@ -56,6 +57,12 @@ const ReworkService = (() => {
 
   function create(input) {
     const author = text_(input.matriculaAutor);
+    const requestId = text_(input.requestId);
+    if (!requestId) throw new Error('Identificador da requisição ausente.');
+
+    const prior = Repository.find('RETRABALHOS','REQUEST_ID',requestId);
+    if (prior) return { ok: true, data: map_(prior.record), idempotent: true };
+
     const sku = text_(input.sku);
     const descricao = text_(input.descricao);
     if (!sku) throw new Error('Informe o SKU.');
@@ -80,9 +87,10 @@ const ReworkService = (() => {
       MATRICULA_ATUALIZACAO: '',
       ATUALIZADO_EM: '',
       VERSAO: 1,
-      ATIVO: 'SIM'
+      ATIVO: 'SIM',
+      REQUEST_ID: requestId
     };
-    Repository.append('RETRABALHOS', record, ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO']);
+    Repository.append('RETRABALHOS', record, ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID']);
     AuditService.log('RETRABALHO', id, 'CRIAR', author, null, map_(record), null, 1);
     return { ok: true, data: map_(record) };
   }
