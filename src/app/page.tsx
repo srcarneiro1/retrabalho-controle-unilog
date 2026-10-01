@@ -215,7 +215,7 @@ function downloadCsv(filename: string, headers: string[], rows: unknown[][]) {
 export default function Home() {
   useEffect(() => {
     const title = 'Retrabalho | Unilog Express'
-    const iconHref = '/favicon.ico?v=20261001-8'
+    const iconHref = '/favicon.ico?v=20261001-10'
 
     document.title = title
 
@@ -1311,12 +1311,13 @@ export default function Home() {
                   header=""
                   body={(row: Rework) => canEdit ? (
                     <div className="row-actions">
-                      <Button icon="pi pi-pencil" text rounded disabled={row.cobrancaCancelada} onClick={() => openEdit(row)} />
+                      <Button icon="pi pi-pencil" text rounded className="table-action" disabled={row.cobrancaCancelada} onClick={() => openEdit(row)} />
                       <Button
                         icon="pi pi-ban"
                         text
                         rounded
                         severity="danger"
+                        className="danger-action"
                         disabled={row.cobrancaCancelada}
                         title={row.cobrancaCancelada ? 'Cobrança já cancelada' : 'Cancelar cobrança'}
                         onClick={() => { setCancelError(''); setCancelReason(''); setCancelTarget(row) }}
@@ -1446,7 +1447,7 @@ export default function Home() {
                     filter
                   />
                 </label>
-                <Button label="Criar usuário" icon="pi pi-plus" onClick={createUser} loading={saving} className="primary form-submit" />
+                <Button label="Criar usuário" icon="pi pi-plus" onClick={createUser} loading={saving} className="primary form-submit user-submit" />
               </div>
               {userError && (
                 <div className="error user-error">
@@ -1468,9 +1469,8 @@ export default function Home() {
             </div>
           </section>
         )}
-      </section>
-
         </div>
+      </section>
 
       <Dialog
         header={form.id ? 'Editar retrabalho' : 'Novo retrabalho'}
