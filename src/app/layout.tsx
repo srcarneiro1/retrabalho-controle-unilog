@@ -6,8 +6,11 @@ import './styles.css'
 import './unilog-design-system.css'
 
 export const metadata: Metadata = {
-  title: 'Retrabalho Controle | Unilog',
-  description: 'Controle operacional de retrabalho e etiquetagem',
+  title: 'Retrabalho Controle | Unilog Express',
+  description: 'Retrabalho Controle — Unilog Express',
+  icons: {
+    icon: '/brand/unilog-favicon-red.svg',
+  },
 }
 
 export const viewport: Viewport = {
