@@ -342,3 +342,98 @@
 }
 .branch-warning i{flex:0 0 auto}
 .user-error{margin:0 0 14px}
+
+
+/* Initial workspace bootstrap: avoid rendering misleading empty/error states. */
+.workspace-gate{
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  background:var(--unilog-canvas);
+}
+.workspace-gate-card{
+  width:min(430px,calc(100vw - 32px));
+  display:grid;
+  justify-items:center;
+  gap:12px;
+  padding:30px 26px;
+  border:1px solid var(--unilog-border);
+  border-radius:16px;
+  background:#fff;
+  box-shadow:var(--unilog-shadow);
+  text-align:center;
+}
+.workspace-gate-card>img{
+  width:112px;
+  height:auto;
+  padding:9px 12px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#171b24,#202632);
+}
+.workspace-gate-spinner,
+.workspace-gate-error-icon{
+  margin-top:4px;
+  font-size:24px;
+  color:var(--unilog-red);
+}
+.workspace-gate-card h2{
+  margin:2px 0 0;
+  font-size:18px;
+  color:var(--unilog-ink);
+}
+.workspace-gate-card p{
+  margin:0;
+  max-width:340px;
+  font-size:11px;
+  line-height:1.55;
+  color:var(--unilog-muted);
+}
+.workspace-gate-card small{
+  display:block;
+  max-width:340px;
+  padding:9px 11px;
+  border-radius:9px;
+  background:#f5f6f8;
+  color:#6b7280;
+  font-size:9px;
+  line-height:1.45;
+}
+
+/* Informational feedback aligned to the branch control geometry. */
+.branch-warning{
+  display:grid!important;
+  grid-template-columns:18px minmax(0,1fr)!important;
+  align-items:start!important;
+  column-gap:8px!important;
+}
+.branch-warning i{
+  width:18px!important;
+  height:18px!important;
+  display:grid!important;
+  place-items:center!important;
+  line-height:18px!important;
+  margin-top:0!important;
+}
+.branch-warning span{
+  min-width:0!important;
+  line-height:18px!important;
+}
+
+/* Keep PrimeReact MultiSelect label vertically centered with other controls. */
+.p-multiselect{
+  display:flex!important;
+  align-items:stretch!important;
+}
+.p-multiselect .p-multiselect-label-container{
+  display:flex!important;
+  align-items:center!important;
+  min-width:0!important;
+}
+.p-multiselect .p-multiselect-label{
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap!important;
+  width:100%!important;
+  margin:0!important;
+}
