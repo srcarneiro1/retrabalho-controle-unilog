@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.01.2';
+const API_VERSION = '2026.10.01.3';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -39,6 +39,7 @@ function doPost(e) {
       if (action === 'MESES') return ok_({ data: ReworkService.months(payload.matriculaAutor, payload.perfilAutor) });
       if (action === 'CRIAR') return ok_(ReworkService.create(payload));
       if (action === 'EDITAR') return ok_(ReworkService.edit(payload));
+      if (action === 'CANCELAR_COBRANCA') return ok_(ReworkService.cancelCharge(payload));
       throw new Error('Ação de retrabalho inválida.');
     }
 
