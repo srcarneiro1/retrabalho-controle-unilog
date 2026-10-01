@@ -389,6 +389,7 @@ Os itens abaixo são sucessos consolidados e não devem retroceder:
 - mobile sem zoom automático em inputs;
 - overlays PrimeReact compactos;
 - dialogs com raio e clipping consistentes;
+- layout desktop responsivo pela largura útil, sem depender de métricas específicas de Chrome/Edge/Opera;
 - primeiro acesso sem novo login manual.
 
 Uma alteração que viole qualquer item acima deve ser considerada regressão até revisão explícita.
@@ -398,6 +399,7 @@ Uma alteração que viole qualquer item acima deve ser considerada regressão at
 - [ ] Validar visualmente o deploy dos overlays `MultiSelect`, `Calendar` e `Dialog` em desktop
 - [ ] Validar os mesmos overlays em mobile
 - [ ] Confirmar `Criar usuário` compacto no desktop e full-width somente no mobile
+- [ ] Validar shell, formulários e tabelas em Chrome, Edge, Opera e Safari
 - [ ] Refinar o dashboard CLIENTE mantendo todas as regras acima
 
 ## 📝 Registro de decisões
