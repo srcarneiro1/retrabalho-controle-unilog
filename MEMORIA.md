@@ -95,3 +95,27 @@ Apps Script:
 - Cloudflare Pages criado e variáveis/segredos configurados.
 - novo commit na `main` utilizado para disparar redeploy após configuração das variáveis.
 - build validado via GitHub Actions.
+
+
+## Identidade visual — fonte de verdade
+Referências canônicas:
+- Extra Cost Control: `docs/PRIMEREACT_DESIGN_SYSTEM.md`;
+- BI Logístico V2: `MEMORIA_IDENTIDADE_VISUAL.md`;
+- paridade visual consolidada no Extra Cost pelo PR #75.
+
+Regras obrigatórias:
+- usar a logo oficial `/brand/unilog-logo-white-transparent.svg`; não substituir por texto "UNILOG";
+- sidebar desktop com 244px, fundo `#171b24 → #202632`, logo de 96px e navegação interna compacta;
+- item ativo = grafite `#303642` + faixa vermelha `#db0812`;
+- bloco de usuário e logout no rodapé;
+- grupo administrativo separado por divisor/caption;
+- vermelho Unilog `#db0812` como CTA/foco/destaque;
+- canvas `#f5f6f8`, superfície branca, borda `#e2e5e9`;
+- não permitir azul/índigo visível do tema Lara;
+- cards majoritariamente brancos, raio 14px e sombra baixa;
+- login com painel grafite, logo oficial e chip do produto;
+- primeiro acesso usa a mesma anatomia visual do login.
+
+## Primeiro acesso
+A senha inicial é temporária.
+Ao autenticar com `TROCA_SENHA_OBRIGATORIA=SIM`, o usuário permanece na experiência de primeiro acesso, define a nova senha e o frontend renova a autenticação de forma transparente com a nova credencial. Não deve haver logout visual nem necessidade de novo login manual.
