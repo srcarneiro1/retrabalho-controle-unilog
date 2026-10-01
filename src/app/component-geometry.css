@@ -4,7 +4,7 @@
   --ui-control-h:42px;
   --ui-action-h:38px;
   --ui-action-compact-h:36px;
-  --ui-icon-action:34px;
+  --ui-icon-action:32px;
   --ui-control-pad-x:12px;
   --ui-control-font:11px;
 }
@@ -102,7 +102,7 @@
   background:var(--unilog-surface-soft)!important;
 }
 .user-form{
-  grid-template-columns:minmax(140px,.8fr) minmax(220px,1.35fr) minmax(150px,.9fr) minmax(190px,1fr) auto!important;
+  grid-template-columns:minmax(120px,.72fr) minmax(180px,1fr) minmax(130px,.78fr) minmax(160px,.9fr) minmax(260px,1.4fr) max-content!important;
   margin-bottom:16px!important;
 }
 .price-create{
@@ -324,7 +324,7 @@
   width:38px!important;
 }
 .user-branches-field{
-  grid-column:span 2!important;
+  grid-column:auto!important;
 }
 
 .branch-warning{
@@ -442,7 +442,27 @@
   display:flex;
   align-items:center;
   justify-content:flex-end;
-  gap:2px;
+  gap:4px;
+}
+.table-action.p-button.p-button-text{
+  color:#626975!important;
+}
+.table-action.p-button.p-button-text:hover{
+  background:#f1f2f4!important;
+  color:#242a36!important;
+}
+.danger-action.p-button.p-button-text{
+  color:var(--unilog-red)!important;
+  background:transparent!important;
+}
+.danger-action.p-button.p-button-text:hover{
+  color:#b8070f!important;
+  background:#fff0f1!important;
+}
+.user-submit.p-button{
+  width:auto!important;
+  min-width:118px!important;
+  justify-self:end!important;
 }
 .cancel-charge{
   display:grid;
