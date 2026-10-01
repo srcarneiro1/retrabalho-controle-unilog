@@ -22,6 +22,7 @@ Regra inicial:
 Preço é controlado em `TABELA_PRECOS` por vigência.
 Nova vigência deve ser posterior à última vigência existente.
 Histórico não é sobrescrito.
+
 Cada retrabalho grava:
 - ID_PRECO;
 - preço unitário Nacionalização;
@@ -54,6 +55,9 @@ Cada retrabalho grava:
 - senha não é persistida em texto puro.
 - hash iterativo SHA-256 + salt individual + pepper em Script Property.
 - segredos ficam somente em Cloudflare/Apps Script.
+- `APP_SESSION_SECRET` fica somente no Cloudflare.
+- `AUTH_PASSWORD_PEPPER` fica somente no Apps Script.
+- `APPS_SCRIPT_GATEWAY_TOKEN` no Cloudflare deve corresponder ao `GATEWAY_TOKEN` do Apps Script.
 - alterações de perfil/status são exclusivas de ADMIN.
 - CSV exportado aplica mitigação de Formula Injection.
 
@@ -71,20 +75,23 @@ Abas:
 Cloudflare:
 - build: `npm run build`
 - output: `dist`
+- branch de produção: `main`
 - `APPS_SCRIPT_URL`
 - `APPS_SCRIPT_GATEWAY_TOKEN`
 - `APP_SESSION_SECRET`
 
 Apps Script:
+- Web App publicado em produção.
 - `SPREADSHEET_ID`
 - `GATEWAY_TOKEN`
 - `AUTH_PASSWORD_PEPPER`
-- executar `bootstrapAdmin(...)` uma única vez.
+- bootstrap inicial do ADMIN executado pelo navegador.
 
 ## Estado
 - planilha estruturada no Google Drive.
 - frontend/gateway/API source criados no GitHub.
 - CLIENTE + precificação histórica implementados.
-- build atual validado no GitHub Actions.
-- Apps Script Web App ainda não foi implantado.
-- Cloudflare Pages ainda não foi criado na conta.
+- Apps Script Web App publicado e configurado.
+- Cloudflare Pages criado e variáveis/segredos configurados.
+- novo commit na `main` utilizado para disparar redeploy após configuração das variáveis.
+- build validado via GitHub Actions.
