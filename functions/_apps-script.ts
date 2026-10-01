@@ -23,6 +23,18 @@ function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function redirectError_(next: URL) {
+  if (next.hostname === 'accounts.google.com' || next.hostname.endsWith('.google.com') && next.pathname.includes('/accounts')) {
+    return new Error(
+      'O Web App do Apps Script está exigindo autenticação Google. Na implantação, use Executar como: Eu e Quem pode acessar: Qualquer pessoa.'
+    )
+  }
+
+  return new Error(
+    'O Apps Script redirecionou para um destino inesperado (' + next.hostname + '). Confirme a URL /exec da implantação configurada no Cloudflare.'
+  )
+}
+
 function looksLikeHtml(text: string, contentType: string) {
   const normalized = text.trim().toLowerCase()
   return contentType.includes('text/html')
@@ -45,7 +57,7 @@ function invalidResponseMessage(response: Response, text: string) {
     }
 
     if (finalHost === EXEC_HOST || finalHost === CONTENT_HOST || finalHost.endsWith('.googleusercontent.com')) {
-      return 'O Apps Script respondeu com uma página HTML em vez de JSON. Atualize a implantação do Web App para a versão mais recente e confirme que a URL /exec configurada no Cloudflare pertence a essa implantação.'
+      return 'O Apps Script publicou HTML em vez da API JSON. A implantação /exec ativa não corresponde ao Web App esperado ou está com permissão incorreta.'
     }
   }
 
@@ -93,7 +105,7 @@ export async function readAppsScript(env: AppsEnv, route: string, payload: Recor
       continue
     }
 
-    return response
+    throw redirectError_(next)
   }
 
   throw new Error('Apps Script excedeu o limite de redirecionamentos.')
