@@ -39,6 +39,19 @@ body{-webkit-text-size-adjust:100%}
 }
 
 @media(max-width:760px){
+  .workspace-gate{padding:14px!important}
+  .workspace-gate-card{
+    width:100%!important;
+    padding:24px 18px!important;
+    border-radius:14px!important;
+  }
+  .workspace-gate-card h2{font-size:17px!important}
+  .workspace-gate-card p{font-size:11px!important}
+  .branch-warning{
+    font-size:11px!important;
+    padding:11px 12px!important;
+  }
+
   /* iOS/WebKit zooms text fields below 16px. Keep zoom available for accessibility,
      but prevent the automatic focus zoom by using 16px inputs. */
   :where(
