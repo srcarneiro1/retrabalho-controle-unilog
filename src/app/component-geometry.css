@@ -1,0 +1,252 @@
+/* Final component geometry contract.
+   This file owns control dimensions and must load after all legacy/local styles. */
+:root{
+  --ui-control-h:42px;
+  --ui-action-h:38px;
+  --ui-action-compact-h:36px;
+  --ui-icon-action:34px;
+  --ui-control-pad-x:12px;
+  --ui-control-font:11px;
+}
+
+/* Universal control geometry */
+.p-inputtext,
+.p-password-input,
+.p-inputnumber-input,
+.p-calendar .p-inputtext,
+.form-grid select,
+.user-form select,
+.month-control select{
+  height:var(--ui-control-h)!important;
+  min-height:var(--ui-control-h)!important;
+  padding:0 var(--ui-control-pad-x)!important;
+  font-size:var(--ui-control-font)!important;
+  line-height:1.2!important;
+}
+
+.p-inputnumber,
+.p-calendar,
+.p-password,
+.p-inputnumber .p-inputnumber-input,
+.p-calendar .p-inputtext,
+.p-password .p-password-input{
+  width:100%!important;
+}
+
+.p-calendar .p-datepicker-trigger{
+  width:var(--ui-control-h)!important;
+  min-width:var(--ui-control-h)!important;
+  height:var(--ui-control-h)!important;
+  min-height:var(--ui-control-h)!important;
+  padding:0!important;
+}
+
+/* Button taxonomy:
+   - default toolbar/action = 38
+   - compact/topbar = 36
+   - field-row submit = 42 (aligns with input)
+   - icon-only/table = 34 */
+.p-button{
+  min-height:var(--ui-action-h)!important;
+  height:var(--ui-action-h)!important;
+  padding:0 14px!important;
+  gap:7px!important;
+  font-size:11px!important;
+  line-height:1!important;
+  white-space:nowrap;
+}
+.p-button .p-button-label{line-height:1!important;font-weight:700!important}
+.p-button .p-button-icon{
+  width:14px!important;
+  height:14px!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  line-height:1!important;
+}
+
+.compact.p-button,
+.topbar-actions>.p-button{
+  height:var(--ui-action-compact-h)!important;
+  min-height:var(--ui-action-compact-h)!important;
+  padding:0 12px!important;
+  font-size:10px!important;
+}
+
+.form-submit.p-button,
+.price-create>.p-button{
+  height:var(--ui-control-h)!important;
+  min-height:var(--ui-control-h)!important;
+  padding:0 16px!important;
+  align-self:end!important;
+}
+
+.p-button.p-button-icon-only,
+.p-datatable .p-datatable-tbody .p-button.p-button-text.p-button-rounded,
+.panel-head>.p-button.p-button-text.p-button-rounded{
+  width:var(--ui-icon-action)!important;
+  min-width:var(--ui-icon-action)!important;
+  height:var(--ui-icon-action)!important;
+  min-height:var(--ui-icon-action)!important;
+  padding:0!important;
+}
+
+/* Forms are explicit, labelled and aligned. */
+.user-form,
+.price-create{
+  display:grid!important;
+  align-items:end!important;
+  gap:10px!important;
+  padding:14px!important;
+  border:1px solid var(--unilog-border)!important;
+  border-radius:12px!important;
+  background:var(--unilog-surface-soft)!important;
+}
+.user-form{
+  grid-template-columns:minmax(140px,.8fr) minmax(220px,1.35fr) minmax(150px,.9fr) minmax(190px,1fr) auto!important;
+  margin-bottom:16px!important;
+}
+.price-create{
+  grid-template-columns:minmax(150px,.85fr) minmax(150px,.85fr) minmax(150px,.85fr) minmax(260px,1.45fr) auto!important;
+  margin-bottom:14px!important;
+}
+.user-form label,
+.price-create label{
+  display:grid!important;
+  gap:6px!important;
+  min-width:0!important;
+  margin:0!important;
+  font-size:9px!important;
+  font-weight:750!important;
+  color:#59616c!important;
+}
+.user-form label>.p-inputtext,
+.user-form label>select,
+.price-create label>.p-inputtext,
+.price-create label>.p-inputnumber,
+.price-create label>.p-calendar{
+  min-width:0!important;
+  width:100%!important;
+}
+.user-form select{
+  appearance:auto;
+  border:1px solid #d9dde3!important;
+  background:#fff!important;
+  color:var(--unilog-ink-2)!important;
+}
+
+/* Topbar consistency */
+.topbar{
+  min-height:64px!important;
+  height:64px!important;
+}
+.topbar-actions{
+  min-height:36px!important;
+}
+.month-control{
+  align-self:center!important;
+}
+.month-control select{
+  width:auto!important;
+  min-width:170px!important;
+  height:36px!important;
+  min-height:36px!important;
+  font-size:10px!important;
+}
+
+/* Data-table density and paginator consistency */
+.p-datatable .p-datatable-thead>tr>th{
+  padding:10px 12px!important;
+  height:42px!important;
+  vertical-align:middle!important;
+}
+.p-datatable .p-datatable-tbody>tr>td{
+  padding:11px 12px!important;
+  min-height:46px!important;
+  vertical-align:middle!important;
+}
+.p-paginator{
+  min-height:52px!important;
+  padding:9px 12px!important;
+  gap:4px!important;
+}
+.p-paginator button{
+  width:34px!important;
+  min-width:34px!important;
+  height:34px!important;
+  min-height:34px!important;
+  padding:0!important;
+  border-radius:8px!important;
+}
+
+/* Cards and page panels */
+.metrics article{
+  min-height:84px!important;
+  padding:14px 16px!important;
+}
+.metrics i{
+  width:34px!important;
+  height:34px!important;
+  font-size:14px!important;
+}
+.metrics strong{font-size:20px!important}
+.panel-head{min-height:74px!important}
+.page-body{padding:16px 18px 18px!important}
+
+/* Dialog form geometry */
+.form-grid .p-inputtext,
+.form-grid .p-inputnumber,
+.form-grid .p-calendar,
+.form-grid select{
+  width:100%!important;
+}
+.dialog-actions>.p-button{
+  min-width:92px;
+}
+
+/* Safari/desktop visual polish */
+.sidebar-brand img{
+  object-fit:contain!important;
+  object-position:left center!important;
+}
+.sidebar-collapse,
+.user-actions button{
+  line-height:1!important;
+}
+.sidebar-collapse i,
+.user-actions button i{
+  display:grid!important;
+  place-items:center!important;
+  line-height:1!important;
+}
+
+/* Responsive geometry */
+@media(max-width:1180px){
+  .user-form,
+  .price-create{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .user-form>.form-submit,
+  .price-create>.p-button{
+    justify-self:start!important;
+  }
+  .price-create .price-observation{grid-column:span 2!important}
+}
+@media(max-width:760px){
+  :root{
+    --ui-control-h:44px;
+    --ui-action-h:42px;
+    --ui-action-compact-h:40px;
+    --ui-icon-action:40px;
+  }
+  .user-form,
+  .price-create{
+    grid-template-columns:1fr!important;
+  }
+  .price-create .price-observation{grid-column:auto!important}
+  .user-form>.form-submit,
+  .price-create>.p-button{
+    width:100%!important;
+    justify-self:stretch!important;
+  }
+  .topbar{height:auto!important;min-height:64px!important}
+}
