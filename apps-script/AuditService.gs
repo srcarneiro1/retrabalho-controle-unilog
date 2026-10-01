@@ -1,6 +1,7 @@
 const AuditService = (() => {
   function uuid_() { return Utilities.getUuid(); }
   function now_() { return new Date(); }
+  function text_(v) { return String(v == null ? '' : v).trim(); }
 
   function log(entity, id, action, author, beforeData, afterData, oldVersion, newVersion) {
     Repository.append('AUDITORIA', {
@@ -18,17 +19,28 @@ const AuditService = (() => {
     }, ['ID_AUDITORIA','ID_REGISTRO','MATRICULA_AUTOR']);
   }
 
-  function list() {
-    return Repository.list('AUDITORIA').map(x => ({
-      idAuditoria: x.record.ID_AUDITORIA,
-      entidade: x.record.ENTIDADE,
-      idRegistro: x.record.ID_REGISTRO,
-      acao: x.record.ACAO,
-      matriculaAutor: x.record.MATRICULA_AUTOR,
-      dataHora: formatDateTime_(x.record.DATA_HORA),
-      versaoAnterior: x.record.VERSAO_ANTERIOR,
-      versaoNova: x.record.VERSAO_NOVA
-    })).reverse();
+  function list(month) {
+    const filterMonth = /^\d{4}-\d{2}$/.test(text_(month)) ? text_(month) : '';
+    const allowedIds = filterMonth ? ReworkService.idsForMonth(filterMonth) : null;
+    const allowed = {};
+    if (allowedIds) allowedIds.forEach(id => { allowed[id] = true; });
+
+    return Repository.list('AUDITORIA')
+      .map(x => ({
+        idAuditoria: text_(x.record.ID_AUDITORIA),
+        entidade: text_(x.record.ENTIDADE),
+        idRegistro: text_(x.record.ID_REGISTRO),
+        acao: text_(x.record.ACAO),
+        matriculaAutor: text_(x.record.MATRICULA_AUTOR),
+        dataHora: formatDateTime_(x.record.DATA_HORA),
+        versaoAnterior: x.record.VERSAO_ANTERIOR,
+        versaoNova: x.record.VERSAO_NOVA,
+        dadosAntes: text_(x.record.DADOS_ANTES_JSON),
+        dadosDepois: text_(x.record.DADOS_DEPOIS_JSON),
+        origem: text_(x.record.ORIGEM)
+      }))
+      .filter(item => !filterMonth || (item.entidade === 'RETRABALHO' && allowed[item.idRegistro]))
+      .reverse();
   }
 
   function formatDateTime_(value) {
