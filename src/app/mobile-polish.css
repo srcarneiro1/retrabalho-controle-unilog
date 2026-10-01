@@ -428,3 +428,13 @@ body{-webkit-text-size-adjust:100%}
     font-size:11px!important;
   }
 }
+
+@media(max-width:760px){
+  .client-export.p-button{
+    width:100%!important;
+    min-width:0!important;
+    height:44px!important;
+    min-height:44px!important;
+    justify-content:center!important;
+  }
+}
