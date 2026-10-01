@@ -14,10 +14,11 @@ Referência visual e arquitetural: Extra Cost Control Unilog.
 - CLIENTE: somente leitura, consulta obrigatoriamente mensal, auditoria do mês, preços e exportação.
 
 ## Preços
-Regra inicial:
-- Nacionalização = R$ 0,40.
-- RFID = adicional de R$ 0,20.
-- Nacionalização + RFID = R$ 0,60 quando ambas se aplicam à unidade.
+Regra vigente desde 01/10/2026:
+- Nacionalização somente = R$ 0,41 por unidade.
+- RFID é adicional à Nacionalização = R$ 0,19 por unidade.
+- Nacionalização + RFID = R$ 0,60 por unidade.
+- Quantidade RFID não pode ser maior que a quantidade de Nacionalização.
 
 Preço é controlado em `TABELA_PRECOS` por vigência.
 Nova vigência deve ser posterior à última vigência existente.
