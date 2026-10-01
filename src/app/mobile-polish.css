@@ -288,6 +288,9 @@ body{-webkit-text-size-adjust:100%}
     border-top:1px solid var(--unilog-border-soft)!important;
   }
   .mobile-record-table .p-datatable-tbody>tr>td:last-child::before{display:none!important}
+  .row-actions{width:100%!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important}
+  .row-actions>.p-button{width:100%!important}
+  .cancel-summary{grid-template-columns:1fr!important}
   .mobile-record-table .p-datatable-tbody>tr>td:last-child>.p-button{
     width:100%!important;
     height:40px!important;
@@ -305,8 +308,9 @@ body{-webkit-text-size-adjust:100%}
   .rework-record-table td:nth-child(8)::before{content:'Validade'}
   .rework-record-table td:nth-child(9)::before{content:'Nacionalização'}
   .rework-record-table td:nth-child(10)::before{content:'RFID'}
-  .rework-record-table td:nth-child(11)::before{content:'Valor'}
-  .rework-record-table td:nth-child(12)::before{content:'Criado por'}
+  .rework-record-table td:nth-child(11)::before{content:'Etq. validade'}
+  .rework-record-table td:nth-child(12)::before{content:'Cobrança'}
+  .rework-record-table td:nth-child(13)::before{content:'Criado por'}
 
   .audit-record-table td:nth-child(1)::before{content:'Data/hora'}
   .audit-record-table td:nth-child(2)::before{content:'Entidade'}
@@ -320,8 +324,9 @@ body{-webkit-text-size-adjust:100%}
   .price-record-table td:nth-child(2)::before{content:'Fim'}
   .price-record-table td:nth-child(3)::before{content:'Nacionalização'}
   .price-record-table td:nth-child(4)::before{content:'RFID adicional'}
-  .price-record-table td:nth-child(5)::before{content:'Observação'}
-  .price-record-table td:nth-child(6)::before{content:'Criado por'}
+  .price-record-table td:nth-child(5)::before{content:'Etiqueta validade'}
+  .price-record-table td:nth-child(6)::before{content:'Observação'}
+  .price-record-table td:nth-child(7)::before{content:'Criado por'}
   .price-record-table .p-datatable-tbody>tr>td:last-child{
     grid-column:auto!important;
     padding-top:0!important;
