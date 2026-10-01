@@ -106,23 +106,21 @@ const PriceService = (() => {
       throw new Error('Já existe uma tabela de preços iniciando nessa data.');
     }
 
-    let previous = null;
-    let next = null;
-    rows.forEach(x => {
-      const d = dateOnly_(x.record.VIGENCIA_INICIO);
-      if (d < start) previous = x;
-      if (!next && d > start) next = x;
-    });
+    const latest = rows.length ? rows[rows.length - 1] : null;
+    if (latest) {
+      const latestStart = dateOnly_(latest.record.VIGENCIA_INICIO);
+      if (start <= latestStart) {
+        throw new Error('A nova vigência deve iniciar depois da última vigência cadastrada.');
+      }
 
-    if (previous) {
-      const before = previous.mapped;
-      const nextVersion = Number(previous.record.VERSAO || 0) + 1;
-      Repository.update('TABELA_PRECOS', previous.rowNumber, {
+      const before = latest.mapped;
+      const nextVersion = Number(latest.record.VERSAO || 0) + 1;
+      Repository.update('TABELA_PRECOS', latest.rowNumber, {
         VIGENCIA_FIM: dayBefore_(start),
         VERSAO: nextVersion
       }, []);
-      const after = map_(Repository.rowObject('TABELA_PRECOS', previous.rowNumber));
-      AuditService.log('PRECO', previous.mapped.id, 'ENCERRAR_VIGENCIA', author, before, after, before.versao, nextVersion);
+      const after = map_(Repository.rowObject('TABELA_PRECOS', latest.rowNumber));
+      AuditService.log('PRECO', latest.mapped.id, 'ENCERRAR_VIGENCIA', author, before, after, before.versao, nextVersion);
     }
 
     const now = new Date();
@@ -130,7 +128,7 @@ const PriceService = (() => {
     const record = {
       ID_PRECO: id,
       VIGENCIA_INICIO: start,
-      VIGENCIA_FIM: next ? dayBefore_(dateOnly_(next.record.VIGENCIA_INICIO)) : '',
+      VIGENCIA_FIM: '',
       VALOR_NACIONALIZACAO: valueNat,
       VALOR_RFID_ADICIONAL: valueRfid,
       ATIVO: 'SIM',
