@@ -4,7 +4,7 @@
 html,body{max-width:100%;overflow-x:hidden}
 body{-webkit-text-size-adjust:100%}
 
-@media(max-width:1180px){
+@media(max-width:1100px){
   .sidebar,.app.sidebar-collapsed .sidebar{
     width:min(276px,calc(100vw - 24px))!important;
     height:100dvh!important;
@@ -28,6 +28,10 @@ body{-webkit-text-size-adjust:100%}
 }
 
 @media(max-width:900px){
+  .client-dashboard-filters{grid-template-columns:1fr!important;padding:10px!important}
+  .client-dashboard-filters select,
+  .client-dashboard-filters .p-inputtext{height:44px!important;min-height:44px!important;font-size:16px!important}
+
   .metrics,.metrics-4{
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
     gap:10px!important;
@@ -120,11 +124,12 @@ body{-webkit-text-size-adjust:100%}
   }
 
   /* Phone header/actions. */
-  .content{padding:0 12px 28px!important}
+  .content{padding:0 0 28px!important}
+  .workspace-body{padding:0 12px!important}
   .topbar{
     min-height:64px!important;
     height:auto!important;
-    margin:0 -12px 14px!important;
+    margin:0 0 14px!important;
     padding:10px 12px!important;
     align-items:flex-start!important;
     gap:10px!important;
