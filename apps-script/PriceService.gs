@@ -22,10 +22,19 @@ const PriceService = (() => {
     return Utilities.formatDate(d, AppConfig.TIMEZONE, 'yyyy-MM-dd');
   }
 
-  function money_(v, label) {
+  function decimal_(v, label, decimals) {
     const n = Number(v);
     if (!Number.isFinite(n) || n < 0) throw new Error(label + ' inválido.');
-    return Math.round((n + Number.EPSILON) * 100) / 100;
+    const factor = Math.pow(10, decimals);
+    return Math.round((n + Number.EPSILON) * factor) / factor;
+  }
+
+  function rate_(v, label) {
+    return decimal_(v, label, 4);
+  }
+
+  function amount_(v, label) {
+    return decimal_(v, label, 4);
   }
 
   function dayBefore_(d) {
@@ -41,6 +50,7 @@ const PriceService = (() => {
       vigenciaFim: iso_(r.VIGENCIA_FIM),
       valorNacionalizacao: Number(r.VALOR_NACIONALIZACAO || 0),
       valorRfidAdicional: Number(r.VALOR_RFID_ADICIONAL || 0),
+      valorValidade: Number(r.VALOR_VALIDADE || 0),
       ativo: text_(r.ATIVO) || 'SIM',
       criadoEm: r.CRIADO_EM || '',
       criadoPor: text_(r.CRIADO_POR),
@@ -72,19 +82,25 @@ const PriceService = (() => {
     throw new Error('Não existe preço vigente para a data de efetivação informada.');
   }
 
-  function calculate(dateValue, nacionalizacao, rfid) {
+  function calculate(dateValue, nacionalizacao, rfid, validade) {
     const price = findByDate(dateValue);
     const natQty = Number(nacionalizacao || 0);
     const rfidQty = Number(rfid || 0);
-    const valueNat = money_(natQty * price.valorNacionalizacao, 'Valor de nacionalização');
-    const valueRfid = money_(rfidQty * price.valorRfidAdicional, 'Valor adicional RFID');
+    const validadeQty = Number(validade || 0);
+
+    const valueNat = amount_(natQty * price.valorNacionalizacao, 'Valor de nacionalização');
+    const valueRfid = amount_(rfidQty * price.valorRfidAdicional, 'Valor adicional RFID');
+    const valueValidade = amount_(validadeQty * price.valorValidade, 'Valor de etiqueta de validade');
+
     return {
       idPreco: price.id,
-      precoNacionalizacaoUnit: price.valorNacionalizacao,
-      precoRfidAdicionalUnit: price.valorRfidAdicional,
+      precoNacionalizacaoUnit: rate_(price.valorNacionalizacao, 'Tarifa de nacionalização'),
+      precoRfidAdicionalUnit: rate_(price.valorRfidAdicional, 'Tarifa adicional RFID'),
+      precoValidadeUnit: rate_(price.valorValidade, 'Tarifa de etiqueta de validade'),
       valorNacionalizacao: valueNat,
       valorRfidAdicional: valueRfid,
-      valorTotalCobranca: money_(valueNat + valueRfid, 'Valor total')
+      valorValidade: valueValidade,
+      valorTotalCobranca: amount_(valueNat + valueRfid + valueValidade, 'Valor total')
     };
   }
 
@@ -96,8 +112,9 @@ const PriceService = (() => {
     if (prior) return { ok:true, data:map_(prior.record), idempotent:true };
 
     const start = parseDate_(input.vigenciaInicio, 'Vigência inicial');
-    const valueNat = money_(input.valorNacionalizacao, 'Valor de nacionalização');
-    const valueRfid = money_(input.valorRfidAdicional, 'Valor adicional RFID');
+    const valueNat = rate_(input.valorNacionalizacao, 'Tarifa de nacionalização');
+    const valueRfid = rate_(input.valorRfidAdicional, 'Tarifa adicional RFID');
+    const valueValidade = rate_(input.valorValidade, 'Tarifa de etiqueta de validade');
     const author = text_(input.matriculaAutor);
     const observation = text_(input.observacao);
     const rows = rows_();
@@ -136,7 +153,8 @@ const PriceService = (() => {
       CRIADO_POR: author,
       OBSERVACAO: observation,
       VERSAO: 1,
-      REQUEST_ID: requestId
+      REQUEST_ID: requestId,
+      VALOR_VALIDADE: valueValidade
     };
 
     Repository.append('TABELA_PRECOS', record, ['ID_PRECO','CRIADO_POR','REQUEST_ID']);
