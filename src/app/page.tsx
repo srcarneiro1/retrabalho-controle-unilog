@@ -120,10 +120,12 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    if (user) {
-      void loadItems()
-      if (user.trocaSenhaObrigatoria) setPasswordDialog(true)
+    if (!user) return
+    if (user.trocaSenhaObrigatoria) {
+      setPasswordDialog(true)
+      return
     }
+    void loadItems()
   }, [user])
 
   async function login(e: React.FormEvent) {
