@@ -734,3 +734,29 @@ body{
   font-size:11px;
 }
 .client-dashboard-filters select{padding:0 10px}
+
+.client-dashboard-filters.single-filter{
+  grid-template-columns:minmax(0,1fr)!important;
+}
+.client-export.p-button{
+  min-width:116px!important;
+  height:38px!important;
+  min-height:38px!important;
+  padding:0 13px!important;
+  border-color:#d2d6dc!important;
+  background:#fff!important;
+  color:#4d5561!important;
+}
+.client-export.p-button .p-button-icon{
+  font-size:13px!important;
+}
+.client-export.p-button:enabled:hover{
+  border-color:#b9bec6!important;
+  background:#f8f9fb!important;
+  color:#242a36!important;
+}
+.client-export.p-button.p-disabled,
+.client-export.p-button:disabled{
+  opacity:.52!important;
+  background:#fafbfc!important;
+}
