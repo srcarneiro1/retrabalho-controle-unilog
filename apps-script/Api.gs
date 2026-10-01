@@ -1,8 +1,8 @@
-const API_VERSION = '2026.10.01.3';
+const API_VERSION = '2026.10.01.4';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
-  if (route === 'health') {
+  if (!route || route === 'health') {
     return ContentService
       .createTextOutput(JSON.stringify({
         ok: true,
@@ -15,7 +15,7 @@ function doGet(e) {
   return ContentService
     .createTextOutput(JSON.stringify({
       ok: false,
-      error: { message: 'Rota GET inválida.' }
+      error: { message: 'Rota GET inválida: ' + route }
     }))
     .setMimeType(ContentService.MimeType.JSON);
 }
