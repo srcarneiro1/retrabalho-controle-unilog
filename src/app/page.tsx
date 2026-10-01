@@ -521,7 +521,7 @@ export default function Home() {
   }
 
   function openEdit(row: Rework) {
-    if (!canEdit) return
+    if (!canEdit || row.cobrancaCancelada) return
     setForm({
       id: row.id,
       requestId: row.requestId || '',
