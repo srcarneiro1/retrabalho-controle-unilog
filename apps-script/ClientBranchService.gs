@@ -13,10 +13,25 @@ const ClientBranchService = (() => {
   }
 
   function all() {
-    return Repository.list('CLIENTES_FILIAIS')
+    const rows = Repository.list('CLIENTES_FILIAIS')
       .map(x => mapBranch_(x.record))
-      .filter(x => x.cnpj && x.nomeCliente && x.filial)
-      .sort((a,b) => (a.nomeCliente + ' ' + a.filial).localeCompare(b.nomeCliente + ' ' + b.filial));
+      .filter(x => x.cnpj || x.nomeCliente || x.filial);
+
+    const seen = {};
+    rows.forEach(branch => {
+      if (branch.cnpj.length !== 14) {
+        throw new Error('Existe CNPJ inválido no cadastro CLIENTES_FILIAIS.');
+      }
+      if (!branch.nomeCliente || !branch.filial) {
+        throw new Error('Preencha Nome do Cliente e Filial para todos os CNPJs cadastrados.');
+      }
+      if (seen[branch.cnpj]) {
+        throw new Error('CNPJ duplicado no cadastro CLIENTES_FILIAIS: ' + branch.cnpj);
+      }
+      seen[branch.cnpj] = true;
+    });
+
+    return rows.sort((a,b) => (a.nomeCliente + ' ' + a.filial).localeCompare(b.nomeCliente + ' ' + b.filial));
   }
 
   function allActive() {
