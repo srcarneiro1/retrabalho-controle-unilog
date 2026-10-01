@@ -157,3 +157,33 @@ Regras:
 - após o login, a aplicação pré-carrega todos os módulos permitidos ao perfil antes de liberar o workspace.
 - alternar entre Lançamentos, Auditoria, Preços e Usuários não dispara nova leitura.
 - novas leituras ocorrem em atualização explícita, mutações e mudança de competência do CLIENTE.
+
+
+## Baseline de não-regressão
+A partir de 01/10/2026, toda alteração deve preservar explicitamente os sucessos já validados. Não substituir um comportamento funcional/visual aprovado por uma solução anterior ou genérica sem comparar o baseline atual.
+
+Sucessos que não podem regredir:
+- shell canônico: sidebar 244 px expandida e 72 px recolhida, topbar full-width e workspace centralizado;
+- sidebar mobile em drawer, breakpoint consolidado em 1100 px;
+- identidade do navegador: título `Retrabalho | Unilog Express` e favicon nativo `/favicon.ico` com validação no CI;
+- carregamento inicial do workspace antes de exibir KPIs/erros; abas pré-carregadas sem nova consulta ao navegar;
+- CLIENTE com acompanhamento mensal, filtro por filial/CNPJ e busca local;
+- ações de tabela compactas e geometricamente iguais; edição neutra e cancelamento vermelho;
+- cancelamento de cobrança auditável somente para SUPERVISOR/ADMIN, sem exclusão do histórico;
+- preços com 4 casas decimais: Nacionalização 0,4100; RFID adicional 0,1900; Validade 0,4114;
+- cadastro de clientes/filiais e relação N:N entre usuário e CNPJ;
+- controles desktop compactos; em mobile inputs textuais permanecem com 16 px para impedir zoom automático do iOS;
+- overlays PrimeReact devem seguir a densidade Unilog, sem tipografia Lara ampliada;
+- dialogs/popups usam raio de 14 px, recorte interno correto e sombra Unilog.
+
+Regra de execução:
+1. Antes de qualquer mudança, verificar se ela conflita com algum item deste baseline.
+2. Mudanças visuais devem ser preferencialmente aditivas/específicas, evitando reabrir regras funcionais já aprovadas.
+3. Depois de cada mudança, validar build/CI.
+4. Atualizar este arquivo quando uma nova decisão for aprovada.
+5. Sempre registrar a próxima etapa pendente.
+
+## Próxima etapa
+- Validar visualmente, após o próximo deploy, os overlays de MultiSelect, calendário e Dialog em desktop e mobile.
+- Confirmar que o botão `Criar usuário` permanece compacto no desktop e full-width somente em mobile.
+- Depois da validação visual, avançar para refinamento do dashboard CLIENTE sem alterar o baseline acima.
