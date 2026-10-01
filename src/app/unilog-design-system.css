@@ -259,6 +259,7 @@ body{
 .app{
   grid-template-columns:244px minmax(0,1fr)!important;
   background:var(--unilog-canvas)!important;
+  transition:grid-template-columns .18s ease;
 }
 .sidebar{
   position:sticky!important;
@@ -342,15 +343,21 @@ body{
 
 /* Header/content follows the Extra Cost density. */
 .content{
-  max-width:1540px;
+  max-width:none;
   width:100%;
+  margin:0;
+  padding:0 0 48px!important;
+}
+.workspace-body{
+  width:100%;
+  max-width:1540px;
   margin:0 auto;
-  padding:0 34px 48px!important;
+  padding:0 34px;
 }
 .topbar{
   min-height:62px!important;
   height:62px!important;
-  margin:0 -34px 24px;
+  margin:0 0 24px;
   padding:0 34px;
   border-bottom:1px solid var(--unilog-border);
   background:rgba(255,255,255,.94);
@@ -405,8 +412,9 @@ body{
 }
 
 @media(max-width:900px){
-  .content{padding:0 18px 38px!important}
-  .topbar{margin:0 -18px 22px;padding:0 18px}
+  .content{padding:0 0 38px!important}
+  .workspace-body{padding:0 18px!important}
+  .topbar{margin:0 0 22px;padding:0 18px}
   .login-card{grid-template-columns:1fr!important}
   .login-brand{display:none!important}
   .login-form{padding:42px 28px!important}
@@ -496,6 +504,7 @@ body{
   transition:grid-template-columns .18s ease!important;
 }
 .app.sidebar-collapsed{grid-template-columns:72px minmax(0,1fr)!important}
+.app.sidebar-collapsed .sidebar{padding-left:10px!important;padding-right:10px!important}
 .sidebar{z-index:60}
 .sidebar-brand{position:relative!important}
 .sidebar-collapse{
@@ -688,3 +697,39 @@ body{
   .topbar h1{font-size:20px!important}
   .page-body,.page-table{padding:12px}
 }
+
+.client-dashboard-filters{
+  display:grid;
+  grid-template-columns:minmax(250px,.8fr) minmax(280px,1.2fr);
+  gap:10px;
+  margin-bottom:12px;
+  padding:12px;
+  border:1px solid var(--unilog-border);
+  border-radius:12px;
+  background:#fff;
+  box-shadow:var(--unilog-shadow);
+}
+.client-dashboard-filters label{
+  display:grid;
+  gap:5px;
+  min-width:0;
+}
+.client-dashboard-filters label>span{
+  font-size:8px;
+  font-weight:800;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--unilog-muted);
+}
+.client-dashboard-filters select,
+.client-dashboard-filters .p-inputtext{
+  width:100%;
+  min-height:38px;
+  height:38px;
+  border:1px solid #d9dde3;
+  border-radius:10px;
+  background:#fff;
+  color:var(--unilog-ink-2);
+  font-size:11px;
+}
+.client-dashboard-filters select{padding:0 10px}
