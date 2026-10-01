@@ -966,7 +966,7 @@ export default function Home() {
                 </div>
                 <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
               </div>
-              <DataTable value={items} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
+              <DataTable className="mobile-record-table rework-record-table" value={items} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
                 <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
                 <Column field="sku" header="SKU" />
                 <Column field="descricao" header="Descrição" />
@@ -993,7 +993,7 @@ export default function Home() {
               <Button icon="pi pi-refresh" text rounded onClick={() => void openAudit()} />
             </div>
             <div className="page-table">
-              <DataTable value={audits} paginator rows={20} scrollable dataKey="idAuditoria" emptyMessage="Nenhum evento de auditoria encontrado.">
+              <DataTable className="mobile-record-table audit-record-table" value={audits} paginator rows={20} scrollable dataKey="idAuditoria" emptyMessage="Nenhum evento de auditoria encontrado.">
                 <Column field="dataHora" header="Data/hora" />
                 <Column field="entidade" header="Entidade" />
                 <Column field="idRegistro" header="Registro" />
@@ -1028,7 +1028,7 @@ export default function Home() {
                 </div>
               )}
               <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização + adicional RFID. Com os valores iniciais, uma unidade com as duas etiquetas = R$ 0,60.</div>
-              <DataTable value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
+              <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
                 <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => money(r.valorNacionalizacao)} />
@@ -1088,7 +1088,7 @@ export default function Home() {
                 </label>
                 <Button label="Criar usuário" icon="pi pi-plus" onClick={createUser} loading={saving} className="primary form-submit" />
               </div>
-              <DataTable value={users} rows={15} paginator dataKey="matricula">
+              <DataTable className="mobile-record-table users-record-table" value={users} rows={15} paginator dataKey="matricula">
                 <Column field="matricula" header="Matrícula" />
                 <Column field="nome" header="Nome" />
                 <Column field="perfil" header="Perfil" body={(r: ManagedUser) => <Tag value={r.perfil} />} />
