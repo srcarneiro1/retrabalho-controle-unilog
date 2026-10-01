@@ -103,6 +103,9 @@ const ReworkService = (() => {
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
     const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
+    if (rfid > nacionalizacao) {
+      throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.');
+    }
     const price = PriceService.calculate(date, nacionalizacao, rfid);
 
     const now = new Date();
@@ -157,6 +160,9 @@ const ReworkService = (() => {
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
     const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
+    if (rfid > nacionalizacao) {
+      throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.');
+    }
     const price = PriceService.calculate(date, nacionalizacao, rfid);
     const nextVersion = currentVersion + 1;
 
