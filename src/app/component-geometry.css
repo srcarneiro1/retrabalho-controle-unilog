@@ -718,3 +718,108 @@
   height:13px!important;
   font-size:13px!important;
 }
+
+
+/* Cross-browser layout hardening.
+   Keep layout stable when Chromium-family browsers expose slightly different
+   usable viewport widths (Opera sidebar, browser chrome, scrollbar metrics). */
+.app,
+.content,
+.workspace-body,
+.panel,
+.page-body,
+.page-table,
+.p-datatable,
+.p-datatable-wrapper{
+  min-width:0!important;
+  max-width:100%!important;
+}
+.workspace-body,
+.page-body,
+.page-table,
+.user-form,
+.price-create{
+  box-sizing:border-box!important;
+}
+.panel{
+  overflow:hidden!important;
+}
+.p-datatable-wrapper{
+  width:100%!important;
+  overflow-x:auto!important;
+  overflow-y:visible!important;
+  -webkit-overflow-scrolling:touch;
+}
+.user-form,
+.price-create{
+  width:100%!important;
+  min-width:0!important;
+}
+.user-form>*,
+.price-create>*{
+  min-width:0!important;
+}
+.user-form{
+  grid-template-columns:
+    minmax(96px,.65fr)
+    minmax(150px,1fr)
+    minmax(110px,.72fr)
+    minmax(140px,.85fr)
+    minmax(210px,1.45fr)
+    118px!important;
+}
+.user-submit.p-button{
+  width:118px!important;
+  min-width:118px!important;
+  max-width:118px!important;
+}
+
+/* Intermediate desktop density. Avoid jumping directly from a six-column
+   row to the tablet layout when the browser has a narrower usable viewport. */
+@media (min-width:1181px) and (max-width:1380px){
+  .user-form,
+  .price-create{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  .user-branches-field,
+  .price-create .price-observation{
+    grid-column:span 2!important;
+  }
+  .user-submit.p-button,
+  .price-create>.p-button{
+    justify-self:start!important;
+  }
+}
+
+/* Reassert the approved tablet state after the intermediate desktop rule. */
+@media(max-width:1180px){
+  .user-form,
+  .price-create{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .user-branches-field{
+    grid-column:span 2!important;
+  }
+  .user-submit.p-button,
+  .price-create>.p-button{
+    justify-self:start!important;
+  }
+  .price-create .price-observation{grid-column:span 2!important}
+}
+
+@media(max-width:760px){
+  .user-form,
+  .price-create{
+    grid-template-columns:1fr!important;
+  }
+  .user-branches-field,
+  .price-create .price-observation{
+    grid-column:auto!important;
+  }
+  .user-submit.p-button{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    justify-self:stretch!important;
+  }
+}
