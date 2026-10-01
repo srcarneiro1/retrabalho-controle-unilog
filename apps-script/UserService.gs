@@ -28,7 +28,8 @@ const UserService = (() => {
       ativo: upper_(x.record.ATIVO),
       trocaSenhaObrigatoria: upper_(x.record.TROCA_SENHA_OBRIGATORIA),
       ultimoLoginEm: x.record.ULTIMO_LOGIN_EM || '',
-      versao: Number(x.record.VERSAO || 0)
+      versao: Number(x.record.VERSAO || 0),
+      cnpjs: ClientBranchService.cnpjsForUser(clean_(x.record.MATRICULA), upper_(x.record.PERFIL))
     }));
   }
 
@@ -38,6 +39,7 @@ const UserService = (() => {
     const perfil = upper_(input.perfil);
     const senha = String(input.senhaTemporaria || '');
     const author = clean_(input.matriculaAutor);
+    const cnpjs = ClientBranchService.validateAssignments(perfil, input.cnpjs);
 
     if (!matricula) throw new Error('Informe a matrícula.');
     if (!nome) throw new Error('Informe o nome.');
@@ -62,8 +64,15 @@ const UserService = (() => {
       VERSAO: 1
     }, ['MATRICULA','CRIADO_POR','ATUALIZADO_POR']);
 
-    AuditService.log('USUARIO', matricula, 'CRIAR', author, null, { matricula, nome, perfil, ativo:'SIM' }, null, 1);
-    return { ok: true, user: { matricula, nome, perfil, ativo:'SIM', versao:1 } };
+    ClientBranchService.setAssignments({
+      matricula,
+      perfil,
+      cnpjs,
+      matriculaAutor: author
+    });
+
+    AuditService.log('USUARIO', matricula, 'CRIAR', author, null, { matricula, nome, perfil, ativo:'SIM', cnpjs }, null, 1);
+    return { ok: true, user: { matricula, nome, perfil, ativo:'SIM', versao:1, cnpjs } };
   }
 
   function update(input) {
@@ -73,6 +82,7 @@ const UserService = (() => {
 
     const perfil = upper_(input.perfil);
     const ativo = upper_(input.ativo);
+    const cnpjs = ClientBranchService.validateAssignments(perfil, input.cnpjs);
     if (ALLOWED.indexOf(perfil) < 0) throw new Error('Perfil inválido.');
     if (['SIM','NAO'].indexOf(ativo) < 0) throw new Error('Status inválido.');
 
@@ -80,7 +90,13 @@ const UserService = (() => {
     const informedVersion = Number(input.versao || 0);
     if (oldVersion !== informedVersion) throw new Error('O usuário foi alterado por outra sessão. Atualize a lista.');
 
-    const before = { matricula, nome:clean_(hit.record.NOME), perfil:upper_(hit.record.PERFIL), ativo:upper_(hit.record.ATIVO) };
+    const before = {
+      matricula,
+      nome:clean_(hit.record.NOME),
+      perfil:upper_(hit.record.PERFIL),
+      ativo:upper_(hit.record.ATIVO),
+      cnpjs: ClientBranchService.cnpjsForUser(matricula, upper_(hit.record.PERFIL))
+    };
     const newVersion = oldVersion + 1;
     Repository.update('USUARIOS', hit.rowNumber, {
       PERFIL: perfil,
@@ -90,7 +106,14 @@ const UserService = (() => {
       VERSAO: newVersion
     }, ['ATUALIZADO_POR']);
 
-    const after = { matricula, nome:clean_(hit.record.NOME), perfil, ativo };
+    ClientBranchService.setAssignments({
+      matricula,
+      perfil,
+      cnpjs,
+      matriculaAutor: clean_(input.matriculaAutor)
+    });
+
+    const after = { matricula, nome:clean_(hit.record.NOME), perfil, ativo, cnpjs };
     AuditService.log('USUARIO', matricula, 'ATUALIZAR', clean_(input.matriculaAutor), before, after, oldVersion, newVersion);
     return { ok:true, user:Object.assign({}, after, { versao:newVersion }) };
   }
