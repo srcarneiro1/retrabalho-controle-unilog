@@ -83,6 +83,14 @@ async function mutation_(
     if (found) return { ok: true, data: found, reconciled: true }
   }
 
+  if (action === 'CANCELAR_COBRANCA') {
+    const id = String(payload.id || '')
+    const found = items.find(
+      (x: any) => String(x.id || '') === id && x.cobrancaCancelada === true,
+    )
+    if (found) return { ok: true, data: found, reconciled: true }
+  }
+
   throw new Error(
     'Não foi possível confirmar o resultado da gravação. Atualize a lista antes de tentar novamente.',
   )
@@ -180,6 +188,28 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao atualizar.'
+    return json({ ok: false, error: { message } }, 400)
+  }
+}
+
+
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
+  try {
+    const user = await identity(request, env)
+    if (user.perfil !== 'SUPERVISOR' && user.perfil !== 'ADMIN') {
+      return json({
+        ok: false,
+        error: { message: 'Somente SUPERVISOR e ADMIN podem cancelar uma cobrança.' },
+      }, 403)
+    }
+
+    const body = await request.json() as Record<string, unknown>
+    return json(await mutation_(env, user, {
+      acao: 'CANCELAR_COBRANCA',
+      ...body,
+    }))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Falha ao cancelar cobrança.'
     return json({ ok: false, error: { message } }, 400)
   }
 }
