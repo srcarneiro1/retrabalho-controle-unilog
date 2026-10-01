@@ -1,5 +1,5 @@
 const UserService = (() => {
-  const ALLOWED = ['OPERACIONAL','SUPERVISOR','ADMIN'];
+  const ALLOWED = ['OPERACIONAL','SUPERVISOR','ADMIN','CLIENTE'];
 
   function clean_(value) { return String(value == null ? '' : value).trim(); }
   function upper_(value) { return clean_(value).toUpperCase(); }
