@@ -3,6 +3,7 @@ export interface AppsEnv { APPS_SCRIPT_URL: string; APPS_SCRIPT_GATEWAY_TOKEN: s
 const EXEC_HOST = 'script.google.com'
 const CONTENT_HOST = 'script.googleusercontent.com'
 const MAX_REDIRECTS = 4
+const READ_RETRY_DELAY_MS = 250
 
 function targetUrl(env: AppsEnv, route: string) {
   const url = new URL(env.APPS_SCRIPT_URL)
@@ -16,6 +17,39 @@ function serviceBody(env: AppsEnv, payload: Record<string, unknown>) {
 
 function isRedirect(status: number) {
   return status === 301 || status === 302 || status === 303 || status === 307 || status === 308
+}
+
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+function looksLikeHtml(text: string, contentType: string) {
+  const normalized = text.trim().toLowerCase()
+  return contentType.includes('text/html')
+    || normalized.startsWith('<!doctype html')
+    || normalized.startsWith('<html')
+}
+
+function invalidResponseMessage(response: Response, text: string) {
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase()
+  const finalHost = (() => {
+    try { return new URL(response.url).hostname } catch { return '' }
+  })()
+
+  if (looksLikeHtml(text, contentType)) {
+    if (
+      finalHost.includes('accounts.google.com')
+      || /sign in|fazer login|google accounts|authorization required/i.test(text)
+    ) {
+      return 'O Web App do Apps Script não está acessível anonimamente. Revise a implantação e mantenha “Quem pode acessar: Qualquer pessoa”.'
+    }
+
+    if (finalHost === EXEC_HOST || finalHost === CONTENT_HOST || finalHost.endsWith('.googleusercontent.com')) {
+      return 'O Apps Script respondeu com uma página HTML em vez de JSON. Atualize a implantação do Web App para a versão mais recente e confirme que a URL /exec configurada no Cloudflare pertence a essa implantação.'
+    }
+  }
+
+  return `Apps Script retornou uma resposta inválida (HTTP ${response.status || 0}).`
 }
 
 export async function parseUpstream(response: Response): Promise<any | null> {
@@ -46,13 +80,19 @@ export async function readAppsScript(env: AppsEnv, route: string, payload: Recor
     if (!location) return response
 
     const next = new URL(location, current)
-    if (next.hostname === CONTENT_HOST) {
-      return fetch(next.toString(), { method: 'GET', headers: { accept: 'application/json' }, redirect: 'follow' })
+    if (next.hostname === CONTENT_HOST || next.hostname.endsWith('.googleusercontent.com')) {
+      return fetch(next.toString(), {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+        redirect: 'follow',
+      })
     }
+
     if (next.hostname === EXEC_HOST) {
       current = next.toString()
       continue
     }
+
     return response
   }
 
@@ -69,10 +109,33 @@ export async function mutateAppsScriptOnce(env: AppsEnv, route: string, payload:
   })
 }
 
-export async function readJson(env: AppsEnv, route: string, payload: Record<string, unknown>) {
+async function readJsonOnce(env: AppsEnv, route: string, payload: Record<string, unknown>) {
   const response = await readAppsScript(env, route, payload)
-  const upstream = await parseUpstream(response)
-  if (upstream === null) throw new Error('Apps Script retornou uma resposta inválida.')
-  if (!response.ok || !apiSucceeded(upstream)) throw new Error(upstream?.error?.message || 'Falha no Apps Script.')
+  const text = await response.text()
+
+  let upstream: any
+  try {
+    upstream = JSON.parse(text)
+  } catch {
+    throw new Error(invalidResponseMessage(response, text))
+  }
+
+  if (!response.ok || !apiSucceeded(upstream)) {
+    throw new Error(upstream?.error?.message || 'Falha no Apps Script.')
+  }
   return upstream
+}
+
+export async function readJson(env: AppsEnv, route: string, payload: Record<string, unknown>) {
+  try {
+    return await readJsonOnce(env, route, payload)
+  } catch (firstError) {
+    const message = firstError instanceof Error ? firstError.message : ''
+    const retryable = /resposta inválida|excedeu o limite|fetch|network|connection|temporariamente/i.test(message)
+
+    if (!retryable) throw firstError
+
+    await delay(READ_RETRY_DELAY_MS)
+    return readJsonOnce(env, route, payload)
+  }
 }
