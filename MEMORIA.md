@@ -381,7 +381,10 @@ Os itens abaixo são sucessos consolidados e não devem retroceder:
 - preload inicial do workspace;
 - navegação entre abas sem fetch desnecessário;
 - dashboard CLIENTE mensal;
-- filtro CLIENTE por filial/CNPJ;
+- competência CLIENTE exibida como `Mês AAAA` (ex.: `Outubro 2026`);
+- filtro CLIENTE por filial/CNPJ somente quando houver mais de uma filial vinculada;
+- CLIENTE com uma única filial assume automaticamente seu CNPJ e não vê a opção `Todas as filiais`;
+- exportação CLIENTE usa ação `Baixar CSV` e respeita os filtros locais;
 - ações de tabela compactas;
 - cancelamento vermelho e auditável;
 - precificação de 4 casas decimais;
@@ -400,6 +403,7 @@ Uma alteração que viole qualquer item acima deve ser considerada regressão at
 - [ ] Validar os mesmos overlays em mobile
 - [ ] Confirmar `Criar usuário` compacto no desktop e full-width somente no mobile
 - [ ] Validar shell, formulários e tabelas em Chrome, Edge, Opera e Safari
+- [ ] Validar visualmente competência, exportação e filtro condicional de filial no dashboard CLIENTE
 - [ ] Refinar o dashboard CLIENTE mantendo todas as regras acima
 
 ## 📝 Registro de decisões
