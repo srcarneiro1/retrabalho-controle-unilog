@@ -29,7 +29,7 @@ const UserService = (() => {
       trocaSenhaObrigatoria: upper_(x.record.TROCA_SENHA_OBRIGATORIA),
       ultimoLoginEm: x.record.ULTIMO_LOGIN_EM || '',
       versao: Number(x.record.VERSAO || 0),
-      cnpjs: ClientBranchService.cnpjsForUser(clean_(x.record.MATRICULA), upper_(x.record.PERFIL))
+      cnpjs: ClientBranchService.assignedCnpjs(clean_(x.record.MATRICULA), upper_(x.record.PERFIL))
     }));
   }
 
@@ -95,7 +95,7 @@ const UserService = (() => {
       nome:clean_(hit.record.NOME),
       perfil:upper_(hit.record.PERFIL),
       ativo:upper_(hit.record.ATIVO),
-      cnpjs: ClientBranchService.cnpjsForUser(matricula, upper_(hit.record.PERFIL))
+      cnpjs: ClientBranchService.assignedCnpjs(matricula, upper_(hit.record.PERFIL))
     };
     const newVersion = oldVersion + 1;
     Repository.update('USUARIOS', hit.rowNumber, {
