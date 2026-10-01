@@ -454,6 +454,27 @@
 .danger-action.p-button.p-button-text{
   color:var(--unilog-red)!important;
   background:transparent!important;
+  display:inline-grid!important;
+  place-items:center!important;
+}
+.danger-action.p-button.p-button-text .p-button-icon{
+  width:16px!important;
+  height:16px!important;
+  min-width:16px!important;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  place-items:center!important;
+  line-height:1!important;
+  font-size:16px!important;
+  transform:none!important;
+}
+.danger-action.p-button.p-button-text .p-button-icon::before{
+  display:block!important;
+  width:16px!important;
+  height:16px!important;
+  line-height:16px!important;
+  text-align:center!important;
 }
 .danger-action.p-button.p-button-text:hover{
   color:#b8070f!important;
