@@ -12,14 +12,18 @@ const ClientBranchService = (() => {
     };
   }
 
-  function allActive() {
+  function all() {
     return Repository.list('CLIENTES_FILIAIS')
       .map(x => mapBranch_(x.record))
-      .filter(x => x.ativo !== 'NAO' && x.cnpj && x.nomeCliente && x.filial)
+      .filter(x => x.cnpj && x.nomeCliente && x.filial)
       .sort((a,b) => (a.nomeCliente + ' ' + a.filial).localeCompare(b.nomeCliente + ' ' + b.filial));
   }
 
-  function assignments_(matricula) {
+  function allActive() {
+    return all().filter(x => x.ativo !== 'NAO');
+  }
+
+  function assignedCnpjs_(matricula) {
     const m = text_(matricula);
     return Repository.list('USUARIO_FILIAIS')
       .map(x => x.record)
@@ -28,19 +32,25 @@ const ClientBranchService = (() => {
       .filter(Boolean);
   }
 
-  function allowedForUser(matricula, perfil) {
-    const all = allActive();
-    const assigned = assignments_(matricula);
-    if (upper_(perfil) === 'ADMIN' && assigned.length === 0) return all;
+  function branchesForScope(matricula, perfil) {
+    const catalog = all();
+    const assigned = assignedCnpjs_(matricula);
+
+    if (upper_(perfil) === 'ADMIN' && assigned.length === 0) return catalog;
+
     const set = {};
     assigned.forEach(cnpj => { set[cnpj] = true; });
-    return all.filter(branch => set[branch.cnpj]);
+    return catalog.filter(branch => set[branch.cnpj]);
+  }
+
+  function availableForUser(matricula, perfil) {
+    return branchesForScope(matricula, perfil).filter(branch => branch.ativo !== 'NAO');
   }
 
   function assertAllowed(matricula, perfil, cnpjValue) {
     const target = cnpj_(cnpjValue);
-    const branch = allowedForUser(matricula, perfil).find(x => x.cnpj === target);
-    if (!branch) throw new Error('Você não possui acesso à filial informada.');
+    const branch = availableForUser(matricula, perfil).find(x => x.cnpj === target);
+    if (!branch) throw new Error('Você não possui acesso a esta filial ou ela está inativa.');
     return branch;
   }
 
@@ -110,12 +120,25 @@ const ClientBranchService = (() => {
       }, ['MATRICULA','CNPJ','CRIADO_POR','ATUALIZADO_POR']);
     });
 
-    return allowedForUser(matricula, perfil);
+    return assignedCnpjs_(matricula);
   }
 
-  function cnpjsForUser(matricula, perfil) {
-    return allowedForUser(matricula, perfil).map(x => x.cnpj);
+  function assignedCnpjs(matricula) {
+    return assignedCnpjs_(matricula);
   }
 
-  return { allActive, allowedForUser, assertAllowed, validateAssignments, setAssignments, cnpjsForUser };
+  function scopeCnpjs(matricula, perfil) {
+    return branchesForScope(matricula, perfil).map(x => x.cnpj);
+  }
+
+  return {
+    all,
+    allActive,
+    availableForUser,
+    assertAllowed,
+    validateAssignments,
+    setAssignments,
+    assignedCnpjs,
+    scopeCnpjs
+  };
 })();
