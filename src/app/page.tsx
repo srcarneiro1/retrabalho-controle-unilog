@@ -277,10 +277,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!user) return
-    if (user.trocaSenhaObrigatoria) {
-      setPasswordDialog(true)
-      return
-    }
+    if (user.trocaSenhaObrigatoria) return
 
     void loadPrices()
     if (user.perfil === 'CLIENTE') {
@@ -432,12 +429,19 @@ export default function Home() {
         method: 'POST',
         body: JSON.stringify({ novaSenha: newPassword }),
       })
+
+      const refreshed = await api('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          matricula: user?.matricula || matricula,
+          senha: newPassword,
+        }),
+      })
+
       setNewPassword('')
       setConfirmPassword('')
       setPasswordDialog(false)
-      await api('/api/auth/logout', { method: 'POST', body: '{}' }).catch(() => null)
-      setUser(null)
-      setMatricula(user?.matricula || '')
+      setUser(refreshed.user)
     } catch (error) {
       setPasswordError(error instanceof Error ? error.message : 'Falha ao trocar senha.')
     } finally {
@@ -593,21 +597,21 @@ export default function Home() {
     return (
       <main className="login-page">
         <section className="login-card">
-          <div className="login-brand">
-            <div>
-              <div className="brand">UNILOG</div>
-              <span>CONTROLE OPERACIONAL</span>
+          <aside className="login-brand" aria-label="Retrabalho Controle Unilog">
+            <div className="login-brand-topline">
+              <img src="/brand/unilog-logo-white-transparent.svg" alt="Unilog Express" />
+              <span className="product-chip">Retrabalho</span>
             </div>
-            <div>
-              <small>RETRABALHO</small>
-              <h1>Rastreabilidade de execução e etiquetagem.</h1>
-              <p>Registro controlado por matrícula, histórico de alterações e perfis de acesso.</p>
+            <div className="login-brand-copy">
+              <span className="overline">GESTÃO OPERACIONAL</span>
+              <h1>Retrabalho com rastreabilidade e cobrança controlada.</h1>
+              <p>Execução, etiquetagem, vigências de preço e auditoria reunidas em um único ambiente operacional.</p>
             </div>
             <div className="proof">
-              <span><i className="pi pi-shield" /> Sessão protegida</span>
-              <span><i className="pi pi-history" /> Auditoria</span>
+              <span><i className="pi pi-shield" /> Acesso protegido</span>
+              <span><i className="pi pi-history" /> Histórico auditável</span>
             </div>
-          </div>
+          </aside>
 
           <form className="login-form" onSubmit={login}>
             <small>ACESSO AO SISTEMA</small>
@@ -624,6 +628,84 @@ export default function Home() {
             )}
             <Button label="Acessar" icon="pi pi-sign-in" className="primary" />
           </form>
+        </section>
+      </main>
+    )
+  }
+
+  if (user.trocaSenhaObrigatoria) {
+    return (
+      <main className="login-page">
+        <section className="login-card" aria-labelledby="first-access-title">
+          <aside className="login-brand" aria-label="Retrabalho Controle Unilog">
+            <div className="login-brand-topline">
+              <img src="/brand/unilog-logo-white-transparent.svg" alt="Unilog Express" />
+              <span className="product-chip">Retrabalho</span>
+            </div>
+            <div className="login-brand-copy">
+              <span className="overline">PRIMEIRO ACESSO</span>
+              <h1>Segurança desde o primeiro acesso.</h1>
+              <p>A senha recebida é temporária. Defina sua própria senha antes de acessar os dados operacionais.</p>
+            </div>
+            <div className="proof">
+              <span><i className="pi pi-shield" /> Credenciais protegidas</span>
+              <span><i className="pi pi-lock" /> Senha não armazenada em texto puro</span>
+            </div>
+          </aside>
+
+          <section className="login-form first-access-form">
+            <span className="login-overline">PRIMEIRO ACESSO</span>
+            <h2 id="first-access-title">Crie sua própria senha</h2>
+            <p>A nova senha substitui a senha temporária e libera sua sessão sem exigir outro login.</p>
+
+            <label>Matrícula</label>
+            <InputText value={user.matricula} disabled />
+
+            <label htmlFor="first-new-password">Nova senha</label>
+            <Password
+              inputId="first-new-password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              toggleMask
+              feedback={false}
+              autoComplete="new-password"
+              placeholder="Mínimo de 8 caracteres"
+              required
+            />
+
+            <label htmlFor="first-confirm-password">Confirmar nova senha</label>
+            <Password
+              inputId="first-confirm-password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              toggleMask
+              feedback={false}
+              autoComplete="new-password"
+              placeholder="Repita a nova senha"
+              required
+            />
+
+            {passwordError && (
+              <div className="error">
+                <i className="pi pi-exclamation-circle" />{passwordError}
+              </div>
+            )}
+
+            <Button
+              label={saving ? 'Salvando…' : 'Definir minha senha'}
+              icon={saving ? 'pi pi-spin pi-spinner' : 'pi pi-check'}
+              iconPos="right"
+              className="primary"
+              loading={false}
+              disabled={saving}
+              onClick={changePassword}
+            />
+
+            <div className="login-security-note">
+              <i className="pi pi-info-circle" />
+              <span>Depois da alteração, você seguirá diretamente para o sistema com a mesma sessão autenticada.</span>
+            </div>
+          </section>
         </section>
       </main>
     )
@@ -653,9 +735,12 @@ export default function Home() {
             </button>
           )}
           {canUsers && (
-            <button className="nav" onClick={openUsers}>
-              <i className="pi pi-users" /> Usuários
-            </button>
+            <div className="nav-section">
+              <span className="nav-caption">ADMINISTRAÇÃO</span>
+              <button className="nav" onClick={openUsers}>
+                <i className="pi pi-users" /> Usuários
+              </button>
+            </div>
           )}
         </nav>
 
