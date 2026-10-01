@@ -13,10 +13,18 @@ function doPost(e) {
 
     if (route === 'retrabalhos') {
       const action = String(payload.acao || '').toUpperCase();
-      if (action === 'LISTAR') return ok_({ data: ReworkService.list() });
+      if (action === 'LISTAR') return ok_({ data: ReworkService.list(payload.mes) });
+      if (action === 'MESES') return ok_({ data: ReworkService.months() });
       if (action === 'CRIAR') return ok_(ReworkService.create(payload));
       if (action === 'EDITAR') return ok_(ReworkService.edit(payload));
       throw new Error('Ação de retrabalho inválida.');
+    }
+
+    if (route === 'precos') {
+      const action = String(payload.acao || '').toUpperCase();
+      if (action === 'LISTAR') return ok_({ data: PriceService.list() });
+      if (action === 'CRIAR_VIGENCIA') return ok_(PriceService.create(payload));
+      throw new Error('Ação de preço inválida.');
     }
 
     if (route === 'usuarios') {
@@ -28,18 +36,27 @@ function doPost(e) {
     }
 
     if (route === 'audit') {
-      if (String(payload.acao || '').toUpperCase() === 'LISTAR') return ok_({ data: AuditService.list() });
+      if (String(payload.acao || '').toUpperCase() === 'LISTAR') {
+        return ok_({ data: AuditService.list(payload.mes) });
+      }
       throw new Error('Ação de auditoria inválida.');
     }
 
     throw new Error('Rota inválida.');
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ ok:false, error:{ message: error && error.message ? error.message : String(error) } })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        ok:false,
+        error:{ message: error && error.message ? error.message : String(error) }
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
 function validateGateway_(payload) {
-  if (!payload || String(payload._gatewayToken || '') !== AppConfig.gatewayToken()) throw new Error('Gateway não autorizado.');
+  if (!payload || String(payload._gatewayToken || '') !== AppConfig.gatewayToken()) {
+    throw new Error('Gateway não autorizado.');
+  }
 }
 
 function ok_(payload) {
@@ -48,6 +65,14 @@ function ok_(payload) {
 }
 
 function bootstrapAdmin(matricula, nome, senhaTemporaria) {
-  if (Repository.list('USUARIOS').length > 0) throw new Error('Bootstrap bloqueado: já existem usuários cadastrados.');
-  return UserService.create({ matricula, nome, perfil:'ADMIN', senhaTemporaria, matriculaAutor: matricula });
+  if (Repository.list('USUARIOS').length > 0) {
+    throw new Error('Bootstrap bloqueado: já existem usuários cadastrados.');
+  }
+  return UserService.create({
+    matricula,
+    nome,
+    perfil:'ADMIN',
+    senhaTemporaria,
+    matriculaAutor: matricula
+  });
 }
