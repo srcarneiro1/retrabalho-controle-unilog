@@ -500,6 +500,7 @@ export default function Home() {
           matricula: editingUser.matricula,
           perfil: editingUser.perfil,
           ativo: editingUser.ativo,
+          cnpjs: editingUser.cnpjs || [],
           versao: editingUser.versao,
         }),
       })
@@ -1007,7 +1008,7 @@ export default function Home() {
               <Button label="Exportar" icon="pi pi-download" outlined className="compact" onClick={exportReworks} disabled={!items.length} />
             )}
             {section === 'lancamentos' && canCreate && (
-              <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} />
+              <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} disabled={!branches.length} />
             )}
             {section === 'auditoria' && canExport && (
               <Button label="Exportar auditoria" icon="pi pi-download" outlined className="compact" onClick={exportAudits} disabled={!audits.length} />
