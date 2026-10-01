@@ -20,15 +20,33 @@ function monthFrom(url: URL, user: SessionIdentity) {
   return mes
 }
 
-async function list_(env: Env, mes = '') {
-  return readJson(env, 'retrabalhos', { acao: 'LISTAR', mes })
+function identityPayload(user: SessionIdentity) {
+  return {
+    matriculaAutor: user.matricula,
+    perfilAutor: user.perfil,
+  }
 }
 
-async function mutation_(env: Env, payload: Record<string, unknown>) {
+async function list_(env: Env, user: SessionIdentity, mes = '') {
+  return readJson(env, 'retrabalhos', {
+    acao: 'LISTAR',
+    mes,
+    ...identityPayload(user),
+  })
+}
+
+async function mutation_(
+  env: Env,
+  user: SessionIdentity,
+  payload: Record<string, unknown>,
+) {
   let response: Response | undefined
 
   try {
-    response = await mutateAppsScriptOnce(env, 'retrabalhos', payload)
+    response = await mutateAppsScriptOnce(env, 'retrabalhos', {
+      ...payload,
+      ...identityPayload(user),
+    })
     const upstream = await parseUpstream(response)
     if (upstream !== null) {
       if (!response.ok || !apiSucceeded(upstream)) {
@@ -46,7 +64,7 @@ async function mutation_(env: Env, payload: Record<string, unknown>) {
     }
   }
 
-  const current = await list_(env)
+  const current = await list_(env, user)
   const items = Array.isArray(current.data) ? current.data : []
   const action = String(payload.acao || '').toUpperCase()
 
@@ -60,13 +78,13 @@ async function mutation_(env: Env, payload: Record<string, unknown>) {
     const id = String(payload.id || '')
     const previousVersion = Number(payload.versao || 0)
     const found = items.find(
-      (x: any) => String(x.id || '') === id && Number(x.versao || 0) > previousVersion
+      (x: any) => String(x.id || '') === id && Number(x.versao || 0) > previousVersion,
     )
     if (found) return { ok: true, data: found, reconciled: true }
   }
 
   throw new Error(
-    'Não foi possível confirmar o resultado da gravação. Atualize a lista antes de tentar novamente.'
+    'Não foi possível confirmar o resultado da gravação. Atualize a lista antes de tentar novamente.',
   )
 }
 
@@ -102,7 +120,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const url = new URL(request.url)
 
     if (url.searchParams.get('months') === '1') {
-      return json(await readJson(env, 'retrabalhos', { acao: 'MESES' }))
+      return json(await readJson(env, 'retrabalhos', {
+        acao: 'MESES',
+        ...identityPayload(user),
+      }))
     }
 
     const mes = monthFrom(url, user)
@@ -114,11 +135,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       return json(await readJson(env, 'audit', {
         acao: 'LISTAR',
         mes,
-        matriculaAutor: user.matricula,
+        ...identityPayload(user),
       }))
     }
 
-    return json(await list_(env, mes))
+    return json(await list_(env, user, mes))
   } catch (error) {
     return errorResponse(error)
   }
@@ -132,10 +153,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const body = await request.json() as Record<string, unknown>
-    return json(await mutation_(env, {
+    return json(await mutation_(env, user, {
       acao: 'CRIAR',
       ...body,
-      matriculaAutor: user.matricula,
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao gravar.'
@@ -154,10 +174,9 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const body = await request.json() as Record<string, unknown>
-    return json(await mutation_(env, {
+    return json(await mutation_(env, user, {
       acao: 'EDITAR',
       ...body,
-      matriculaAutor: user.matricula,
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao atualizar.'
