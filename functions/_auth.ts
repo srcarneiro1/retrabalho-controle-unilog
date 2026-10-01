@@ -4,7 +4,7 @@ export interface GatewayAuthEnv { APP_SESSION_SECRET?: string }
 export type SessionIdentity = {
   matricula: string
   nome: string
-  perfil: 'OPERACIONAL' | 'SUPERVISOR' | 'ADMIN'
+  perfil: 'OPERACIONAL' | 'SUPERVISOR' | 'ADMIN' | 'CLIENTE'
   trocaSenhaObrigatoria?: boolean
 }
 
