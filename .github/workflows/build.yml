@@ -22,3 +22,5 @@ jobs:
           echo "ICON_LINKS_FROM_EXPORT:"
           grep -o '<link[^>]*rel="[^"]*icon[^"]*"[^>]*>' dist/index.html || true
           grep -q '<title>Retrabalho | Unilog Express</title>' dist/index.html
+          test -s dist/favicon.ico
+          grep -q '/favicon.ico' dist/index.html
