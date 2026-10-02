@@ -449,6 +449,9 @@ Arquivos Apps Script que precisam estar publicados:
 - botão padrão: 38 px;
 - topbar: 60 px;
 - sidebar: 244/72 px;
+- tipografia da sidebar: Roboto 12 px / peso 650, ícones 15 px, itens 44 px;
+- label administrativo: 8 px / peso 800 / tracking 0,09em;
+- rodapé da sidebar: nome 11 px, metadado 9 px e ações 40 px;
 - status de conexão: ponto verde + `Base conectada`;
 - favicon: uma única referência ao SVG oficial;
 - bootstrap inicial: uma única chamada da aplicação ao backend;
