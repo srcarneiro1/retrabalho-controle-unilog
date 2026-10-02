@@ -22,5 +22,7 @@ jobs:
           echo "ICON_LINKS_FROM_EXPORT:"
           grep -o '<link[^>]*rel="[^"]*icon[^"]*"[^>]*>' dist/index.html || true
           grep -q '<title>Retrabalho | Unilog Express</title>' dist/index.html
-          test -s dist/favicon.ico
-          grep -q '/favicon.ico?v=20261001-10' dist/index.html
+          test -s dist/brand/unilog-favicon-red.svg
+          ICON_COUNT="$(grep -o '<link[^>]*rel="icon"[^>]*>' dist/index.html | wc -l)"
+          test "$ICON_COUNT" -eq 1
+          grep -q '/brand/unilog-favicon-red.svg?v=20261002-1' dist/index.html
