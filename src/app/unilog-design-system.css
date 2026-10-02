@@ -31,19 +31,14 @@
 
 html{
   min-width:320px;
-  min-height:100%;
   background:var(--unilog-canvas);
   font-family:Roboto,Arial,Helvetica,sans-serif;
   font-synthesis:none;
   text-rendering:optimizeLegibility;
 }
-html,body{
-  overscroll-behavior-y:none;
-}
 body{
   min-width:320px;
   min-height:100vh;
-  min-height:100dvh;
   background:var(--unilog-canvas)!important;
   color:var(--unilog-ink-2);
   font-family:Roboto,Arial,Helvetica,sans-serif;
@@ -268,6 +263,16 @@ button,input,select,textarea{font:inherit}
   color:var(--unilog-muted);
   font-size:10px;
   line-height:1.5;
+}
+
+/* Scroll containment belongs to the authenticated shell only.
+   Keeping it off the root document preserves the login viewport/canvas exactly as before. */
+html:has(.app),
+body:has(.app){
+  overscroll-behavior-y:none;
+}
+body:has(.app){
+  min-height:100dvh;
 }
 
 /* Shell */
