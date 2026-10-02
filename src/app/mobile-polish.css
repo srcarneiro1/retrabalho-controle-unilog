@@ -29,7 +29,7 @@ body{-webkit-text-size-adjust:100%}
 
 @media(max-width:900px){
   .client-dashboard-filters{grid-template-columns:1fr!important;padding:10px!important}
-  .client-dashboard-filters select,
+  .client-dashboard-filters .p-dropdown,
   .client-dashboard-filters .p-inputtext{height:44px!important;min-height:44px!important;font-size:16px!important}
 
   .metrics,.metrics-4{
@@ -72,7 +72,7 @@ body{-webkit-text-size-adjust:100%}
   .p-calendar .p-inputtext,
   .form-grid select,
   .user-form select,
-  .month-control select{
+  .month-control .p-dropdown{
     min-height:44px!important;
     height:44px!important;
   }
@@ -152,7 +152,7 @@ body{-webkit-text-size-adjust:100%}
   }
   .topbar-actions>.p-button,
   .topbar-actions>.month-control,
-  .month-control select{
+  .month-control .p-dropdown{
     width:100%!important;
   }
   .topbar-actions>.p-button{
@@ -162,7 +162,7 @@ body{-webkit-text-size-adjust:100%}
     font-size:11px!important;
   }
   .month-control{display:grid!important;gap:5px!important}
-  .month-control select{min-height:44px!important;height:44px!important}
+  .month-control .p-dropdown{min-height:44px!important;height:44px!important}
 
   .metrics,.metrics-4{
     grid-template-columns:1fr!important;
