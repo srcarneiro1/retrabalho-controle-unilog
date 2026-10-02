@@ -1,12 +1,12 @@
 /* Final component geometry contract.
    This file owns control dimensions and must load after all legacy/local styles. */
 :root{
-  --ui-control-h:42px;
+  --ui-control-h:40px;
   --ui-action-h:38px;
-  --ui-action-compact-h:36px;
+  --ui-action-compact-h:38px;
   --ui-icon-action:32px;
   --ui-control-pad-x:12px;
-  --ui-control-font:11px;
+  --ui-control-font:12px;
 }
 
 /* Universal control geometry */
@@ -41,11 +41,11 @@
   padding:0!important;
 }
 
-/* Button taxonomy:
+/* Button taxonomy aligned with BI Logístico:
    - default toolbar/action = 38
-   - compact/topbar = 36
-   - field-row submit = 42 (aligns with input)
-   - icon-only/table = 34 */
+   - compact/topbar = 38
+   - field-row submit = 40 (aligns with input)
+   - icon-only/table = 32 */
 .p-button{
   min-height:var(--ui-action-h)!important;
   height:var(--ui-action-h)!important;
@@ -68,8 +68,8 @@
 .topbar-actions>.p-button{
   height:var(--ui-action-compact-h)!important;
   min-height:var(--ui-action-compact-h)!important;
-  padding:0 12px!important;
-  font-size:10px!important;
+  padding:0 13px!important;
+  font-size:11px!important;
 }
 
 .form-submit.p-button,
