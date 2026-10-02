@@ -138,6 +138,12 @@ body{-webkit-text-size-adjust:100%}
   .topbar-title{width:100%!important;min-width:0!important}
   .topbar-title>div{min-width:0!important}
   .topbar h1{font-size:20px!important;overflow-wrap:anywhere}
+  .topbar-right{
+    width:100%!important;
+    display:grid!important;
+    gap:8px!important;
+  }
+  .base-sync{display:none!important}
   .topbar-actions{
     width:100%!important;
     display:grid!important;
