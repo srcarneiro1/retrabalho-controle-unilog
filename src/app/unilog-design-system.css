@@ -35,7 +35,7 @@ body{
   min-height:100vh;
   background:var(--unilog-canvas)!important;
   color:var(--unilog-ink-2);
-  font-family:Inter,Roboto,Arial,Helvetica,sans-serif;
+  font-family:Roboto,Arial,Helvetica,sans-serif;
   -webkit-font-smoothing:antialiased;
 }
 .p-component{font-family:inherit}
@@ -351,23 +351,23 @@ body{
 }
 .workspace-body{
   width:100%;
-  max-width:1540px;
+  max-width:1600px;
   margin:0 auto;
   padding:0 34px;
 }
 .topbar{
-  min-height:62px!important;
-  height:62px!important;
+  min-height:60px!important;
+  height:60px!important;
   margin:0 0 24px;
-  padding:0 34px;
+  padding:0 30px;
   border-bottom:1px solid var(--unilog-border);
   background:rgba(255,255,255,.94);
   backdrop-filter:blur(14px);
 }
 .topbar small{color:#959aa3!important}
 .topbar h1{
-  margin:3px 0 0!important;
-  font-size:23px!important;
+  margin:2px 0 0!important;
+  font-size:22px!important;
   line-height:1.15;
   letter-spacing:-.035em;
   color:var(--unilog-ink)!important;
@@ -759,4 +759,48 @@ body{
 .client-export.p-button:disabled{
   opacity:.52!important;
   background:#fafbfc!important;
+}
+
+
+/* BI Logístico parity: connection status in the topbar. */
+.topbar-right{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:10px;
+  min-width:0;
+}
+.base-sync{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  padding:7px 10px;
+  border:1px solid #e2e7e4;
+  border-radius:999px;
+  background:#f7faf8;
+  color:#53645a;
+  font-size:9px;
+  font-weight:700;
+  line-height:1;
+  white-space:nowrap;
+}
+.base-sync .sync-dot{
+  width:7px;
+  height:7px;
+  flex:0 0 7px;
+  border-radius:50%;
+}
+.base-sync.connected .sync-dot{
+  background:#3f7c59;
+  box-shadow:0 0 0 3px rgba(63,124,89,.11);
+}
+.base-sync.disconnected{
+  border-color:#f0d7d9;
+  background:#fff7f7;
+  color:#8f555a;
+}
+.base-sync.disconnected .sync-dot{
+  background:#c91a23;
+  box-shadow:0 0 0 3px rgba(201,26,35,.08);
 }
