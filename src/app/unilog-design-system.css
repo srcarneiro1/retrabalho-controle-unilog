@@ -294,8 +294,10 @@ body{
   padding:10px 12px!important;
   border-radius:10px!important;
   color:#e2e5e9!important;
+  font-family:Roboto,Arial,Helvetica,sans-serif!important;
   font-size:12px!important;
   font-weight:650!important;
+  line-height:1.2!important;
   text-align:left;
 }
 .nav i{width:18px;text-align:center;font-size:15px;color:#b9bec7}
@@ -318,11 +320,12 @@ body{
 }
 .nav-caption{
   display:block;
-  padding:17px 12px 6px;
+  padding:18px 12px 7px;
+  font-family:Roboto,Arial,Helvetica,sans-serif;
   font-size:8px;
-  font-weight:700;
-  letter-spacing:.13em;
-  color:#aeb0b6;
+  font-weight:800;
+  letter-spacing:.09em;
+  color:#8f96a1;
 }
 .user-card{
   margin-top:auto!important;
@@ -331,13 +334,21 @@ body{
   grid-template-columns:36px minmax(0,1fr) auto!important;
 }
 .avatar{background:#515968!important}
-.user-card strong{font-size:11px!important;color:#fff}
-.user-card span{font-size:8px!important;color:#aeb4be!important}
+.user-card strong{
+  font-family:Roboto,Arial,Helvetica,sans-serif!important;
+  font-size:11px!important;
+  color:#fff
+}
+.user-card span{
+  font-family:Roboto,Arial,Helvetica,sans-serif!important;
+  font-size:9px!important;
+  color:#aeb4be!important
+}
 .user-actions{gap:2px}
 .user-actions button{
-  width:36px!important;
-  height:36px!important;
-  border-radius:9px!important;
+  width:40px!important;
+  height:40px!important;
+  border-radius:10px!important;
   color:#c8cdd5!important;
 }
 .user-actions button:hover{background:rgba(255,255,255,.07)!important;color:#fff!important}
