@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.01.4';
+const API_VERSION = '2026.10.02.1';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -31,6 +31,13 @@ function doPost(e) {
       if (action === 'LOGIN') return ok_({ user: UserService.authenticate(payload) });
       if (action === 'TROCAR_SENHA') return ok_(UserService.changePassword(payload));
       throw new Error('Ação de autenticação inválida.');
+    }
+
+    if (route === 'bootstrap') {
+      const action = String(payload.acao || '').toUpperCase();
+      if (action === 'CARREGAR') return ok_(BootstrapService.load(payload));
+      if (action === 'COMPETENCIA') return ok_(BootstrapService.period(payload));
+      throw new Error('Ação de bootstrap inválida.');
     }
 
     if (route === 'retrabalhos') {
