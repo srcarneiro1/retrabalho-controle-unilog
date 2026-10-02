@@ -3,7 +3,7 @@
 > Sistema Unilog para registro, precificação, auditoria e acompanhamento de retrabalhos por cliente/filial.  
 > Esta memória é a fonte de verdade funcional, técnica e visual do projeto e deve ser atualizada sempre que uma decisão aprovada alterar o baseline.
 
-**Atualizado em:** 01/10/2026  
+**Atualizado em:** 02/10/2026  
 **Produção:** Cloudflare Pages, branch `main`  
 **Referência visual:** Extra Cost Control Unilog + BI Logístico V2
 
@@ -418,3 +418,45 @@ Ao aprovar uma nova regra:
 4. substituir a seção `Próxima etapa` pela nova sequência pendente.
 
 Este arquivo deve permanecer curto o suficiente para leitura operacional, mas completo o suficiente para reconstruir o estado atual do projeto sem depender do histórico do chat.
+
+
+## ⚡ Paridade com BI Logístico — diagnóstico 02/10/2026
+
+Diferenças confirmadas e corrigidas:
+- Retrabalho utilizava controles de 42 px; BI usa 40 px.
+- Retrabalho utilizava topbar de 62/64 px; BI usa 60 px.
+- Retrabalho não mostrava status explícito de conexão; agora usa `Base conectada` após bootstrap bem-sucedido.
+- Retrabalho fazia múltiplas chamadas iniciais ao Apps Script; agora usa uma rota única de bootstrap.
+- `Repository.gs` passou a cachear headers e leituras de abas dentro da mesma execução do Apps Script para evitar leituras repetidas da planilha.
+- favicon possuía múltiplas fontes concorrentes; o baseline passa a exigir uma única referência versionada ao SVG oficial em `/brand/unilog-favicon-red.svg`.
+
+Bootstrap:
+- Cloudflare: `GET /api/bootstrap`.
+- Apps Script: rota `bootstrap`, ação `CARREGAR`.
+- CLIENTE troca competência por `GET /api/bootstrap?period=1&mes=AAAA-MM`.
+- bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
+
+Versão esperada do Apps Script:
+`2026.10.02.1`.
+
+Arquivos Apps Script que precisam estar publicados:
+- `Api.gs`
+- `BootstrapService.gs`
+- `Repository.gs`
+
+### Baseline de paridade com BI
+- controle desktop: 40 px;
+- botão padrão: 38 px;
+- topbar: 60 px;
+- sidebar: 244/72 px;
+- status de conexão: ponto verde + `Base conectada`;
+- favicon: uma única referência ao SVG oficial;
+- bootstrap inicial: uma única chamada da aplicação ao backend;
+- mobile mantém 44 px para toque e oculta o status de conexão para preservar espaço.
+
+### Próxima etapa técnica
+- [ ] Publicar `Api.gs`, `BootstrapService.gs` e `Repository.gs` no Apps Script.
+- [ ] Criar nova versão da implantação existente e confirmar health `2026.10.02.1`.
+- [ ] Validar tempo de bootstrap após publicação.
+- [ ] Confirmar no HTML exportado que existe exatamente uma referência de favicon.
+- [ ] Comparar lado a lado BI Logístico × Retrabalho em 1440 px e 1920 px antes de novos ajustes visuais.
