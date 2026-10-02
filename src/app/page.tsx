@@ -214,27 +214,6 @@ function downloadCsv(filename: string, headers: string[], rows: unknown[][]) {
 }
 
 export default function Home() {
-  useEffect(() => {
-    const title = 'Retrabalho | Unilog Express'
-    const iconHref = '/favicon.ico?v=20261001-10'
-
-    document.title = title
-
-    const ensureIcon = (rel: 'icon' | 'shortcut icon') => {
-      let link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`)
-      if (!link) {
-        link = document.createElement('link')
-        link.rel = rel
-        link.type = 'image/x-icon'
-        document.head.appendChild(link)
-      }
-      link.href = iconHref
-    }
-
-    ensureIcon('icon')
-    ensureIcon('shortcut icon')
-  }, [])
-
   const [user, setUser] = useState<User | null>(null)
   const [loadingSession, setLoadingSession] = useState(true)
   const [matricula, setMatricula] = useState('')
@@ -257,6 +236,8 @@ export default function Home() {
   const [workspaceReady, setWorkspaceReady] = useState(false)
   const [workspaceSlow, setWorkspaceSlow] = useState(false)
   const [workspaceError, setWorkspaceError] = useState('')
+  const [baseConnected, setBaseConnected] = useState(false)
+  const [apiVersion, setApiVersion] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState(createForm)
@@ -376,15 +357,17 @@ export default function Home() {
     setLoading(true)
     try {
       if (isClient) {
-        const [itemData, auditData] = await Promise.all([
-          api('/api/retrabalhos?mes=' + encodeURIComponent(value)),
-          api('/api/retrabalhos?audit=1&mes=' + encodeURIComponent(value)),
-        ])
-        setItems(itemData.data || [])
-        setAudits(auditData.data || [])
+        const data = await api('/api/bootstrap?period=1&mes=' + encodeURIComponent(value))
+        setItems(data.items || [])
+        setAudits(data.audits || [])
+        setBaseConnected(data.connected === true)
+        setApiVersion(String(data.apiVersion || ''))
       } else {
         await loadItems(value)
       }
+    } catch (error) {
+      setBaseConnected(false)
+      throw error
     } finally {
       setLoading(false)
     }
@@ -410,70 +393,30 @@ export default function Home() {
     setWorkspaceReady(false)
     setWorkspaceSlow(false)
     setWorkspaceError('')
+    setBaseConnected(false)
 
-    const slowTimer = window.setTimeout(() => setWorkspaceSlow(true), 3500)
+    const slowTimer = window.setTimeout(() => setWorkspaceSlow(true), 2500)
 
     try {
+      const data = await api('/api/bootstrap')
+
+      setPrices(data.prices || [])
+      setBranches(data.branches || [])
+      setItems(data.items || [])
+      setAudits(data.audits || [])
+      setMonths(data.months || [])
+      setAllBranches(data.allBranches || [])
+      setUsers(data.users || [])
+
       if (currentUser.perfil === 'CLIENTE') {
-        const [priceData, branchData, monthData] = await Promise.all([
-          api('/api/precos'),
-          api('/api/filiais'),
-          api('/api/retrabalhos?months=1'),
-        ])
-
-        setPrices(priceData.data || [])
-        setBranches(branchData.data || [])
-
-        const available: string[] = monthData.data || []
-        setMonths(available)
-        const chosen = available[0] || currentMonth()
-        setSelectedMonth(chosen)
-
-        const [itemData, auditData] = await Promise.all([
-          api('/api/retrabalhos?mes=' + encodeURIComponent(chosen)),
-          api('/api/retrabalhos?audit=1&mes=' + encodeURIComponent(chosen)),
-        ])
-        setItems(itemData.data || [])
-        setAudits(auditData.data || [])
-      } else {
-        const requests: Promise<any>[] = [
-          api('/api/precos'),
-          api('/api/filiais'),
-          api('/api/retrabalhos'),
-        ]
-
-        const includeAudit = currentUser.perfil === 'SUPERVISOR' || currentUser.perfil === 'ADMIN'
-        const includeAdmin = currentUser.perfil === 'ADMIN'
-        if (includeAudit) requests.push(api('/api/retrabalhos?audit=1'))
-        if (includeAdmin) {
-          requests.push(api('/api/filiais?all=1'))
-          requests.push(api('/api/usuarios'))
-        }
-
-        const result = await Promise.all(requests)
-        let index = 0
-        const priceData = result[index++]
-        const branchData = result[index++]
-        const itemData = result[index++]
-
-        setPrices(priceData.data || [])
-        setBranches(branchData.data || [])
-        setItems(itemData.data || [])
-
-        if (includeAudit) {
-          const auditData = result[index++]
-          setAudits(auditData.data || [])
-        }
-        if (includeAdmin) {
-          const allBranchData = result[index++]
-          const userData = result[index++]
-          setAllBranches(allBranchData.data || [])
-          setUsers(userData.data || [])
-        }
+        setSelectedMonth(data.selectedMonth || currentMonth())
       }
 
+      setApiVersion(String(data.apiVersion || ''))
+      setBaseConnected(data.connected === true)
       setWorkspaceReady(true)
     } catch (error) {
+      setBaseConnected(false)
       setWorkspaceError(
         error instanceof Error
           ? error.message
@@ -513,6 +456,8 @@ export default function Home() {
     setAllBranches([])
     setWorkspaceReady(false)
     setWorkspaceError('')
+    setBaseConnected(false)
+    setApiVersion('')
   }
 
   function openNew() {
@@ -1103,7 +1048,7 @@ export default function Home() {
             <>
               <i className="pi pi-spin pi-spinner workspace-gate-spinner" />
               <h2>Preparando seu ambiente</h2>
-              <p>Carregando filiais, preços e lançamentos antes de liberar a tela.</p>
+              <p>Conectando à base e organizando os dados do seu escopo.</p>
               {workspaceSlow && (
                 <small>A conexão com a base está levando mais tempo que o normal. Aguarde mais alguns segundos.</small>
               )}
@@ -1219,7 +1164,15 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="topbar-actions">
+          <div className="topbar-right">
+            <span
+              className={`base-sync ${baseConnected ? 'connected' : 'disconnected'}`}
+              title={apiVersion ? `API ${apiVersion}` : undefined}
+            >
+              <span className="sync-dot" />
+              <span>{baseConnected ? 'Base conectada' : 'Base indisponível'}</span>
+            </span>
+            <div className="topbar-actions">
             {isClient && (section === 'lancamentos' || section === 'auditoria') && (
               <label className="month-control">
                 <span>Competência</span>
@@ -1250,6 +1203,7 @@ export default function Home() {
             {section === 'auditoria' && canExport && (
               <Button label="Exportar auditoria" icon="pi pi-download" outlined className="compact" onClick={exportAudits} disabled={!audits.length} />
             )}
+            </div>
           </div>
         </header>
 
