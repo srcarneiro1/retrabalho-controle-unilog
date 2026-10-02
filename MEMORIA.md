@@ -314,9 +314,11 @@ Regras canônicas:
 - superfície: branco
 - borda: `#e2e5e9`
 - logo oficial: `/brand/unilog-logo-white-transparent.svg`
-- favicon: `/favicon.ico`
+- favicon: `/brand/unilog-favicon-red.svg`
 - título: `Retrabalho | Unilog Express`
 - não permitir azul/índigo visível do tema Lara
+- Roboto é carregada explicitamente via Google Fonts, com pesos 300/400/500/600/700
+- controles nativos e PrimeReact herdam a mesma Roboto; não confiar apenas em fallback local do sistema
 
 Geometria aprovada:
 
@@ -449,7 +451,7 @@ Arquivos Apps Script que precisam estar publicados:
 - botão padrão: 38 px;
 - topbar: 60 px;
 - sidebar: 244/72 px;
-- tipografia da sidebar: Roboto 12 px / peso 650, ícones 15 px, itens 44 px;
+- tipografia da sidebar: Roboto carregada 12 px / peso 650, ícones 15 px, itens 44 px;
 - label administrativo: 8 px / peso 800 / tracking 0,09em;
 - rodapé da sidebar: nome 11 px, metadado 9 px e ações 40 px;
 - status de conexão: ponto verde + `Base conectada`;
@@ -463,3 +465,21 @@ Arquivos Apps Script que precisam estar publicados:
 - [ ] Validar tempo de bootstrap após publicação.
 - [ ] Confirmar no HTML exportado que existe exatamente uma referência de favicon.
 - [ ] Comparar lado a lado BI Logístico × Retrabalho em 1440 px e 1920 px antes de novos ajustes visuais.
+
+
+### Diagnóstico de tipografia da sidebar — 02/10/2026
+
+Diferença de tipografia detectada entre BI Logístico e Retrabalho:
+- BI Logístico carrega Roboto explicitamente pelo Google Fonts.
+- Retrabalho declarava `Roboto`, mas não carregava o arquivo da fonte.
+- em ambientes sem Roboto instalada localmente, especialmente macOS, o Retrabalho podia cair em Arial/Helvetica e parecer menor/mais estreito mesmo usando os mesmos `12px`.
+- correção: carregar a mesma família/pesos do BI e aplicar `font-synthesis:none`, `text-rendering:optimizeLegibility` e herança tipográfica em controles/PrimeReact.
+
+Regra de não-regressão:
+- não aumentar `font-size` da sidebar para compensar visualmente fallback de fonte;
+- primeiro garantir que a Roboto canônica foi carregada;
+- sidebar continua 244 px expandida, 72 px recolhida, itens 44 px, texto 12 px/650 e ícones 15 px.
+
+Próxima validação:
+- [ ] comparar novamente BI Logístico × Retrabalho após deploy com Roboto carregada;
+- [ ] conferir zoom do navegador em 100% nos dois domínios antes de alterar dimensões estruturais.
