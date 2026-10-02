@@ -11,8 +11,10 @@ export const metadata: Metadata = {
   title: 'Retrabalho | Unilog Express',
   description: 'Retrabalho — Unilog Express',
   icons: {
-    icon: '/favicon.ico?v=20261001-10',
-    shortcut: '/favicon.ico?v=20261001-8',
+    icon: {
+      url: '/brand/unilog-favicon-red.svg?v=20261002-1',
+      type: 'image/svg+xml',
+    },
   },
 }
 
