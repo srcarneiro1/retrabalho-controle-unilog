@@ -41,6 +41,92 @@
   padding:0!important;
 }
 
+
+/* PrimeReact Dropdown parity with BI Logístico.
+   The outer control owns the frame; the internal label must never draw a second input border. */
+.p-dropdown{
+  width:100%!important;
+  min-width:0!important;
+  min-height:var(--ui-control-h)!important;
+  height:var(--ui-control-h)!important;
+  display:flex!important;
+  align-items:stretch!important;
+  border:1px solid #d9dde3!important;
+  border-radius:var(--unilog-control-radius)!important;
+  background:#fff!important;
+  box-shadow:none!important;
+  color:var(--unilog-ink-2)!important;
+}
+.p-dropdown>.p-dropdown-label,
+.p-dropdown>.p-dropdown-label.p-inputtext{
+  min-width:0!important;
+  min-height:0!important;
+  height:auto!important;
+  flex:1 1 auto!important;
+  display:flex!important;
+  align-items:center!important;
+  margin:0!important;
+  padding:0 var(--ui-control-pad-x)!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  outline:0!important;
+  color:#515966!important;
+  font-size:var(--ui-control-font)!important;
+  font-weight:400!important;
+  line-height:1.2!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+.p-dropdown>.p-dropdown-trigger{
+  width:40px!important;
+  flex:0 0 40px!important;
+  display:grid!important;
+  place-items:center!important;
+  align-self:stretch!important;
+  color:#69717d!important;
+  background:transparent!important;
+}
+.p-dropdown>.p-dropdown-trigger .p-dropdown-trigger-icon{
+  font-size:13px!important;
+}
+.p-dropdown:not(.p-disabled):hover{
+  border-color:#c9cdd2!important;
+}
+.p-dropdown:not(.p-disabled).p-focus{
+  border-color:var(--unilog-red)!important;
+  box-shadow:0 0 0 3px rgba(219,8,18,.08)!important;
+}
+.p-dropdown.p-disabled{
+  background:#f8f9fb!important;
+  opacity:.72!important;
+}
+
+.month-control .p-dropdown{
+  width:auto!important;
+  min-width:170px!important;
+  height:36px!important;
+  min-height:36px!important;
+}
+.month-control .p-dropdown>.p-dropdown-label{
+  font-size:10px!important;
+}
+.month-control .p-dropdown>.p-dropdown-trigger{
+  width:36px!important;
+  flex-basis:36px!important;
+}
+
+.client-dashboard-filters .p-dropdown{
+  height:42px!important;
+  min-height:42px!important;
+}
+.client-dashboard-filters .p-dropdown>.p-dropdown-trigger{
+  width:42px!important;
+  flex-basis:42px!important;
+}
+
 /* Button taxonomy aligned with BI Logístico:
    - default toolbar/action = 38
    - compact/topbar = 38
@@ -519,14 +605,36 @@
 }
 
 
-/* Canonical overlay geometry — compact PrimeReact overlays aligned to Unilog. */
+/* Canonical overlay geometry — same dropdown anatomy used by BI Logístico. */
+.p-dropdown-panel,
 .p-multiselect-panel{
-  border-radius:12px!important;
+  border-radius:var(--unilog-radius)!important;
   border:1px solid var(--unilog-border)!important;
   background:#fff!important;
-  box-shadow:0 16px 38px rgba(18,24,34,.14)!important;
+  box-shadow:var(--unilog-shadow-raised)!important;
   overflow:hidden!important;
-  font-size:11px!important;
+  font-size:12px!important;
+}
+.p-dropdown-panel .p-dropdown-items{
+  margin:0!important;
+  padding:6px!important;
+}
+.p-dropdown-panel .p-dropdown-item{
+  min-height:36px!important;
+  display:flex!important;
+  align-items:center!important;
+  padding:8px 10px!important;
+  border-radius:6px!important;
+  color:var(--unilog-ink-2)!important;
+  font-size:12px!important;
+  line-height:1.3!important;
+}
+.p-dropdown-panel .p-dropdown-item:not(.p-disabled):hover{
+  background:var(--unilog-surface-soft)!important;
+}
+.p-dropdown-panel .p-dropdown-item.p-highlight{
+  background:var(--unilog-red-soft)!important;
+  color:var(--unilog-red-dark)!important;
 }
 .p-multiselect-panel .p-multiselect-header{
   min-height:46px!important;
@@ -563,11 +671,11 @@
   padding:2px!important;
 }
 .p-multiselect-panel .p-multiselect-item{
-  min-height:34px!important;
-  padding:7px 9px!important;
+  min-height:36px!important;
+  padding:8px 10px!important;
   gap:8px!important;
-  border-radius:7px!important;
-  font-size:11px!important;
+  border-radius:6px!important;
+  font-size:12px!important;
   line-height:1.3!important;
   color:#4f5661!important;
 }
