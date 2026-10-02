@@ -31,14 +31,19 @@
 
 html{
   min-width:320px;
+  min-height:100%;
   background:var(--unilog-canvas);
   font-family:Roboto,Arial,Helvetica,sans-serif;
   font-synthesis:none;
   text-rendering:optimizeLegibility;
 }
+html,body{
+  overscroll-behavior-y:none;
+}
 body{
   min-width:320px;
   min-height:100vh;
+  min-height:100dvh;
   background:var(--unilog-canvas)!important;
   color:var(--unilog-ink-2);
   font-family:Roboto,Arial,Helvetica,sans-serif;
@@ -267,6 +272,8 @@ button,input,select,textarea{font:inherit}
 
 /* Shell */
 .app{
+  min-height:100vh!important;
+  min-height:100dvh!important;
   grid-template-columns:244px minmax(0,1fr)!important;
   background:var(--unilog-canvas)!important;
   transition:grid-template-columns .18s ease;
@@ -742,18 +749,17 @@ button,input,select,textarea{font:inherit}
   text-transform:uppercase;
   color:var(--unilog-muted);
 }
-.client-dashboard-filters select,
+.client-dashboard-filters .p-dropdown,
 .client-dashboard-filters .p-inputtext{
   width:100%;
-  min-height:38px;
-  height:38px;
+  min-height:42px;
+  height:42px;
   border:1px solid #d9dde3;
   border-radius:10px;
   background:#fff;
   color:var(--unilog-ink-2);
-  font-size:11px;
+  font-size:12px;
 }
-.client-dashboard-filters select{padding:0 10px}
 
 .client-dashboard-filters.single-filter{
   grid-template-columns:minmax(0,1fr)!important;

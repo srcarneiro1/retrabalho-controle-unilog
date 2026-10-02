@@ -6,6 +6,7 @@ import { Calendar } from 'primereact/calendar'
 import { Column } from 'primereact/column'
 import { DataTable } from 'primereact/datatable'
 import { Dialog } from 'primereact/dialog'
+import { Dropdown } from 'primereact/dropdown'
 import { InputNumber } from 'primereact/inputnumber'
 import { InputText } from 'primereact/inputtext'
 import { MultiSelect } from 'primereact/multiselect'
@@ -14,6 +15,18 @@ import { Tag } from 'primereact/tag'
 
 type Profile = 'OPERACIONAL' | 'SUPERVISOR' | 'ADMIN' | 'CLIENTE'
 type Section = 'lancamentos' | 'auditoria' | 'precos' | 'usuarios'
+
+const PROFILE_OPTIONS = [
+  { label: 'OPERACIONAL', value: 'OPERACIONAL' },
+  { label: 'SUPERVISOR', value: 'SUPERVISOR' },
+  { label: 'ADMIN', value: 'ADMIN' },
+  { label: 'CLIENTE', value: 'CLIENTE' },
+]
+
+const USER_STATUS_OPTIONS = [
+  { label: 'Ativo', value: 'SIM' },
+  { label: 'Inativo', value: 'NAO' },
+]
 
 type User = {
   matricula: string
@@ -1176,15 +1189,18 @@ export default function Home() {
             {isClient && (section === 'lancamentos' || section === 'auditoria') && (
               <label className="month-control">
                 <span>Competência</span>
-                <select
+                <Dropdown
+                  aria-label="Competência"
                   value={selectedMonth}
-                  onChange={e => void changeMonth(e.target.value)}
+                  options={(months.length ? months : [selectedMonth]).map(month => ({
+                    label: monthLabel(month),
+                    value: month,
+                  }))}
+                  optionLabel="label"
+                  optionValue="value"
+                  onChange={e => void changeMonth(String(e.value ?? ''))}
                   disabled={loading}
-                >
-                  {(months.length ? months : [selectedMonth]).map(month => (
-                    <option key={month} value={month}>{monthLabel(month)}</option>
-                  ))}
-                </select>
+                />
               </label>
             )}
             {section === 'lancamentos' && canExport && (
@@ -1215,12 +1231,17 @@ export default function Home() {
                 {branches.length > 1 && (
                   <label>
                     <span>Filial / CNPJ</span>
-                    <select value={clientBranchFilter} onChange={e => setClientBranchFilter(e.target.value)}>
-                      <option value="">Todas as filiais</option>
-                      {branches.map(branch => (
-                        <option key={branch.cnpj} value={branch.cnpj}>{branchLabel(branch)}</option>
-                      ))}
-                    </select>
+                    <Dropdown
+                      aria-label="Filial / CNPJ"
+                      value={clientBranchFilter}
+                      options={[
+                        { label: 'Todas as filiais', value: '' },
+                        ...branches.map(branch => ({ label: branchLabel(branch), value: branch.cnpj })),
+                      ]}
+                      optionLabel="label"
+                      optionValue="value"
+                      onChange={e => setClientBranchFilter(String(e.value ?? ''))}
+                    />
                   </label>
                 )}
                 <label className="client-search">
@@ -1387,12 +1408,14 @@ export default function Home() {
                 </label>
                 <label>
                   Perfil
-                  <select value={newUser.perfil} onChange={e => setNewUser({ ...newUser, perfil: e.target.value as Profile })}>
-                    <option>OPERACIONAL</option>
-                    <option>SUPERVISOR</option>
-                    <option>ADMIN</option>
-                    <option>CLIENTE</option>
-                  </select>
+                  <Dropdown
+                    aria-label="Perfil"
+                    value={newUser.perfil}
+                    options={PROFILE_OPTIONS}
+                    optionLabel="label"
+                    optionValue="value"
+                    onChange={e => setNewUser({ ...newUser, perfil: e.value as Profile })}
+                  />
                 </label>
                 <label>
                   Senha temporária
@@ -1456,16 +1479,16 @@ export default function Home() {
           </label>
           <label className="span-2">
             Cliente / filial
-            <select
+            <Dropdown
+              aria-label="Cliente / filial"
               value={form.cnpjCliente}
-              onChange={e => setForm({ ...form, cnpjCliente: e.target.value })}
+              options={branches.map(branch => ({ label: branchLabel(branch), value: branch.cnpj }))}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Selecione a filial"
+              onChange={e => setForm({ ...form, cnpjCliente: String(e.value ?? '') })}
               required
-            >
-              <option value="">Selecione a filial</option>
-              {branches.map(branch => (
-                <option key={branch.cnpj} value={branch.cnpj}>{branchLabel(branch)}</option>
-              ))}
-            </select>
+            />
           </label>
           <label>
             SKU
@@ -1604,28 +1627,28 @@ export default function Home() {
             <label>Nome<InputText value={editingUser.nome} disabled /></label>
             <label>
               Perfil
-              <select
+              <Dropdown
+                aria-label="Perfil"
                 value={editingUser.perfil}
-                onChange={e => setEditingUser({ ...editingUser, perfil: e.target.value as Profile })}
-              >
-                <option>OPERACIONAL</option>
-                <option>SUPERVISOR</option>
-                <option>ADMIN</option>
-                <option>CLIENTE</option>
-              </select>
+                options={PROFILE_OPTIONS}
+                optionLabel="label"
+                optionValue="value"
+                onChange={e => setEditingUser({ ...editingUser, perfil: e.value as Profile })}
+              />
             </label>
             <label>
               Status
-              <select
+              <Dropdown
+                aria-label="Status"
                 value={editingUser.ativo}
+                options={USER_STATUS_OPTIONS}
+                optionLabel="label"
+                optionValue="value"
                 onChange={e => setEditingUser({
                   ...editingUser,
-                  ativo: e.target.value as 'SIM' | 'NAO',
+                  ativo: e.value as 'SIM' | 'NAO',
                 })}
-              >
-                <option value="SIM">Ativo</option>
-                <option value="NAO">Inativo</option>
-              </select>
+              />
             </label>
             <label>
               Filiais / CNPJs
