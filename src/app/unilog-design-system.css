@@ -29,16 +29,25 @@
   --focus-ring:0 0 0 .2rem rgba(219,8,18,.11);
 }
 
-html{min-width:320px;background:var(--unilog-canvas)}
+html{
+  min-width:320px;
+  background:var(--unilog-canvas);
+  font-family:Roboto,Arial,Helvetica,sans-serif;
+  font-synthesis:none;
+  text-rendering:optimizeLegibility;
+}
 body{
   min-width:320px;
   min-height:100vh;
   background:var(--unilog-canvas)!important;
   color:var(--unilog-ink-2);
   font-family:Roboto,Arial,Helvetica,sans-serif;
+  font-synthesis:none;
+  text-rendering:optimizeLegibility;
   -webkit-font-smoothing:antialiased;
 }
-.p-component{font-family:inherit}
+button,input,select,textarea{font:inherit}
+.p-component{font-family:Roboto,Arial,Helvetica,sans-serif!important}
 
 /* PrimeReact normalization: Lara remains only the technical base.
    No indigo/blue theme color may remain visible. */
