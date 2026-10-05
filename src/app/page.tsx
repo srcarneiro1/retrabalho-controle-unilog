@@ -330,6 +330,47 @@ function rateMoney(value: number) {
   })
 }
 
+// Cabeçalho de cada seção (mesmo padrão do Extra Cost Control):
+// barra superior com sistema + seção; cabeçalho de página com categoria, título e explicação.
+type SectionCopy = { eyebrow: string; title: string; description: string }
+const SECTION_COPY: Record<Section, SectionCopy> = {
+  lancamentos: {
+    eyebrow: 'Operação',
+    title: 'Lançamentos',
+    description: 'Retrabalhos por processo e SKU, com etiquetas, serviços e cobrança do período.',
+  },
+  processos: {
+    eyebrow: 'Cadastros',
+    title: 'Processos',
+    description: 'Planilhas enviadas pelos clientes e os SKUs disponíveis para lançamento.',
+  },
+  maoDeObra: {
+    eyebrow: 'Operação',
+    title: 'Controle de mão de obra',
+    description: 'Quantidade diária de mão de obra da casa e de terceiros por filial.',
+  },
+  auditoria: {
+    eyebrow: 'Governança',
+    title: 'Auditoria',
+    description: 'Alterações registradas com autor, data, versão e estado anterior e posterior.',
+  },
+  precos: {
+    eyebrow: 'Cobrança',
+    title: 'Tabela de preços',
+    description: 'Vigências das tarifas usadas no cálculo de cada lançamento.',
+  },
+  usuarios: {
+    eyebrow: 'Administração',
+    title: 'Usuários',
+    description: 'Acessos, perfis e filiais vinculadas a cada usuário.',
+  },
+}
+const CLIENT_COPY: SectionCopy = {
+  eyebrow: 'Acompanhamento',
+  title: 'Acompanhamento mensal',
+  description: 'Retrabalhos executados e valores cobrados na competência selecionada.',
+}
+
 // Atributos da célula para o modo cartão no celular (≤ 820 px):
 // o rótulo vem da coluna, então incluir/remover colunas nunca desalinha os nomes.
 type CellRole = 'title' | 'actions' | 'wide'
@@ -501,6 +542,7 @@ export default function Home() {
   const canViewPrices = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN'
   const canExport = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN' || user?.perfil === 'CLIENTE'
   const canLabor = Boolean(user && user.perfil !== 'CLIENTE')
+  const pageCopy = isClient && section === 'lancamentos' ? CLIENT_COPY : SECTION_COPY[section]
 
   async function api(path: string, init?: RequestInit) {
     const response = await fetch(path, {
@@ -1858,21 +1900,7 @@ export default function Home() {
             </button>
             <div>
               <small>RETRABALHO CONTROLE</small>
-              <h1>
-                {section === 'auditoria'
-                  ? 'Auditoria'
-                  : section === 'maoDeObra'
-                    ? 'Controle de mão de obra'
-                  : section === 'processos'
-                    ? 'Processos do cliente'
-                  : section === 'precos'
-                    ? 'Tabela de preços'
-                    : section === 'usuarios'
-                      ? 'Usuários'
-                      : isClient
-                        ? 'Acompanhamento mensal'
-                        : 'Retrabalho'}
-              </h1>
+              <strong>{pageCopy.title}</strong>
             </div>
           </div>
 
@@ -1884,7 +1912,18 @@ export default function Home() {
               <span className="sync-dot" />
               <span>{baseConnected ? 'Base conectada' : 'Base indisponível'}</span>
             </span>
-            <div className="topbar-actions">
+          </div>
+        </header>
+
+        <div className="workspace-body">
+        <div className="page-heading">
+          <div className="page-heading-copy">
+            <span className="page-heading-eyebrow">{pageCopy.eyebrow}</span>
+            <h1>{pageCopy.title}</h1>
+            <p>{pageCopy.description}</p>
+          </div>
+          <div className="page-heading-actions">
+
             {isClient && (section === 'lancamentos' || section === 'auditoria') && (
               <label className="month-control">
                 <span>Competência</span>
@@ -1924,11 +1963,8 @@ export default function Home() {
             {section === 'auditoria' && canExport && (
               <Button label="Exportar auditoria" icon="pi pi-download" outlined className="compact" onClick={exportAudits} disabled={!audits.length} />
             )}
-            </div>
           </div>
-        </header>
-
-        <div className="workspace-body">
+        </div>
         {section === 'lancamentos' && (
           <>
             {isClient && (
@@ -1975,7 +2011,7 @@ export default function Home() {
             <section className="panel">
               <div className="panel-head">
                 <div>
-                  <small className="panel-eyebrow">CONTROLE OPERACIONAL</small>
+                  <small className="panel-eyebrow">REGISTROS</small>
                   <h2>{isClient ? 'Detalhamento da competência' : 'Histórico de retrabalho'}</h2>
                   <p>{isClient
                     ? `Consulta somente leitura · ${monthLabel(selectedMonth)}`
@@ -2052,9 +2088,9 @@ export default function Home() {
           <section className="panel workspace-page">
             <div className="panel-head">
               <div>
-                <small className="panel-eyebrow">PLANILHAS DO CLIENTE</small>
-                <h2>Processos</h2>
-                <p>Envie a planilha do cliente com as colunas CÓD DE BARRAS e DESCRICAO ANVISA. Os SKUs ficam disponíveis para seleção no lançamento.</p>
+                <small className="panel-eyebrow">ENVIO</small>
+                <h2>Planilhas enviadas</h2>
+                <p>Colunas lidas da planilha: CÓD DE BARRAS (SKU) e DESCRICAO ANVISA (descrição).</p>
               </div>
               <Button icon="pi pi-refresh" text rounded onClick={() => void loadProcesses()} loading={processesLoading} />
             </div>
@@ -2122,9 +2158,9 @@ export default function Home() {
             <section className="panel">
               <div className="panel-head">
                 <div>
-                  <small className="panel-eyebrow">CONTROLE OPERACIONAL</small>
-                  <h2>Mão de obra por dia</h2>
-                  <p>Quantidade diária de mão de obra da casa e de terceiros, por filial.</p>
+                  <small className="panel-eyebrow">REGISTROS</small>
+                  <h2>Lançamentos por dia</h2>
+                  <p>Casa e terceiros por filial no período selecionado.</p>
                 </div>
                 <div className="labor-head-actions">
                   <Dropdown
@@ -2188,8 +2224,8 @@ export default function Home() {
           <section className="panel workspace-page">
             <div className="panel-head">
               <div>
-                <small className="panel-eyebrow">GOVERNANÇA</small>
-                <h2>Histórico de auditoria</h2>
+                <small className="panel-eyebrow">EVENTOS</small>
+                <h2>Histórico de alterações</h2>
                 <p>{isClient ? `Eventos vinculados à competência ${monthLabel(selectedMonth)}.` : `Alterações registradas em ${monthLabel(auditMonth)}, com autor, versão e estado anterior/posterior.`}</p>
               </div>
               <div className="labor-head-actions">
@@ -2225,8 +2261,8 @@ export default function Home() {
           <section className="panel workspace-page">
             <div className="panel-head">
               <div>
-                <small className="panel-eyebrow">PRECIFICAÇÃO</small>
-                <h2>Tabela de preços</h2>
+                <small className="panel-eyebrow">VIGÊNCIAS</small>
+                <h2>Histórico de tarifas</h2>
                 <p>Vigências preservam o histórico financeiro dos lançamentos já efetivados.</p>
               </div>
               <Button icon="pi pi-refresh" text rounded onClick={() => void loadPrices()} />
@@ -2262,8 +2298,8 @@ export default function Home() {
           <section className="panel workspace-page">
             <div className="panel-head">
               <div>
-                <small className="panel-eyebrow">ADMINISTRAÇÃO</small>
-                <h2>Controle de usuários</h2>
+                <small className="panel-eyebrow">CADASTRO</small>
+                <h2>Usuários e acessos</h2>
                 <p>Criação, perfil, status e primeiro acesso por matrícula.</p>
               </div>
               <Button icon="pi pi-refresh" text rounded onClick={() => void reloadUsers()} />

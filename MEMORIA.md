@@ -635,3 +635,13 @@ Próxima validação:
 - gerador do tema passou a trocar também a escala `--primary-*`/`--indigo-*` do Lara 10 e o anel de foco dos botões (`#b1b3f8`), que continuavam roxos; CI bloqueia esses tons;
 - Next.js 15.5.27 (última correção da linha 15); `package-lock.json` versionado e CI com `npm ci` (builds reproduzíveis);
 - vulnerabilidade conhecida do PostCSS é de build (processa só o CSS do próprio projeto); correção completa exige Next 16 — avaliar migração futuramente.
+
+### Paridade visual com o Extra Cost Control (05/10/2026)
+Medidas extraídas do Extra rodando no navegador e replicadas em `responsive-shell.css` (seções 7 e 8):
+- **menu lateral (desktop):** já era idêntico (244 px, mesmo fundo, itens de 44 px, fonte 12 px/650, item ativo com barra vermelha);
+- **menu móvel:** botão "X" tinha fundo `rgba(255,255,255,.07)` de 44 px e parecia selecionado → agora transparente, 38 px, fundo só no hover (como no Extra); largura 276 → 292 px; botões do rodapé com contorno;
+- **barra superior:** 62 px, sistema em 8 px + seção em 12 px negrito; ações saíram da barra;
+- **cabeçalho de página** (`.page-heading`, novo): categoria 10 px, título 26 px, explicação 12 px e ações à direita — textos por seção em `SECTION_COPY` (CLIENTE: `CLIENT_COPY`);
+- títulos dos painéis passaram a descrever o conteúdo (ex.: "Planilhas enviadas", "Histórico de alterações") para não repetir o título da página;
+- celular: cabeçalho dos painéis empilha (antes os filtros espremiam o título em 32 px);
+- validado em 1366, 820 e 390 px, sem rolagem lateral.
