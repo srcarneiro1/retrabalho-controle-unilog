@@ -23,6 +23,14 @@ const PROFILE_OPTIONS = [
   { label: 'CLIENTE', value: 'CLIENTE' },
 ]
 
+type ChargeStatus = 'ATIVOS' | 'CANCELADOS' | 'TODOS'
+
+const CHARGE_STATUS_OPTIONS = [
+  { label: 'Ativos', value: 'ATIVOS' },
+  { label: 'Cancelados', value: 'CANCELADOS' },
+  { label: 'Todos os status', value: 'TODOS' },
+]
+
 const USER_STATUS_OPTIONS = [
   { label: 'Ativo', value: 'SIM' },
   { label: 'Inativo', value: 'NAO' },
@@ -302,6 +310,8 @@ export default function Home() {
   const [clientSearch, setClientSearch] = useState('')
   // Filtro de mês dos perfis internos ('' = todos os meses).
   const [reworkMonth, setReworkMonth] = useState('')
+  // Padrão: só cobranças ativas. Cancelados ficam acessíveis pelo filtro de status.
+  const [chargeStatus, setChargeStatus] = useState<ChargeStatus>('ATIVOS')
   const [loading, setLoading] = useState(false)
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [workspaceReady, setWorkspaceReady] = useState(false)
@@ -1080,13 +1090,17 @@ export default function Home() {
   )
 
   const visibleItems = useMemo(() => {
+    const byStatus = items.filter(item =>
+      chargeStatus === 'TODOS'
+        || (chargeStatus === 'CANCELADOS' ? item.cobrancaCancelada : !item.cobrancaCancelada)
+    )
     if (!isClient) {
       return reworkMonth
-        ? items.filter(item => item.dataEfetivacao.slice(0, 7) === reworkMonth)
-        : items
+        ? byStatus.filter(item => item.dataEfetivacao.slice(0, 7) === reworkMonth)
+        : byStatus
     }
     const query = clientSearch.trim().toLowerCase()
-    return items.filter(item => {
+    return byStatus.filter(item => {
       if (effectiveClientBranchFilter && item.cnpjCliente !== effectiveClientBranchFilter) return false
       if (!query) return true
       return [
@@ -1097,14 +1111,17 @@ export default function Home() {
         item.cnpjCliente,
       ].some(value => String(value || '').toLowerCase().includes(query))
     })
-  }, [items, isClient, reworkMonth, effectiveClientBranchFilter, clientSearch])
+  }, [items, isClient, reworkMonth, chargeStatus, effectiveClientBranchFilter, clientSearch])
 
   const totals = useMemo(() => ({
     registros: visibleItems.length,
     unidades: visibleItems.reduce((a, b) => a + Number(b.quantidade || 0), 0),
     etiquetas: visibleItems.reduce((a, b) => a + Number(b.totalEtiquetas || 0), 0),
-    valor: visibleItems.reduce((a, b) => a + Number(b.valorCobrancaEfetiva || 0), 0),
-  }), [visibleItems])
+    // Em "Cancelados" o valor efetivo é sempre 0; mostra o valor original que deixou de ser cobrado.
+    valor: visibleItems.reduce((a, b) => a + Number(
+      chargeStatus === 'CANCELADOS' ? b.valorTotalCobranca || 0 : b.valorCobrancaEfetiva || 0
+    ), 0),
+  }), [visibleItems, chargeStatus])
 
   const previewPrice = useMemo(() => {
     const date = isoDate(form.dataEfetivacao)
@@ -1566,7 +1583,7 @@ export default function Home() {
               <article><i className="pi pi-list" /><div><span>Registros</span><strong>{totals.registros}</strong></div></article>
               <article><i className="pi pi-box" /><div><span>Unidades retrabalhadas</span><strong>{totals.unidades.toLocaleString('pt-BR')}</strong></div></article>
               <article><i className="pi pi-tags" /><div><span>Etiquetas aplicadas</span><strong>{totals.etiquetas.toLocaleString('pt-BR')}</strong></div></article>
-              <article><i className="pi pi-wallet" /><div><span>Valor a cobrar</span><strong>{money(totals.valor)}</strong></div></article>
+              <article><i className="pi pi-wallet" /><div><span>{chargeStatus === 'CANCELADOS' ? 'Valor cancelado' : 'Valor a cobrar'}</span><strong>{money(totals.valor)}</strong></div></article>
             </div>
 
             <section className="panel">
@@ -1581,6 +1598,14 @@ export default function Home() {
                       : 'Registros, quantidades, etiquetas aplicadas e cobrança histórica.'}</p>
                 </div>
                 <div className="labor-head-actions">
+                  <Dropdown
+                    aria-label="Status da cobrança"
+                    value={chargeStatus}
+                    options={CHARGE_STATUS_OPTIONS}
+                    optionLabel="label"
+                    optionValue="value"
+                    onChange={e => setChargeStatus((e.value || 'ATIVOS') as ChargeStatus)}
+                  />
                   {!isClient && (
                     <Dropdown
                       aria-label="Mês"
@@ -1594,7 +1619,7 @@ export default function Home() {
                   <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
                 </div>
               </div>
-              <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
+              <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage={chargeStatus === 'CANCELADOS' ? 'Nenhuma cobrança cancelada no período.' : 'Nenhum retrabalho registrado para o período.'} onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
                 <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
                 <Column field="sku" header="SKU" />
                 <Column field="descricao" header="Descrição" />
