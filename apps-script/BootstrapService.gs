@@ -18,7 +18,8 @@ const BootstrapService = (() => {
     const matricula = text_(input.matriculaAutor);
     const perfil = upper_(input.perfilAutor);
 
-    const prices = PriceService.list();
+    // Tabela de preços é interna: CLIENTE não recebe.
+    const prices = perfil === 'CLIENTE' ? [] : PriceService.list();
     const branches = ClientBranchService.availableForUser(matricula, perfil);
     const allItems = ReworkService.list('', matricula, perfil);
 

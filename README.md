@@ -26,7 +26,7 @@ Stack alinhado ao Extra Cost Control Unilog:
 - `OPERACIONAL`: cria lançamentos; não edita registros existentes.
 - `SUPERVISOR`: cria, edita, consulta auditoria e tabela de preços.
 - `ADMIN`: cria, edita, consulta auditoria, gerencia usuários e cria novas vigências de preço.
-- `CLIENTE`: somente leitura; acompanha informações por competência mensal, consulta auditoria do mês, consulta preços e exporta dados.
+- `CLIENTE`: somente leitura; acompanha informações por competência mensal, consulta auditoria do mês e exporta dados; não acessa a tabela de preços.
 
 A matrícula é o login. Usuários criados pelo ADMIN recebem uma senha temporária e ficam com `TROCA_SENHA_OBRIGATORIA=SIM`. Enquanto essa condição existir, o gateway bloqueia as áreas da aplicação. Após alterar a senha, a sessão é encerrada e o usuário autentica novamente.
 

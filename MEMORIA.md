@@ -113,7 +113,8 @@ O GitHub Actions valida o build antes de considerar a versão segura para deploy
 - pode possuir vários CNPJs do mesmo cliente;
 - enxerga apenas CNPJs vinculados;
 - usa dashboard mensal com filtro por filial/CNPJ e busca;
-- acessa preços, auditoria do período e exportação.
+- acessa auditoria do período e exportação;
+- **não** acessa a tabela de preços (oculta na interface e bloqueada no gateway e no Apps Script).
 
 ### Primeiro acesso
 
@@ -462,7 +463,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.05.1` (inclui `LaborService.gs`).
+`2026.10.05.2` (inclui `LaborService.gs` e bloqueio de preços para CLIENTE).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`

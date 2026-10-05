@@ -348,7 +348,8 @@ export default function Home() {
   const canAudit = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN' || user?.perfil === 'CLIENTE'
   const canUsers = user?.perfil === 'ADMIN'
   const canManagePrices = user?.perfil === 'ADMIN'
-  const canViewPrices = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN' || user?.perfil === 'CLIENTE'
+  // Tabela de preços é interna: CLIENTE não visualiza.
+  const canViewPrices = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN'
   const canExport = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN' || user?.perfil === 'CLIENTE'
   const canLabor = Boolean(user && user.perfil !== 'CLIENTE')
 

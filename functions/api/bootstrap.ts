@@ -15,7 +15,10 @@ function identityPayload(user: SessionIdentity) {
 
 async function legacyBootstrap(env: Env, user: SessionIdentity, mes = '') {
   const identity = identityPayload(user)
-  const pricesPromise = readJson(env, 'precos', { acao:'LISTAR', ...identity })
+  // CLIENTE não recebe a tabela de preços.
+  const pricesPromise = user.perfil === 'CLIENTE'
+    ? Promise.resolve({ data: [] })
+    : readJson(env, 'precos', { acao:'LISTAR', ...identity })
   const branchesPromise = readJson(env, 'filiais', { acao:'LISTAR', ...identity })
 
   if (user.perfil === 'CLIENTE') {
@@ -102,12 +105,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     try {
-      return json(await readJson(env, 'bootstrap', {
+      const data = await readJson(env, 'bootstrap', {
         acao: periodOnly ? 'COMPETENCIA' : 'CARREGAR',
         mes,
         matriculaAutor: user.matricula,
         perfilAutor: user.perfil,
-      }))
+      })
+      // Defesa em profundidade: mesmo que o Apps Script ainda não esteja atualizado,
+      // o gateway nunca entrega a tabela de preços ao CLIENTE.
+      if (user.perfil === 'CLIENTE' && data && typeof data === 'object') data.prices = []
+      return json(data)
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
       const canFallback = /rota|bootstrap|ação/i.test(message)

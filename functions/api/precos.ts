@@ -50,7 +50,10 @@ async function create_(env: Env, payload: Record<string, unknown>) {
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await identity(request, env)
+    const user = await identity(request, env)
+    if (user.perfil === 'CLIENTE') {
+      return json({ ok: false, error: { message: 'Seu perfil não acessa a tabela de preços.' } }, 403)
+    }
     return json(await list_(env))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao consultar preços.'
