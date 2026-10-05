@@ -68,6 +68,14 @@ async function mutation_(env: Env, user: SessionIdentity, payload: Record<string
     if (found) return { ok: true, data: found, reconciled: true }
   }
 
+  if (action === 'INATIVAR') {
+    // Inativado deixa de aparecer na lista de ativos.
+    const id = String(payload.id || '')
+    if (!rows.some((x: any) => String(x.id || '') === id)) {
+      return { ok: true, data: { id, ativo: 'NAO' }, reconciled: true }
+    }
+  }
+
   throw new Error(
     'Não foi possível confirmar o resultado da gravação. Atualize a lista antes de tentar novamente.',
   )
@@ -114,5 +122,18 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     return json(await mutation_(env, user, { ...body, acao: 'EDITAR' }))
   } catch (error) {
     return errorResponse(error, 'Falha ao atualizar mão de obra.')
+  }
+}
+
+export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
+  try {
+    const user = await identity(request, env)
+    if (user.perfil !== 'SUPERVISOR' && user.perfil !== 'ADMIN') {
+      return json({ ok: false, error: { message: 'Somente SUPERVISOR e ADMIN podem inativar lançamentos de mão de obra.' } }, 403)
+    }
+    const body = await request.json() as Record<string, unknown>
+    return json(await mutation_(env, user, { ...body, acao: 'INATIVAR' }))
+  } catch (error) {
+    return errorResponse(error, 'Falha ao inativar mão de obra.')
   }
 }
