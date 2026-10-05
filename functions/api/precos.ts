@@ -71,8 +71,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const body = await request.json() as Record<string, unknown>
     return json(await create_(env, {
-      acao: 'CRIAR_VIGENCIA',
       ...body,
+      acao: 'CRIAR_VIGENCIA',
       matriculaAutor: user.matricula,
     }))
   } catch (error) {

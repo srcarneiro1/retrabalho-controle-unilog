@@ -162,8 +162,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const body = await request.json() as Record<string, unknown>
     return json(await mutation_(env, user, {
-      acao: 'CRIAR',
       ...body,
+      acao: 'CRIAR',
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao gravar.'
@@ -183,8 +183,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
 
     const body = await request.json() as Record<string, unknown>
     return json(await mutation_(env, user, {
-      acao: 'EDITAR',
       ...body,
+      acao: 'EDITAR',
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao atualizar.'
@@ -205,8 +205,8 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env }) => {
 
     const body = await request.json() as Record<string, unknown>
     return json(await mutation_(env, user, {
-      acao: 'CANCELAR_COBRANCA',
       ...body,
+      acao: 'CANCELAR_COBRANCA',
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao cancelar cobrança.'

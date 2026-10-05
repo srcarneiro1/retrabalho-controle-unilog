@@ -59,7 +59,13 @@ const BootstrapService = (() => {
     };
 
     if (perfil !== 'CLIENTE') {
-      result.labor = LaborService.list(matricula, perfil);
+      // Falha na mão de obra não pode impedir o acesso ao restante do sistema.
+      try {
+        result.labor = LaborService.list(matricula, perfil);
+      } catch (error) {
+        result.labor = [];
+        result.laborError = error && error.message ? error.message : String(error);
+      }
     }
 
     if (perfil === 'ADMIN') {

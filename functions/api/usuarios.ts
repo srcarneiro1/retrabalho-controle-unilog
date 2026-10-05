@@ -63,7 +63,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const user = await admin(request, env)
     const body = await request.json() as Record<string,unknown>
-    return json(await mutate_(env,{acao:'CRIAR',...body,matriculaAutor:user.matricula}))
+    return json(await mutate_(env,{...body,acao:'CRIAR',matriculaAutor:user.matricula}))
   } catch (e) { return json({ok:false,error:{message:e instanceof Error?e.message:'Falha ao criar usuário.'}},400) }
 }
 
@@ -71,6 +71,6 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const user = await admin(request, env)
     const body = await request.json() as Record<string,unknown>
-    return json(await mutate_(env,{acao:'ATUALIZAR',...body,matriculaAutor:user.matricula}))
+    return json(await mutate_(env,{...body,acao:'ATUALIZAR',matriculaAutor:user.matricula}))
   } catch (e) { return json({ok:false,error:{message:e instanceof Error?e.message:'Falha ao atualizar usuário.'}},400) }
 }

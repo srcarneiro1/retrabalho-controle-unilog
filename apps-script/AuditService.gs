@@ -27,6 +27,14 @@ const AuditService = (() => {
     const allowed = {};
     scopedIds.forEach(id => { allowed[id] = true; });
 
+    // Perfis internos também enxergam a auditoria de mão de obra das suas filiais.
+    const laborAllowed = {};
+    if (profile === 'SUPERVISOR' || profile === 'ADMIN') {
+      try {
+        LaborService.list(matricula, profile).forEach(item => { laborAllowed[item.id] = true; });
+      } catch (error) { /* aba ainda inexistente */ }
+    }
+
     return Repository.list('AUDITORIA')
       .map(x => ({
         idAuditoria: text_(x.record.ID_AUDITORIA),
@@ -43,6 +51,7 @@ const AuditService = (() => {
       }))
       .filter(item => {
         if (profile === 'ADMIN' && !filterMonth) return true;
+        if (item.entidade === 'MAO_DE_OBRA') return Boolean(laborAllowed[item.idRegistro]);
         return item.entidade === 'RETRABALHO' && Boolean(allowed[item.idRegistro]);
       })
       .reverse();

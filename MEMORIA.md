@@ -463,7 +463,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.05.2` (inclui `LaborService.gs` e bloqueio de preços para CLIENTE).
+`2026.10.05.3` (lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`
@@ -544,3 +544,11 @@ Próxima validação:
 - após salvar um lançamento, o filtro acompanha o mês do registro salvo;
 - filtro é local (os dados já vêm no bootstrap); CLIENTE mantém a competência no topo, carregada pelo backend;
 - próxima evolução sugerida: quando o volume crescer, carregar perfis internos por mês no backend, como já é feito para CLIENTE.
+
+## ✅ Revisão de fechamento — 05/10/2026
+
+- **Concorrência:** `doPost` usa `LockService` em toda ação que grava. Sem lock, duas gravações simultâneas podiam calcular a mesma linha (`getLastRow()+1`) e uma sobrescrevia a outra; também furavam `REQUEST_ID` e "um registro por dia/filial". Leituras não disputam o lock. Ocupado por mais de 20 s → mensagem amigável, sem retry automático.
+- **Gateway:** a ação (`acao`) é sempre definida pelo endpoint e aplicada depois do corpo da requisição; o corpo não consegue trocar a ação.
+- **Bootstrap resiliente:** falha ao carregar mão de obra não bloqueia o restante do sistema.
+- **Auditoria:** SUPERVISOR e ADMIN veem eventos `MAO_DE_OBRA` das filiais do seu escopo.
+- **Pendência de governança:** o repositório está público e a documentação contém o ID da planilha de produção; recomenda-se torná-lo privado.
