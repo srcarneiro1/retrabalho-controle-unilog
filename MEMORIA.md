@@ -556,3 +556,4 @@ Próxima validação:
 - **Pendência de governança:** o repositório está público e a documentação contém o ID da planilha de produção; recomenda-se torná-lo privado.
 
 - **SKU e descrição:** obrigatórios na criação e na edição (antes a edição aceitava vazio); validados também na interface.
+- **Filtro de status da cobrança (Histórico/Acompanhamento):** `Ativos` (padrão), `Cancelados` e `Todos os status`. Todos os cards (registros, unidades, etiquetas e valor) e o CSV seguem o filtro. Antes, registros/unidades/etiquetas somavam cancelados enquanto o valor os excluía. Em `Cancelados` o card de valor vira `Valor cancelado` (soma do valor original).
