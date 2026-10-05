@@ -83,3 +83,16 @@ html,body{overflow-x:clip!important}
   .price-create{grid-template-columns:repeat(4,minmax(0,1fr))!important}
   .price-create .price-observation{grid-column:span 2!important}
 }
+
+/* 6. Login entre 761 e 900 px (padrão Extra Cost Control).
+   unilog-design-system.css escondia o painel da marca até 900 px e mobile-polish.css
+   só o reexibia (empilhado) abaixo de 760 px: nessa faixa o login ficava sem a marca.
+   Agora mantém o layout lado a lado, compactado, como no Extra Cost Control. */
+@media(min-width:761px) and (max-width:900px){
+  .login-card{grid-template-columns:.92fr 1.08fr!important}
+  .login-brand{display:flex!important;padding:32px 28px!important}
+  .login-brand h1{font-size:30px!important;line-height:1.08!important}
+  .login-brand p{font-size:12px!important}
+  .login-form{padding:40px 32px!important}
+  .login-form h2{font-size:28px!important}
+}
