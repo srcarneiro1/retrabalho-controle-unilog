@@ -321,6 +321,9 @@ export default function Home() {
   const [laborForm, setLaborForm] = useState(createLaborForm)
   const [laborDialog, setLaborDialog] = useState(false)
   const [laborError, setLaborError] = useState('')
+  const [laborDeactivateTarget, setLaborDeactivateTarget] = useState<LaborRow | null>(null)
+  const [laborDeactivateReason, setLaborDeactivateReason] = useState('')
+  const [laborDeactivateError, setLaborDeactivateError] = useState('')
 
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [userError, setUserError] = useState('')
@@ -717,6 +720,43 @@ export default function Home() {
       await loadLabor()
     } catch (error) {
       setLaborError(error instanceof Error ? error.message : 'Falha ao salvar.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function openDeactivateLabor(row: LaborRow) {
+    if (!canEdit) return
+    setLaborDeactivateReason('')
+    setLaborDeactivateError('')
+    setLaborDeactivateTarget(row)
+  }
+
+  async function deactivateLabor() {
+    if (!laborDeactivateTarget || saving) return
+    const motivo = laborDeactivateReason.trim()
+    if (!motivo) {
+      setLaborDeactivateError('Informe o motivo da inativação.')
+      return
+    }
+    setSaving(true)
+    setLaborDeactivateError('')
+    try {
+      await api('/api/mao-de-obra', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          id: laborDeactivateTarget.id,
+          versao: laborDeactivateTarget.versao,
+          motivo,
+        }),
+      })
+      const removedId = laborDeactivateTarget.id
+      setLabor(current => current.filter(row => row.id !== removedId))
+      setLaborDeactivateTarget(null)
+      setLaborDeactivateReason('')
+      if (canAudit) await reloadAudit().catch(() => null)
+    } catch (error) {
+      setLaborDeactivateError(error instanceof Error ? error.message : 'Falha ao inativar lançamento.')
     } finally {
       setSaving(false)
     }
@@ -1636,6 +1676,14 @@ export default function Home() {
                   body={(row: LaborRow) => canEdit ? (
                     <div className="row-actions">
                       <Button icon="pi pi-pencil" text rounded className="table-action" title="Editar" onClick={() => openEditLabor(row)} />
+                      <Button
+                        icon="pi pi-ban"
+                        text
+                        rounded
+                        className="table-action danger-action"
+                        title="Inativar lançamento"
+                        onClick={() => openDeactivateLabor(row)}
+                      />
                     </div>
                   ) : null}
                 />
@@ -1995,6 +2043,41 @@ export default function Home() {
         <div className="dialog-actions">
           <Button label="Voltar" text disabled={saving} onClick={() => setCancelTarget(null)} />
           <Button label="Cancelar cobrança" icon="pi pi-ban" severity="danger" loading={saving} onClick={cancelCharge} />
+        </div>
+      </Dialog>
+
+      <Dialog
+        header="Inativar lançamento de mão de obra"
+        visible={Boolean(laborDeactivateTarget)}
+        onHide={() => !saving && setLaborDeactivateTarget(null)}
+        style={{ width: 'min(520px, 94vw)' }}
+      >
+        {laborDeactivateTarget && (
+          <div className="cancel-charge">
+            <div className="cancel-summary">
+              <span>Data</span>
+              <strong>{dateLabel(laborDeactivateTarget.data)}</strong>
+              <span>Filial</span>
+              <strong>{laborDeactivateTarget.nomeCliente} · {laborDeactivateTarget.filial}</strong>
+              <span>Casa / Terceiros</span>
+              <strong>{intLabel(laborDeactivateTarget.qtdCasa)} / {intLabel(laborDeactivateTarget.qtdTerceiros)}</strong>
+            </div>
+            <p>O lançamento sai da lista e dos totais, mas permanece registrado na planilha e na auditoria. A data fica liberada para um novo lançamento desta filial.</p>
+            <label>
+              Motivo da inativação
+              <InputText
+                value={laborDeactivateReason}
+                onChange={e => setLaborDeactivateReason(e.target.value)}
+                placeholder="Ex.: lançado na filial errada"
+                autoFocus
+              />
+            </label>
+            {laborDeactivateError && <div className="error"><i className="pi pi-exclamation-circle" />{laborDeactivateError}</div>}
+          </div>
+        )}
+        <div className="dialog-actions">
+          <Button label="Voltar" text disabled={saving} onClick={() => setLaborDeactivateTarget(null)} />
+          <Button label="Inativar lançamento" icon="pi pi-ban" severity="danger" loading={saving} onClick={deactivateLabor} />
         </div>
       </Dialog>
 
