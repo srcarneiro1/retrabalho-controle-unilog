@@ -215,6 +215,10 @@ function rateMoney(value: number) {
   })
 }
 
+function intLabel(value: number) {
+  return Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
+
 function dateLabel(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return value || '—'
   const [year, month, day] = value.split('-')
@@ -1552,9 +1556,9 @@ export default function Home() {
                 <Column field="nomeCliente" header="Cliente" />
                 <Column field="filial" header="Filial" />
                 <Column field="cnpjCliente" header="CNPJ" body={(row: Rework) => cnpjLabel(row.cnpjCliente)} />
-                <Column field="quantidade" header="Qtd." />
-                <Column field="nacionalizacao" header="Nacionalização" />
-                <Column field="rfid" header="RFID/ADIPAC" />
+                <Column field="quantidade" header="Qtd." body={(row: Rework) => intLabel(row.quantidade)} />
+                <Column field="nacionalizacao" header="Nacionalização" body={(row: Rework) => intLabel(row.nacionalizacao)} />
+                <Column field="rfid" header="RFID/ADIPAC" body={(row: Rework) => intLabel(row.rfid)} />
                 <Column
                   field="valorCobrancaEfetiva"
                   header="Cobrança"
@@ -1617,9 +1621,9 @@ export default function Home() {
                 <Column field="data" header="Data" body={(row: LaborRow) => dateLabel(row.data)} />
                 <Column field="nomeCliente" header="Cliente" />
                 <Column field="filial" header="Filial" />
-                <Column field="qtdCasa" header="Casa" />
-                <Column field="qtdTerceiros" header="Terceiros" />
-                <Column field="qtdTotal" header="Total" />
+                <Column field="qtdCasa" header="Casa" body={(row: LaborRow) => intLabel(row.qtdCasa)} />
+                <Column field="qtdTerceiros" header="Terceiros" body={(row: LaborRow) => intLabel(row.qtdTerceiros)} />
+                <Column field="qtdTotal" header="Total" body={(row: LaborRow) => intLabel(row.qtdTotal)} />
                 <Column field="observacao" header="Observação" />
                 <Column field="matriculaCriacao" header="Criado por" />
                 <Column
@@ -1819,6 +1823,8 @@ export default function Home() {
               value={form.quantidade}
               onValueChange={e => setForm({ ...form, quantidade: e.value || 0 })}
               min={1}
+              locale="pt-BR"
+              maxFractionDigits={0}
             />
           </label>
           <label>
@@ -1827,6 +1833,8 @@ export default function Home() {
               value={form.nacionalizacao}
               onValueChange={e => setForm({ ...form, nacionalizacao: e.value || 0 })}
               min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
             />
           </label>
           <label>
@@ -1835,6 +1843,8 @@ export default function Home() {
               value={form.rfid}
               onValueChange={e => setForm({ ...form, rfid: e.value || 0 })}
               min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
             />
           </label>
           <p className="form-hint span-2">
@@ -1849,7 +1859,7 @@ export default function Home() {
             <strong>{previewPrice ? money(previewPrice.nat) : 'Sem vigência'}</strong>
             <small>
               {previewPrice
-                ? `${form.nacionalizacao} × ${rateMoney(previewPrice.price.valorNacionalizacao)}`
+                ? `${intLabel(form.nacionalizacao)} × ${rateMoney(previewPrice.price.valorNacionalizacao)}`
                 : 'Cadastre uma tabela válida para a data.'}
             </small>
           </div>
@@ -1858,7 +1868,7 @@ export default function Home() {
             <strong>{previewPrice ? money(previewPrice.rfid) : '—'}</strong>
             <small>
               {previewPrice
-                ? `${form.rfid} × ${rateMoney(previewPrice.price.valorRfidAdicional)}`
+                ? `${intLabel(form.rfid)} × ${rateMoney(previewPrice.price.valorRfidAdicional)}`
                 : '—'}
             </small>
           </div>
@@ -1909,6 +1919,8 @@ export default function Home() {
               value={laborForm.qtdCasa}
               onValueChange={e => setLaborForm({ ...laborForm, qtdCasa: e.value || 0 })}
               min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
             />
           </label>
           <label>
@@ -1917,6 +1929,8 @@ export default function Home() {
               value={laborForm.qtdTerceiros}
               onValueChange={e => setLaborForm({ ...laborForm, qtdTerceiros: e.value || 0 })}
               min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
             />
           </label>
           <label className="span-2">
