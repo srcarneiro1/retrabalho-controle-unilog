@@ -1,0 +1,37 @@
+/* Correções responsivas do shell — carregado por último.
+   Diagnóstico 05/10/2026:
+   1. Em desktop a sidebar tinha altura fixa (100dvh) com overflow:hidden e o menu não rolava:
+      em telas baixas ou com zoom, itens e o rodapé do usuário eram cortados ("menu travado").
+   2. Regras legadas de styles.css (≤ 900 px) escondiam nome, "Alterar senha" e "Sair"
+      dentro do drawer, sem serem revertidas pelo design system. */
+
+/* 1. Menu rolável em qualquer altura de janela, preservando o rodapé do usuário visível. */
+.sidebar{
+  display:flex!important;
+  flex-direction:column!important;
+  min-height:0!important;
+}
+.sidebar nav{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.18) transparent;
+}
+.sidebar nav::-webkit-scrollbar{width:6px}
+.sidebar nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:6px}
+.sidebar .user-card{flex:0 0 auto!important}
+
+/* Sidebar recolhida: tooltip nativo já existe via title; garante ícones centralizados. */
+.app.sidebar-collapsed .sidebar nav{overflow-x:hidden!important}
+
+/* 2. Drawer (≤ 1100 px): usuário sempre vê nome, troca de senha e sair. */
+@media(max-width:1100px){
+  .user-card .user-copy,
+  .app.sidebar-collapsed .user-card .user-copy{display:grid!important}
+  .user-card .user-actions,
+  .app.sidebar-collapsed .user-card .user-actions{display:flex!important}
+  .user-card .user-actions button{display:grid!important}
+}

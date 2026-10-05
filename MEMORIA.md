@@ -3,7 +3,7 @@
 > Sistema Unilog para registro, precificação, auditoria e acompanhamento de retrabalhos por cliente/filial.  
 > Esta memória é a fonte de verdade funcional, técnica e visual do projeto e deve ser atualizada sempre que uma decisão aprovada alterar o baseline.
 
-**Atualizado em:** 05/10/2026  
+**Atualizado em:** 05/10/2026 (revisão 2)  
 **Produção:** Cloudflare Pages, branch `main`  
 **Referência visual:** Extra Cost Control Unilog + BI Logístico V2
 
@@ -506,3 +506,28 @@ Regra de não-regressão:
 Próxima validação:
 - [ ] comparar novamente BI Logístico × Retrabalho após deploy com Roboto carregada;
 - [ ] conferir zoom do navegador em 100% nos dois domínios antes de alterar dimensões estruturais.
+
+
+## 🩺 Diagnóstico full stack — 05/10/2026 (revisão 2)
+
+### Favicon
+- causa: `unilog-favicon-red.svg` era o logo inteiro em vermelho (viewBox 1200×647, retangular); a aba do navegador é quadrada e o ícone era achatado/cortado;
+- causa: não existia `/favicon.ico` (fallback automático de navegadores e Safari anterior ao suporte a SVG) nem `apple-touch-icon`;
+- correção: SVG com canvas quadrado `0 -276.5 1200 1200` (arte oficial intacta), `public/favicon.ico` (16/32/48) e `public/apple-touch-icon.png` (180, fundo branco);
+- baseline mantido: exatamente uma tag `rel="icon"`; versão `?v=20261005-1`;
+- se a Unilog tiver um símbolo quadrado oficial, substituí-lo melhora a leitura em 16 px.
+
+### Cores roxas/indigo
+- causa: o tema Lara Light Indigo usa ~320 cores indigo fixas (hex), não apenas variáveis CSS; overrides pontuais deixavam escapar hover, foco, selecionado, calendário, paginação e checkbox;
+- correção: `scripts/build-unilog-theme.mjs` gera `src/app/generated/primereact-unilog-theme.css` a cada build, trocando a escala indigo pela escala vermelho Unilog e removendo a Inter embutida (Roboto é canônica);
+- o build falha se sobrar indigo no tema gerado; o CI falha se houver indigo no CSS final;
+- `src/app/generated/` é artefato de build (gitignored).
+
+### Sidebar
+- causa: em desktop, `height:100dvh` + `overflow:hidden` sem rolagem no menu cortava itens e o rodapé em telas baixas/zoom;
+- causa: o estado recolhido só era lido no carregamento; redimensionar a janela não ajustava a sidebar nem fechava o drawer;
+- causa: regras legadas de `styles.css` (≤ 900 px) escondiam nome, "Alterar senha" e "Sair" no drawer;
+- correção: `responsive-shell.css` (carregado por último) e `matchMedia` em `page.tsx`:
+  - ≤ 1100 px: drawer (ESC fecha, fundo não rola);
+  - 1101–1279 px: recolhida automaticamente (expansão temporária não altera a preferência);
+  - ≥ 1280 px: preferência do usuário salva.

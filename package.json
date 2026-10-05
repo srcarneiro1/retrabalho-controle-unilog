@@ -3,9 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && node scripts/copy-next-export.mjs",
-    "start": "next start"
+    "dev": "npm run theme && next dev",
+    "build": "npm run theme && next build && node scripts/copy-next-export.mjs",
+    "start": "next start",
+    "theme": "node scripts/build-unilog-theme.mjs"
   },
   "dependencies": {
     "jose": "^6.1.0",

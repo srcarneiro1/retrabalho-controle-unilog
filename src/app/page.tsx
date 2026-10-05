@@ -231,6 +231,19 @@ function branchLabel(branch: Branch) {
   return `${branch.nomeCliente} · ${branch.filial} · ${cnpjLabel(branch.cnpj)}`
 }
 
+const SIDEBAR_PREF_KEY = 'retrabalho-unilog:sidebar'
+// ≤ 1100 px: drawer. 1101–1279 px: menu recolhido automaticamente. ≥ 1280 px: preferência do usuário.
+const DRAWER_QUERY = '(max-width: 1100px)'
+const COMPACT_QUERY = '(min-width: 1101px) and (max-width: 1279px)'
+
+function readSidebarPref() {
+  try { return localStorage.getItem(SIDEBAR_PREF_KEY) === 'collapsed' } catch { return false }
+}
+
+function writeSidebarPref(collapsed: boolean) {
+  try { localStorage.setItem(SIDEBAR_PREF_KEY, collapsed ? 'collapsed' : 'expanded') } catch { /* sem storage */ }
+}
+
 function csvCell(value: unknown) {
   let text = String(value == null ? '' : value)
   if (/^[=+\-@]/.test(text)) text = "'" + text
@@ -423,8 +436,38 @@ export default function Home() {
     }
   }
 
+  // Sidebar responsiva: reage à mudança de largura da janela, não só ao carregamento.
   useEffect(() => {
-    setCollapsed(localStorage.getItem('retrabalho-unilog:sidebar') === 'collapsed')
+    const drawer = window.matchMedia(DRAWER_QUERY)
+    const compact = window.matchMedia(COMPACT_QUERY)
+    const sync = () => {
+      if (!drawer.matches) setMobileOpen(false)
+      if (compact.matches) setCollapsed(true)
+      else if (!drawer.matches) setCollapsed(readSidebarPref())
+    }
+    sync()
+    drawer.addEventListener('change', sync)
+    compact.addEventListener('change', sync)
+    return () => {
+      drawer.removeEventListener('change', sync)
+      compact.removeEventListener('change', sync)
+    }
+  }, [])
+
+  // Drawer móvel: ESC fecha e o fundo não rola enquanto estiver aberto.
+  useEffect(() => {
+    if (!mobileOpen) return
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileOpen(false) }
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [mobileOpen])
+
+  useEffect(() => {
     api('/api/auth/me')
       .then(r => setUser(r.user))
       .catch(() => setUser(null))
@@ -807,7 +850,8 @@ export default function Home() {
   function toggleSidebar() {
     setCollapsed(current => {
       const next = !current
-      localStorage.setItem('retrabalho-unilog:sidebar', next ? 'collapsed' : 'expanded')
+      // Na faixa compacta a expansão é temporária e não sobrescreve a preferência de desktop.
+      if (!window.matchMedia(COMPACT_QUERY).matches) writeSidebarPref(next)
       return next
     })
   }
