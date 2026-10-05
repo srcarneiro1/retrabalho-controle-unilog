@@ -9,3 +9,4 @@ dist/
 *.log
 .clasp.json
 .clasprc.json
+src/app/generated/
