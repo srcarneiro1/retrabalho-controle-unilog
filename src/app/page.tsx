@@ -31,6 +31,18 @@ const CHARGE_STATUS_OPTIONS = [
   { label: 'Todos os status', value: 'TODOS' },
 ]
 
+type LaborStatus = 'ATIVOS' | 'INATIVOS' | 'TODOS'
+
+const LABOR_STATUS_OPTIONS = [
+  { label: 'Ativos', value: 'ATIVOS' },
+  { label: 'Inativados', value: 'INATIVOS' },
+  { label: 'Todos os status', value: 'TODOS' },
+]
+
+function laborInactive(row: LaborRow) {
+  return row.ativo === 'NAO'
+}
+
 const USER_STATUS_OPTIONS = [
   { label: 'Ativo', value: 'SIM' },
   { label: 'Inativo', value: 'NAO' },
@@ -101,6 +113,10 @@ type LaborRow = {
   matriculaAtualizacao?: string
   atualizadoEm?: string
   versao: number
+  ativo?: 'SIM' | 'NAO'
+  inativadoEm?: string
+  inativadoPor?: string
+  motivoInativacao?: string
 }
 
 type ManagedUser = {
@@ -328,6 +344,7 @@ export default function Home() {
   const [labor, setLabor] = useState<LaborRow[]>([])
   const [laborLoading, setLaborLoading] = useState(false)
   const [laborMonth, setLaborMonth] = useState('')
+  const [laborStatus, setLaborStatus] = useState<LaborStatus>('ATIVOS')
   const [laborForm, setLaborForm] = useState(createLaborForm)
   const [laborDialog, setLaborDialog] = useState(false)
   const [laborError, setLaborError] = useState('')
@@ -688,7 +705,7 @@ export default function Home() {
   }
 
   function openEditLabor(row: LaborRow) {
-    if (!canEdit) return
+    if (!canEdit || laborInactive(row)) return
     setLaborForm({
       id: row.id,
       requestId: row.requestId || '',
@@ -760,8 +777,8 @@ export default function Home() {
           motivo,
         }),
       })
-      const removedId = laborDeactivateTarget.id
-      setLabor(current => current.filter(row => row.id !== removedId))
+      // Recarrega para trazer o registro com status INATIVO.
+      await loadLabor()
       setLaborDeactivateTarget(null)
       setLaborDeactivateReason('')
       if (canAudit) await reloadAudit().catch(() => null)
@@ -784,6 +801,10 @@ export default function Home() {
         'Terceiros',
         'Total',
         'Observação',
+        'Status',
+        'Inativado em',
+        'Inativado por',
+        'Motivo inativação',
         'Criado por',
         'Criado em',
         'Atualizado por',
@@ -799,6 +820,10 @@ export default function Home() {
         row.qtdTerceiros,
         row.qtdTotal,
         row.observacao,
+        laborInactive(row) ? 'INATIVO' : 'ATIVO',
+        row.inativadoEm || '',
+        row.inativadoPor || '',
+        row.motivoInativacao || '',
         row.matriculaCriacao,
         row.criadoEm,
         row.matriculaAtualizacao || '',
@@ -1113,15 +1138,20 @@ export default function Home() {
     })
   }, [items, isClient, reworkMonth, chargeStatus, effectiveClientBranchFilter, clientSearch])
 
-  const totals = useMemo(() => ({
-    registros: visibleItems.length,
-    unidades: visibleItems.reduce((a, b) => a + Number(b.quantidade || 0), 0),
-    etiquetas: visibleItems.reduce((a, b) => a + Number(b.totalEtiquetas || 0), 0),
+  const totals = useMemo(() => {
+    // Em "Todos os status", cancelados aparecem na tabela mas não entram nos cards
+    // (mesma regra da Mão de obra). Em "Cancelados", os cards mostram o que foi cancelado.
+    const counted = chargeStatus === 'TODOS' ? visibleItems.filter(item => !item.cobrancaCancelada) : visibleItems
+    return {
+    registros: counted.length,
+    unidades: counted.reduce((a, b) => a + Number(b.quantidade || 0), 0),
+    etiquetas: counted.reduce((a, b) => a + Number(b.totalEtiquetas || 0), 0),
     // Em "Cancelados" o valor efetivo é sempre 0; mostra o valor original que deixou de ser cobrado.
-    valor: visibleItems.reduce((a, b) => a + Number(
+    valor: counted.reduce((a, b) => a + Number(
       chargeStatus === 'CANCELADOS' ? b.valorTotalCobranca || 0 : b.valorCobrancaEfetiva || 0
     ), 0),
-  }), [visibleItems, chargeStatus])
+    }
+  }, [visibleItems, chargeStatus])
 
   const previewPrice = useMemo(() => {
     const date = isoDate(form.dataEfetivacao)
@@ -1150,21 +1180,26 @@ export default function Home() {
     ]
   }
 
-  const visibleLabor = useMemo(
-    () => laborMonth ? labor.filter(row => row.data.slice(0, 7) === laborMonth) : labor,
-    [labor, laborMonth],
-  )
+  const visibleLabor = useMemo(() => labor.filter(row => {
+    if (laborMonth && row.data.slice(0, 7) !== laborMonth) return false
+    if (laborStatus === 'ATIVOS') return !laborInactive(row)
+    if (laborStatus === 'INATIVOS') return laborInactive(row)
+    return true
+  }), [labor, laborMonth, laborStatus])
 
   const laborTotals = useMemo(() => {
+    // Em "Todos os status", inativados aparecem na tabela mas não entram nos cards.
+    // Em "Inativados", os cards mostram exatamente o que foi inativado.
+    const counted = laborStatus === 'TODOS' ? visibleLabor.filter(row => !laborInactive(row)) : visibleLabor
     const dias: Record<string, true> = {}
-    visibleLabor.forEach(row => { dias[row.data] = true })
+    counted.forEach(row => { dias[row.data] = true })
     return {
       dias: Object.keys(dias).length,
-      casa: visibleLabor.reduce((a, b) => a + Number(b.qtdCasa || 0), 0),
-      terceiros: visibleLabor.reduce((a, b) => a + Number(b.qtdTerceiros || 0), 0),
-      total: visibleLabor.reduce((a, b) => a + Number(b.qtdTotal || 0), 0),
+      casa: counted.reduce((a, b) => a + Number(b.qtdCasa || 0), 0),
+      terceiros: counted.reduce((a, b) => a + Number(b.qtdTerceiros || 0), 0),
+      total: counted.reduce((a, b) => a + Number(b.qtdTotal || 0), 0),
     }
-  }, [visibleLabor])
+  }, [visibleLabor, laborStatus])
 
   if (loadingSession) {
     return (
@@ -1677,6 +1712,14 @@ export default function Home() {
                 </div>
                 <div className="labor-head-actions">
                   <Dropdown
+                    aria-label="Status do lançamento"
+                    value={laborStatus}
+                    options={LABOR_STATUS_OPTIONS}
+                    optionLabel="label"
+                    optionValue="value"
+                    onChange={e => setLaborStatus((e.value || 'ATIVOS') as LaborStatus)}
+                  />
+                  <Dropdown
                     aria-label="Mês"
                     value={laborMonth}
                     options={monthOptions(laborMonths, laborMonth)}
@@ -1687,18 +1730,26 @@ export default function Home() {
                   <Button icon="pi pi-refresh" text rounded onClick={() => void loadLabor()} loading={laborLoading} />
                 </div>
               </div>
-              <DataTable className="mobile-record-table labor-record-table" value={visibleLabor} loading={laborLoading} paginator rows={15} dataKey="id" emptyMessage="Nenhum lançamento de mão de obra para o período." onRowDoubleClick={e => openEditLabor(e.data as LaborRow)} stripedRows scrollable>
+              <DataTable className="mobile-record-table labor-record-table" value={visibleLabor} loading={laborLoading} paginator rows={15} dataKey="id" emptyMessage={laborStatus === 'INATIVOS' ? 'Nenhum lançamento inativado no período.' : 'Nenhum lançamento de mão de obra para o período.'} onRowDoubleClick={e => openEditLabor(e.data as LaborRow)} stripedRows scrollable>
                 <Column field="data" header="Data" body={(row: LaborRow) => dateLabel(row.data)} />
                 <Column field="nomeCliente" header="Cliente" />
                 <Column field="filial" header="Filial" />
                 <Column field="qtdCasa" header="Casa" body={(row: LaborRow) => intLabel(row.qtdCasa)} />
                 <Column field="qtdTerceiros" header="Terceiros" body={(row: LaborRow) => intLabel(row.qtdTerceiros)} />
                 <Column field="qtdTotal" header="Total" body={(row: LaborRow) => intLabel(row.qtdTotal)} />
-                <Column field="observacao" header="Observação" />
+                <Column
+                  field="observacao"
+                  header="Observação"
+                  body={(row: LaborRow) => laborInactive(row)
+                    ? <span title={`Inativado por ${row.inativadoPor || '—'} em ${row.inativadoEm || '—'}`}>
+                        <Tag severity="danger" value="INATIVO" /> {row.motivoInativacao || ''}
+                      </span>
+                    : row.observacao}
+                />
                 <Column field="matriculaCriacao" header="Criado por" />
                 <Column
                   header=""
-                  body={(row: LaborRow) => canEdit ? (
+                  body={(row: LaborRow) => canEdit && !laborInactive(row) ? (
                     <div className="row-actions">
                       <Button icon="pi pi-pencil" text rounded className="table-action" title="Editar" onClick={() => openEditLabor(row)} />
                       <Button
