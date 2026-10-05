@@ -645,3 +645,4 @@ Medidas extraídas do Extra rodando no navegador e replicadas em `responsive-she
 - títulos dos painéis passaram a descrever o conteúdo (ex.: "Planilhas enviadas", "Histórico de alterações") para não repetir o título da página;
 - celular: cabeçalho dos painéis empilha (antes os filtros espremiam o título em 32 px);
 - validado em 1366, 820 e 390 px, sem rolagem lateral.
+- **Celular (390 px), seção 9 de `responsive-shell.css`:** barra superior 64 px/margem 14 px; botão ☰ 38×44 px escuro; botões de ação 42 px; "X" 38×44 px; logo do menu 96×42 px (mesmo arquivo do Extra, limitado em altura); botões do rodapé 40×44 px com fundo sutil; fundo escurecido `rgba(13,16,22,.44)`. Medição automática: 0 diferenças nos 9 elementos comparados. Mantido de propósito: o retrabalho fecha o menu com ESC (o Extra não).

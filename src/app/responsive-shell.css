@@ -216,3 +216,29 @@ html,body{overflow-x:clip!important}
   .panel-head .labor-head-actions{width:100%!important;justify-content:stretch!important}
   .panel-head .labor-head-actions .p-dropdown{flex:1 1 140px!important}
 }
+
+/* 9. Paridade do celular com o Extra Cost Control (medido em 390 px, 05/10/2026). */
+@media(max-width:1100px){
+  .topbar{height:64px!important;min-height:64px!important;padding:0 14px!important}
+  .mobile-menu-button{
+    width:38px!important;
+    height:44px!important;
+    min-width:38px!important;
+    border-radius:9px!important;
+    color:#171b24!important;
+  }
+  .sidebar-mobile-close{height:44px!important}
+  .sidebar-brand img{width:96px!important;height:42px!important;object-fit:contain!important;object-position:left center!important}
+  .user-card{min-height:63px!important}
+  .user-card .user-actions button{
+    width:40px!important;
+    height:44px!important;
+    background:rgba(255,255,255,.035)!important;
+    border:1px solid rgba(255,255,255,.08)!important;
+    color:#d6dae0!important;
+  }
+  .sidebar-backdrop{background:rgba(13,16,22,.44)!important}
+}
+@media(max-width:760px){
+  .page-heading-actions .p-button{height:42px!important;min-height:42px!important;padding:12px 20px!important}
+}
