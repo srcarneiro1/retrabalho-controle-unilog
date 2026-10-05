@@ -38,24 +38,77 @@ const ReworkService = (() => {
     return /^\d{4}-\d{2}$/.test(value) ? value : '';
   }
 
-  // Nacionalização e RFID/ADIPAC são independentes e opcionais:
-  // o lançamento pode conter um, outro ou ambos, mas precisa de ao menos uma etiqueta.
+  const EXTRA_HEADERS = [
+    'NUMERO_PROCESSO',
+    'ID_PROCESSO',
+    'ID_LOTE',
+    'QTD_TESTER',
+    'ETIQUETAS_CONFECCIONADAS',
+    'PRECO_TESTER_UNIT',
+    'PRECO_CONFECCAO_UNIT',
+    'VALOR_TESTER',
+    'VALOR_CONFECCAO'
+  ];
+  const TEXT_FIELDS = ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO','CNPJ_CLIENTE','CANCELADO_POR','ID_PROCESSO','NUMERO_PROCESSO','ID_LOTE'];
+  const MAX_BATCH = 100;
+
+  function ensureColumns_() {
+    Repository.ensure('RETRABALHOS', EXTRA_HEADERS);
+  }
+
+  function optionalInt_(v, label) {
+    return int_(v == null || v === '' ? 0 : v, label, true);
+  }
+
+  // Regras dos serviços (por SKU):
+  // - quantidade retrabalhada é obrigatória (>= 1);
+  // - Nacionalização, RFID/ADIPAC e Transformação em tester não podem passar da quantidade retrabalhada;
+  // - Etiquetas confeccionadas são independentes da quantidade;
+  // - ao menos um serviço precisa ser informado.
   // RFID/ADIPAC é uma única cobrança por unidade (RFID, ADIPAC ou os dois = mesma tarifa).
-  function labels_(input) {
-    const nacionalizacao = int_(
-      input.nacionalizacao == null || input.nacionalizacao === '' ? 0 : input.nacionalizacao,
-      'Quantidade de etiquetas de nacionalização',
-      true
-    );
-    const rfid = int_(
-      input.rfid == null || input.rfid === '' ? 0 : input.rfid,
-      'Quantidade de etiquetas RFID/ADIPAC',
-      true
-    );
-    if (nacionalizacao + rfid <= 0) {
-      throw new Error('Informe ao menos uma etiqueta: Nacionalização e/ou RFID/ADIPAC.');
+  function services_(input, prefix) {
+    const p = prefix || '';
+    const quantidade = int_(input.quantidade, p + 'Quantidade retrabalhada', false);
+    const nacionalizacao = optionalInt_(input.nacionalizacao, p + 'Quantidade de etiquetas de nacionalização');
+    const rfid = optionalInt_(input.rfid, p + 'Quantidade de etiquetas RFID/ADIPAC');
+    const tester = optionalInt_(input.tester, p + 'Quantidade de transformação em tester');
+    const confeccao = optionalInt_(input.confeccao, p + 'Quantidade de etiquetas confeccionadas');
+    if (nacionalizacao > quantidade) throw new Error(p + 'Etiquetas de nacionalização não podem ser maiores que a quantidade retrabalhada.');
+    if (rfid > quantidade) throw new Error(p + 'Etiquetas RFID/ADIPAC não podem ser maiores que a quantidade retrabalhada.');
+    if (tester > quantidade) throw new Error(p + 'Transformação em tester não pode ser maior que a quantidade retrabalhada.');
+    if (nacionalizacao + rfid + tester + confeccao <= 0) {
+      throw new Error(p + 'Informe ao menos um serviço: nacionalização, RFID/ADIPAC, tester ou etiquetas confeccionadas.');
     }
-    return { nacionalizacao, rfid };
+    return { quantidade, nacionalizacao, rfid, tester, confeccao };
+  }
+
+  function newId_(now) {
+    return 'RT-' + Utilities.formatDate(now, AppConfig.TIMEZONE, 'yyyyMMddHHmmss') + '-' + Utilities.getUuid().slice(0,8).toUpperCase();
+  }
+
+  // Campos financeiros e de serviço calculados a partir do preço vigente.
+  function chargeFields_(services, validade, price) {
+    return {
+      QTD_RETRABALHADA: services.quantidade,
+      ETIQUETAS_NACIONALIZACAO: services.nacionalizacao,
+      ETIQUETAS_RFID: services.rfid,
+      ETIQUETAS_VALIDADE: validade,
+      QTD_TESTER: services.tester,
+      ETIQUETAS_CONFECCIONADAS: services.confeccao,
+      TOTAL_ETIQUETAS: services.nacionalizacao + services.rfid + services.confeccao + validade,
+      ID_PRECO: price.idPreco,
+      PRECO_NACIONALIZACAO_UNIT: price.precoNacionalizacaoUnit,
+      PRECO_RFID_ADICIONAL_UNIT: price.precoRfidAdicionalUnit,
+      PRECO_VALIDADE_UNIT: price.precoValidadeUnit,
+      PRECO_TESTER_UNIT: price.precoTesterUnit,
+      PRECO_CONFECCAO_UNIT: price.precoConfeccaoUnit,
+      VALOR_NACIONALIZACAO: price.valorNacionalizacao,
+      VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
+      VALOR_VALIDADE: price.valorValidade,
+      VALOR_TESTER: price.valorTester,
+      VALOR_CONFECCAO: price.valorConfeccao,
+      VALOR_TOTAL_COBRANCA: price.valorTotalCobranca
+    };
   }
 
   function allowedSet_(matricula, perfil) {
@@ -78,6 +131,15 @@ const ReworkService = (() => {
       nacionalizacao: Number(r.ETIQUETAS_NACIONALIZACAO || 0),
       rfid: Number(r.ETIQUETAS_RFID || 0),
       validade: Number(r.ETIQUETAS_VALIDADE || 0),
+      tester: Number(r.QTD_TESTER || 0),
+      confeccao: Number(r.ETIQUETAS_CONFECCIONADAS || 0),
+      numeroProcesso: text_(r.NUMERO_PROCESSO),
+      idProcesso: text_(r.ID_PROCESSO),
+      idLote: text_(r.ID_LOTE),
+      precoTesterUnit: Number(r.PRECO_TESTER_UNIT || 0),
+      precoConfeccaoUnit: Number(r.PRECO_CONFECCAO_UNIT || 0),
+      valorTester: Number(r.VALOR_TESTER || 0),
+      valorConfeccao: Number(r.VALOR_CONFECCAO || 0),
       totalEtiquetas: Number(r.TOTAL_ETIQUETAS || 0),
       idPreco: text_(r.ID_PRECO),
       precoNacionalizacaoUnit: Number(r.PRECO_NACIONALIZACAO_UNIT || 0),
@@ -129,6 +191,7 @@ const ReworkService = (() => {
     return list(month, matricula, perfil).map(item => item.id);
   }
 
+  // Lançamento individual (compatibilidade). A interface usa createBatch.
   function create(input) {
     const author = text_(input.matriculaAutor);
     const perfil = upper_(input.perfilAutor);
@@ -147,26 +210,18 @@ const ReworkService = (() => {
     if (!descricao) throw new Error('Informe a descrição.');
 
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
-    const labels = labels_(input);
-    const nacionalizacao = labels.nacionalizacao;
-    const rfid = labels.rfid;
-    // Etiqueta de Validade foi descontinuada: novos lançamentos gravam 0.
-    const validade = 0;
-    const price = PriceService.calculate(date, nacionalizacao, rfid, validade);
+    const services = services_(input);
+    const price = PriceService.calculate(date, services.nacionalizacao, services.rfid, 0, services.tester, services.confeccao);
 
+    ensureColumns_();
     const now = new Date();
-    const id = 'RT-' + Utilities.formatDate(now, AppConfig.TIMEZONE, 'yyyyMMddHHmmss') + '-' + Utilities.getUuid().slice(0,8).toUpperCase();
-    const record = {
+    const id = newId_(now);
+    const record = Object.assign({
       ID_RETRABALHO: id,
       DATA_EFETIVACAO: date,
       SKU: sku,
       DESCRICAO: descricao,
-      QTD_RETRABALHADA: int_(input.quantidade,'Quantidade retrabalhada',false),
-      // Validade inserida foi descontinuada: novos lançamentos não gravam data.
       DATA_VALIDADE_INSERIDA: '',
-      ETIQUETAS_NACIONALIZACAO: nacionalizacao,
-      ETIQUETAS_RFID: rfid,
-      TOTAL_ETIQUETAS: nacionalizacao + rfid,
       MATRICULA_CRIACAO: author,
       CRIADO_EM: now,
       MATRICULA_ATUALIZACAO: '',
@@ -174,31 +229,99 @@ const ReworkService = (() => {
       VERSAO: 1,
       ATIVO: 'SIM',
       REQUEST_ID: requestId,
-      ID_PRECO: price.idPreco,
-      PRECO_NACIONALIZACAO_UNIT: price.precoNacionalizacaoUnit,
-      PRECO_RFID_ADICIONAL_UNIT: price.precoRfidAdicionalUnit,
-      VALOR_NACIONALIZACAO: price.valorNacionalizacao,
-      VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
-      VALOR_TOTAL_COBRANCA: price.valorTotalCobranca,
       CNPJ_CLIENTE: branch.cnpj,
       NOME_CLIENTE: branch.nomeCliente,
       FILIAL: branch.filial,
-      ETIQUETAS_VALIDADE: validade,
-      PRECO_VALIDADE_UNIT: price.precoValidadeUnit,
-      VALOR_VALIDADE: price.valorValidade,
       COBRANCA_CANCELADA: 'NAO',
       CANCELADO_EM: '',
       CANCELADO_POR: '',
       MOTIVO_CANCELAMENTO: ''
-    };
+    }, chargeFields_(services, 0, price));
 
-    Repository.append(
-      'RETRABALHOS',
-      record,
-      ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO','CNPJ_CLIENTE','CANCELADO_POR']
-    );
+    Repository.append('RETRABALHOS', record, TEXT_FIELDS);
     AuditService.log('RETRABALHO', id, 'CRIAR', author, null, map_(record), null, 1);
     return { ok: true, data: map_(record) };
+  }
+
+  // Lançamento em lote: até 100 SKUs de um processo, com mesma data e filial do processo.
+  // Cada SKU vira um registro próprio (auditoria, edição e cancelamento continuam por registro).
+  function createBatch(input) {
+    const author = text_(input.matriculaAutor);
+    const perfil = upper_(input.perfilAutor);
+    if (perfil === 'CLIENTE') throw new Error('Perfil CLIENTE é somente leitura.');
+
+    const requestId = text_(input.requestId);
+    if (!requestId) throw new Error('Identificador da requisição ausente.');
+
+    // Idempotência: as linhas do lote usam REQUEST_ID "<lote>:<n>".
+    const prefix = requestId + ':';
+    const prior = Repository.list('RETRABALHOS')
+      .filter(x => text_(x.record.REQUEST_ID).indexOf(prefix) === 0)
+      .map(x => map_(x.record));
+    if (prior.length) return { ok: true, data: prior, idempotent: true };
+
+    const process = ProcessService.get(input.idProcesso, author, perfil);
+    const branch = ClientBranchService.assertAllowed(author, perfil, process.cnpjCliente);
+    const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
+
+    const lines = Array.isArray(input.linhas) ? input.linhas : [];
+    if (!lines.length) throw new Error('Selecione ao menos um SKU.');
+    if (lines.length > MAX_BATCH) throw new Error('Selecione no máximo ' + MAX_BATCH + ' SKUs por lançamento.');
+
+    const price = PriceService.findByDate(date);
+    const seen = {};
+    const now = new Date();
+    const idLote = 'LT-' + Utilities.formatDate(now, AppConfig.TIMEZONE, 'yyyyMMddHHmmss') + '-' + Utilities.getUuid().slice(0,6).toUpperCase();
+
+    const records = lines.map((line, index) => {
+      const label = 'Linha ' + (index + 1) + ': ';
+      const sku = text_(line && line.sku);
+      if (!sku) throw new Error(label + 'SKU não informado.');
+      if (seen[sku]) throw new Error(label + 'o SKU ' + sku + ' está repetido no lançamento.');
+      seen[sku] = true;
+
+      // A descrição vem sempre do processo (fonte oficial), nunca do navegador.
+      const descricao = ProcessService.describe(process.id, sku);
+      if (descricao == null) throw new Error(label + 'o SKU ' + sku + ' não pertence ao processo ' + process.numero + '.');
+      if (!descricao) throw new Error(label + 'o SKU ' + sku + ' está sem descrição no processo.');
+
+      const services = services_(line || {}, label);
+      const charge = PriceService.calculate(date, services.nacionalizacao, services.rfid, 0, services.tester, services.confeccao, price);
+
+      return Object.assign({
+        ID_RETRABALHO: newId_(now),
+        DATA_EFETIVACAO: date,
+        SKU: sku,
+        DESCRICAO: descricao,
+        DATA_VALIDADE_INSERIDA: '',
+        MATRICULA_CRIACAO: author,
+        CRIADO_EM: now,
+        MATRICULA_ATUALIZACAO: '',
+        ATUALIZADO_EM: '',
+        VERSAO: 1,
+        ATIVO: 'SIM',
+        REQUEST_ID: prefix + (index + 1),
+        CNPJ_CLIENTE: branch.cnpj,
+        NOME_CLIENTE: branch.nomeCliente,
+        FILIAL: branch.filial,
+        NUMERO_PROCESSO: process.numero,
+        ID_PROCESSO: process.id,
+        ID_LOTE: idLote,
+        COBRANCA_CANCELADA: 'NAO',
+        CANCELADO_EM: '',
+        CANCELADO_POR: '',
+        MOTIVO_CANCELAMENTO: ''
+      }, chargeFields_(services, 0, charge));
+    });
+
+    ensureColumns_();
+    Repository.appendMany('RETRABALHOS', records, TEXT_FIELDS);
+    const mapped = records.map(map_);
+    AuditService.logMany(mapped.map(item => ({
+      entity: 'RETRABALHO', id: item.id, action: 'CRIAR', author,
+      before: null, after: item, oldVersion: null, newVersion: 1
+    })));
+    return { ok: true, data: mapped, idLote };
   }
 
   function edit(input) {
@@ -227,46 +350,42 @@ const ReworkService = (() => {
     }
 
     const before = current;
-    const branch = ClientBranchService.assertAllowed(author, perfil, input.cnpjCliente);
+    // Registro de processo mantém a filial do processo.
+    const branch = ClientBranchService.assertAllowed(
+      author, perfil, current.idProcesso ? current.cnpjCliente : input.cnpjCliente
+    );
     // SKU e descrição são obrigatórios também na edição (antes só na criação).
     const sku = text_(input.sku);
     const descricao = text_(input.descricao);
     if (!sku) throw new Error('Informe o SKU.');
     if (!descricao) throw new Error('Informe a descrição.');
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
-    const labels = labels_(input);
-    const nacionalizacao = labels.nacionalizacao;
-    const rfid = labels.rfid;
+    const services = services_(input);
+    // Registro vinculado a processo: o SKU precisa existir no processo e a descrição vem dele.
+    let finalDescricao = descricao;
+    if (current.idProcesso) {
+      const fromProcess = ProcessService.describe(current.idProcesso, sku);
+      if (fromProcess == null) throw new Error('O SKU ' + sku + ' não pertence ao processo ' + current.numeroProcesso + '.');
+      finalDescricao = fromProcess || descricao;
+    }
     // Registros históricos preservam a quantidade de Etiqueta de Validade já gravada,
     // para que a edição não altere silenciosamente uma cobrança antiga.
     const validade = Number(hit.record.ETIQUETAS_VALIDADE || 0);
-    const price = PriceService.calculate(date, nacionalizacao, rfid, validade);
+    const price = PriceService.calculate(date, services.nacionalizacao, services.rfid, validade, services.tester, services.confeccao);
     const nextVersion = currentVersion + 1;
+    ensureColumns_();
 
-    const updates = {
+    const updates = Object.assign({
       DATA_EFETIVACAO: date,
       SKU: sku,
-      DESCRICAO: descricao,
-      QTD_RETRABALHADA: int_(input.quantidade,'Quantidade retrabalhada',false),
-      ETIQUETAS_NACIONALIZACAO: nacionalizacao,
-      ETIQUETAS_RFID: rfid,
-      ETIQUETAS_VALIDADE: validade,
-      TOTAL_ETIQUETAS: nacionalizacao + rfid + validade,
-      ID_PRECO: price.idPreco,
-      PRECO_NACIONALIZACAO_UNIT: price.precoNacionalizacaoUnit,
-      PRECO_RFID_ADICIONAL_UNIT: price.precoRfidAdicionalUnit,
-      PRECO_VALIDADE_UNIT: price.precoValidadeUnit,
-      VALOR_NACIONALIZACAO: price.valorNacionalizacao,
-      VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
-      VALOR_VALIDADE: price.valorValidade,
-      VALOR_TOTAL_COBRANCA: price.valorTotalCobranca,
+      DESCRICAO: finalDescricao,
       CNPJ_CLIENTE: branch.cnpj,
       NOME_CLIENTE: branch.nomeCliente,
       FILIAL: branch.filial,
       MATRICULA_ATUALIZACAO: author,
       ATUALIZADO_EM: new Date(),
       VERSAO: nextVersion
-    };
+    }, chargeFields_(services, validade, price));
 
     Repository.update(
       'RETRABALHOS',
@@ -321,5 +440,5 @@ const ReworkService = (() => {
     return { ok:true, data:after };
   }
 
-  return { list, months, idsForScope, create, edit, cancelCharge };
+  return { list, months, idsForScope, create, createBatch, edit, cancelCharge };
 })();

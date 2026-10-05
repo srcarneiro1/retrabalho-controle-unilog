@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.05.6';
+const API_VERSION = '2026.10.05.7';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -24,6 +24,7 @@ function doGet(e) {
 const READ_ONLY_ACTIONS_ = {
   bootstrap: ['CARREGAR', 'COMPETENCIA'],
   retrabalhos: ['LISTAR', 'MESES'],
+  processos: ['LISTAR', 'SKUS'],
   maodeobra: ['LISTAR'],
   precos: ['LISTAR'],
   usuarios: ['LISTAR'],
@@ -86,9 +87,17 @@ function route_(route, action, payload) {
     if (action === 'LISTAR') return ok_({ data: ReworkService.list(payload.mes, payload.matriculaAutor, payload.perfilAutor) });
     if (action === 'MESES') return ok_({ data: ReworkService.months(payload.matriculaAutor, payload.perfilAutor) });
     if (action === 'CRIAR') return ok_(ReworkService.create(payload));
+    if (action === 'CRIAR_LOTE') return ok_(ReworkService.createBatch(payload));
     if (action === 'EDITAR') return ok_(ReworkService.edit(payload));
     if (action === 'CANCELAR_COBRANCA') return ok_(ReworkService.cancelCharge(payload));
     throw new Error('Ação de retrabalho inválida.');
+  }
+
+  if (route === 'processos') {
+    if (action === 'LISTAR') return ok_({ data: ProcessService.list(payload.matriculaAutor, payload.perfilAutor) });
+    if (action === 'SKUS') return ok_({ data: ProcessService.skus(payload.idProcesso, payload.matriculaAutor, payload.perfilAutor) });
+    if (action === 'CRIAR') return ok_(ProcessService.upload(payload));
+    throw new Error('Ação de processo inválida.');
   }
 
   if (route === 'maodeobra') {
@@ -177,4 +186,14 @@ function bootstrapAdminFromProperties() {
   props.deleteProperty('BOOTSTRAP_ADMIN_PASSWORD');
 
   return result;
+}
+
+// Execute UMA vez no editor do Apps Script após configurar PROCESS_FOLDER_ID:
+// solicita as permissões do Google Drive e confirma o acesso à pasta dos processos.
+function autorizarPastaProcessos() {
+  const id = PropertiesService.getScriptProperties().getProperty('PROCESS_FOLDER_ID');
+  if (!id) throw new Error('Configure PROCESS_FOLDER_ID nas Script Properties.');
+  const folder = DriveApp.getFolderById(id);
+  Drive.Files.list({ pageSize: 1, q: "'" + id + "' in parents" });
+  return 'Pasta acessível: ' + folder.getName();
 }

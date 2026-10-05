@@ -132,10 +132,13 @@ Copiar/publicar os arquivos de `apps-script/` em um projeto Google Apps Script.
 Script Properties obrigatórias:
 
 ```text
+PROCESS_FOLDER_ID=<ID da pasta do Google Drive dos processos>
 SPREADSHEET_ID=1Bshvpsh-_gaUx5DX4-PXSLZ3HGXIHluNVKhU8FXFj04
 GATEWAY_TOKEN=<segredo forte>
 AUTH_PASSWORD_PEPPER=<segredo forte e estável>
 ```
+
+Serviço avançado obrigatório: **Drive API (v3)**, declarado em `appsscript.json` (leitura de planilhas Excel enviadas nos processos). Após configurar `PROCESS_FOLDER_ID`, execute uma vez `autorizarPastaProcessos()` no editor para conceder acesso ao Drive.
 
 Publicar como Web App:
 - executar como: usuário que implantou;

@@ -465,7 +465,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.05.6` (filtro de status da mão de obra, inativação de mão de obra, SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
+`2026.10.05.7` (processos + lançamento em lote, filtro de status da mão de obra, inativação de mão de obra, SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`
@@ -558,3 +558,44 @@ Próxima validação:
 - **SKU e descrição:** obrigatórios na criação e na edição (antes a edição aceitava vazio); validados também na interface.
 - **Filtro de status da cobrança (Histórico/Acompanhamento):** `Ativos` (padrão), `Cancelados` e `Todos os status`. A tabela e o CSV seguem o filtro; os cards também, exceto em `Todos os status`, onde cancelados aparecem na tabela mas não somam nos cards. Antes, registros/unidades/etiquetas somavam cancelados enquanto o valor os excluía. Em `Cancelados` o card de valor vira `Valor cancelado` (soma do valor original).
 - **Filtro de status da Mão de obra:** `Ativos` (padrão), `Inativados` e `Todos os status`. O Apps Script passa a devolver ativos e inativados com `ativo`, `inativadoEm`, `inativadoPor` e `motivoInativacao`; a interface filtra. Inativados aparecem com tag `INATIVO` e motivo, sem ações de edição/inativação, e não podem ser editados no backend. Em `Todos os status`, inativados aparecem na tabela mas não somam nos cards. CSV inclui status e dados da inativação.
+
+## 📦 Processos e lançamento em lote — 05/10/2026 (API 2026.10.05.7)
+
+### Processos (planilha do cliente)
+- tela **Processos** (perfis internos): número do processo + filial + planilha (.xlsx, .xls ou .csv, até 10 MB);
+- o arquivo original é salvo na pasta do Google Drive definida em `PROCESS_FOLDER_ID` (Script Property);
+- colunas lidas (sem diferenciar acento/maiúscula/pontuação, cabeçalho em qualquer uma das 30 primeiras linhas): `CÓD DE BARRAS` → SKU e `DESCRICAO ANVISA` → descrição;
+- Excel é convertido temporariamente em Planilha Google para leitura (serviço avançado **Drive API v3**) e a cópia temporária vai para a lixeira;
+- linhas sem código, sem descrição ou com código repetido são ignoradas e contadas;
+- número do processo é único entre processos ativos;
+- abas criadas automaticamente: `PROCESSOS` e `PROCESSO_SKUS`;
+- auditoria: entidade `PROCESSO`, ação `CRIAR`.
+
+### Lançamento em lote
+- "Novo lançamento" exige selecionar o **processo** e de **1 a 100 SKUs** do processo;
+- cada SKU vira um registro em `RETRABALHOS` (edição, cancelamento e auditoria continuam por registro), com `NUMERO_PROCESSO`, `ID_PROCESSO` e `ID_LOTE`;
+- a descrição sempre vem do processo (o navegador não consegue alterá-la);
+- data é comum ao lote; filial é a do processo;
+- idempotência: linhas gravadas com `REQUEST_ID` `<lote>:<n>`; gravação e auditoria em uma única escrita (`appendMany`/`logMany`).
+
+### Serviços por SKU
+- **Quantidade retrabalhada**: obrigatória (≥ 1);
+- **Etiquetas nacionalização**, **RFID/ADIPAC** e **Transformação em tester**: não podem passar da quantidade retrabalhada;
+- **Etiquetas confeccionadas**: independentes da quantidade;
+- ao menos um serviço por SKU;
+- `TOTAL_ETIQUETAS` = nacionalização + RFID/ADIPAC + confeccionadas (tester não é etiqueta).
+
+### Preços
+- `TABELA_PRECOS` ganha `VALOR_TESTER` e `VALOR_CONFECCAO` (colunas criadas automaticamente);
+- Etiqueta confeccionada = **R$ 0,1500**; Transformação em tester = **a definir** (0 até nova vigência);
+- vigências anteriores não têm essas tarifas (valem 0): criar nova vigência para começar a cobrar.
+
+### Configuração única no Apps Script
+1. Script Property `PROCESS_FOLDER_ID` = ID da pasta do Drive;
+2. habilitar o serviço avançado **Drive API** (v3) — já declarado em `appsscript.json`;
+3. executar `autorizarPastaProcessos()` uma vez no editor e aceitar as permissões do Drive;
+4. publicar nova versão da implantação.
+
+### Testes
+- backend validado em planilha simulada (25 cenários): upload CSV, colunas ausentes, duplicidade de processo, lote, cálculo, idempotência, regras de quantidade, SKU fora do processo/repetido, limite de 100, edição e bloqueio do CLIENTE;
+- conversão de Excel depende do Drive real: validar com a primeira planilha do cliente.

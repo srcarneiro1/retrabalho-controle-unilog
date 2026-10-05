@@ -68,6 +68,12 @@ async function mutation_(
   const items = Array.isArray(current.data) ? current.data : []
   const action = String(payload.acao || '').toUpperCase()
 
+  if (action === 'CRIAR_LOTE') {
+    const prefix = String(payload.requestId || '') + ':'
+    const found = items.filter((x: any) => String(x.requestId || '').startsWith(prefix))
+    if (found.length) return { ok: true, data: found, reconciled: true }
+  }
+
   if (action === 'CRIAR') {
     const requestId = String(payload.requestId || '')
     const found = items.find((x: any) => String(x.requestId || '') === requestId)
@@ -161,9 +167,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const body = await request.json() as Record<string, unknown>
+    // Lançamento em lote (até 100 SKUs de um processo) ou individual.
+    const action = Array.isArray(body.linhas) ? 'CRIAR_LOTE' : 'CRIAR'
     return json(await mutation_(env, user, {
       ...body,
-      acao: 'CRIAR',
+      acao: action,
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao gravar.'

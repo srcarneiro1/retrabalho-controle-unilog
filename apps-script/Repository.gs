@@ -91,6 +91,24 @@ const Repository = (() => {
     return rowNumber;
   }
 
+  // Grava várias linhas com uma única chamada à planilha (lançamentos em lote, SKUs do processo).
+  function appendMany(name, records, textFields) {
+    if (!records || !records.length) return 0;
+    const sh = sheet(name);
+    const hs = headers(name);
+    const firstRow = sh.getLastRow() + 1;
+    const rows = records.map(record =>
+      hs.map(h => Object.prototype.hasOwnProperty.call(record, h) ? record[h] : '')
+    );
+    (textFields || []).forEach(field => {
+      const idx = hs.indexOf(field);
+      if (idx >= 0) sh.getRange(firstRow, idx + 1, rows.length, 1).setNumberFormat('@');
+    });
+    sh.getRange(firstRow, 1, rows.length, hs.length).setValues(rows);
+    invalidate_(name);
+    return firstRow;
+  }
+
   function update(name, rowNumber, updates, textFields) {
     const sh = sheet(name);
     const hs = headers(name);
@@ -128,5 +146,5 @@ const Repository = (() => {
     return sh;
   }
 
-  return { sheet, headers, rowObject, list, find, append, update, ensure };
+  return { sheet, headers, rowObject, list, find, append, appendMany, update, ensure };
 })();

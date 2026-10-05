@@ -14,7 +14,7 @@ import { Password } from 'primereact/password'
 import { Tag } from 'primereact/tag'
 
 type Profile = 'OPERACIONAL' | 'SUPERVISOR' | 'ADMIN' | 'CLIENTE'
-type Section = 'lancamentos' | 'maoDeObra' | 'auditoria' | 'precos' | 'usuarios'
+type Section = 'lancamentos' | 'processos' | 'maoDeObra' | 'auditoria' | 'precos' | 'usuarios'
 
 const PROFILE_OPTIONS = [
   { label: 'OPERACIONAL', value: 'OPERACIONAL' },
@@ -73,6 +73,15 @@ type Rework = {
   nacionalizacao: number
   rfid: number
   validade: number
+  tester?: number
+  confeccao?: number
+  numeroProcesso?: string
+  idProcesso?: string
+  idLote?: string
+  precoTesterUnit?: number
+  precoConfeccaoUnit?: number
+  valorTester?: number
+  valorConfeccao?: number
   totalEtiquetas: number
   idPreco: string
   precoNacionalizacaoUnit: number
@@ -95,6 +104,60 @@ type Rework = {
   matriculaAtualizacao?: string
   atualizadoEm?: string
   versao: number
+}
+
+type ProcessRow = {
+  id: string
+  requestId?: string
+  numero: string
+  cnpjCliente: string
+  nomeCliente: string
+  filial: string
+  arquivoNome: string
+  arquivoUrl: string
+  qtdSkus: number
+  qtdIgnorados: number
+  matriculaCriacao: string
+  criadoEm: string
+}
+
+type SkuOption = { sku: string; descricao: string }
+
+type BatchLine = {
+  sku: string
+  descricao: string
+  quantidade: number | null
+  nacionalizacao: number | null
+  rfid: number | null
+  tester: number | null
+  confeccao: number | null
+}
+
+const MAX_BATCH_SKUS = 100
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+// Regras por SKU (espelham o backend).
+function lineError(line: { quantidade: number | null; nacionalizacao: number | null; rfid: number | null; tester: number | null; confeccao: number | null }) {
+  const qtd = Number(line.quantidade || 0)
+  const nat = Number(line.nacionalizacao || 0)
+  const rfid = Number(line.rfid || 0)
+  const tester = Number(line.tester || 0)
+  const conf = Number(line.confeccao || 0)
+  if (qtd < 1) return 'informe a quantidade retrabalhada'
+  if (nat > qtd) return 'nacionalização maior que a quantidade retrabalhada'
+  if (rfid > qtd) return 'RFID/ADIPAC maior que a quantidade retrabalhada'
+  if (tester > qtd) return 'tester maior que a quantidade retrabalhada'
+  if (nat + rfid + tester + conf <= 0) return 'informe ao menos um serviço'
+  return null
+}
+
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '')
+    reader.onerror = () => reject(new Error('Não foi possível ler o arquivo.'))
+    reader.readAsDataURL(file)
+  })
 }
 
 type LaborRow = {
@@ -136,6 +199,8 @@ type PriceRow = {
   valorNacionalizacao: number
   valorRfidAdicional: number
   valorValidade: number
+  valorTester?: number
+  valorConfeccao?: number
   ativo: string
   criadoEm: string
   criadoPor: string
@@ -170,7 +235,29 @@ function createForm() {
     quantidade: null as number | null,
     nacionalizacao: null as number | null,
     rfid: null as number | null,
+    tester: null as number | null,
+    confeccao: null as number | null,
+    numeroProcesso: '',
     versao: 0,
+  }
+}
+
+function createBatchForm() {
+  return {
+    requestId: crypto.randomUUID(),
+    dataEfetivacao: new Date(),
+    idProcesso: '',
+    skus: [] as string[],
+    lines: [] as BatchLine[],
+  }
+}
+
+function createUploadForm() {
+  return {
+    requestId: crypto.randomUUID(),
+    numero: '',
+    cnpjCliente: '',
+    file: null as File | null,
   }
 }
 
@@ -193,6 +280,9 @@ function createPriceForm() {
     vigenciaInicio: new Date(),
     valorNacionalizacao: 0.4100,
     valorRfidAdicional: 0.1900,
+    // Transformação em tester: tarifa ainda não definida.
+    valorTester: 0,
+    valorConfeccao: 0.1500,
     observacao: '',
   }
 }
@@ -340,6 +430,18 @@ export default function Home() {
   const [form, setForm] = useState(createForm)
   const [dialog, setDialog] = useState(false)
   const [formError, setFormError] = useState('')
+
+  const [processes, setProcesses] = useState<ProcessRow[]>([])
+  const [processSkus, setProcessSkus] = useState<Record<string, SkuOption[]>>({})
+  const [skusLoading, setSkusLoading] = useState(false)
+  const [batch, setBatch] = useState(createBatchForm)
+  const [batchDialog, setBatchDialog] = useState(false)
+  const [batchError, setBatchError] = useState('')
+  const [uploadForm, setUploadForm] = useState(createUploadForm)
+  const [uploadInputKey, setUploadInputKey] = useState(0)
+  const [uploadError, setUploadError] = useState('')
+  const [uploadResult, setUploadResult] = useState('')
+  const [processesLoading, setProcessesLoading] = useState(false)
 
   const [labor, setLabor] = useState<LaborRow[]>([])
   const [laborLoading, setLaborLoading] = useState(false)
@@ -549,6 +651,7 @@ export default function Home() {
       setAllBranches(data.allBranches || [])
       setUsers(data.users || [])
       setLabor(data.labor || [])
+      setProcesses(data.processes || [])
       // Abre no mês mais recente com dados; sem dados, no mês corrente.
       setReworkMonth(
         monthsOf((data.items || []).map((x: Rework) => x.dataEfetivacao))[0] || currentMonth()
@@ -612,11 +715,164 @@ export default function Home() {
 
   function openNew() {
     if (!canCreate) return
-    const next = createForm()
-    if (branches.length === 1) next.cnpjCliente = branches[0].cnpj
-    setForm(next)
-    setFormError('')
-    setDialog(true)
+    const next = createBatchForm()
+    if (processes.length === 1) next.idProcesso = processes[0].id
+    setBatch(next)
+    setBatchError('')
+    setBatchDialog(true)
+    if (next.idProcesso) void loadProcessSkus(next.idProcesso)
+  }
+
+  async function loadProcessSkus(idProcesso: string) {
+    if (!idProcesso || processSkus[idProcesso]) return
+    setSkusLoading(true)
+    try {
+      const data = await api('/api/processos?id=' + encodeURIComponent(idProcesso))
+      setProcessSkus(current => ({ ...current, [idProcesso]: data.data || [] }))
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : 'Falha ao carregar os SKUs do processo.')
+    } finally {
+      setSkusLoading(false)
+    }
+  }
+
+  function selectBatchProcess(idProcesso: string) {
+    setBatch(current => ({ ...current, idProcesso, skus: [], lines: [] }))
+    setBatchError('')
+    void loadProcessSkus(idProcesso)
+  }
+
+  function changeBatchSkus(selected: string[]) {
+    const limited = selected.slice(0, MAX_BATCH_SKUS)
+    const catalog = processSkus[batch.idProcesso] || []
+    setBatch(current => {
+      const existing: Record<string, BatchLine> = {}
+      current.lines.forEach(line => { existing[line.sku] = line })
+      const lines = limited.map(sku => existing[sku] || {
+        sku,
+        descricao: catalog.find(item => item.sku === sku)?.descricao || '',
+        quantidade: null,
+        nacionalizacao: null,
+        rfid: null,
+        tester: null,
+        confeccao: null,
+      })
+      return { ...current, skus: limited, lines }
+    })
+  }
+
+  function updateBatchLine(sku: string, field: keyof BatchLine, value: number | null) {
+    setBatch(current => ({
+      ...current,
+      lines: current.lines.map(line => line.sku === sku ? { ...line, [field]: value } : line),
+    }))
+  }
+
+  function removeBatchLine(sku: string) {
+    setBatch(current => ({
+      ...current,
+      skus: current.skus.filter(item => item !== sku),
+      lines: current.lines.filter(line => line.sku !== sku),
+    }))
+  }
+
+  async function saveBatch() {
+    if (saving || !canCreate) return
+    setBatchError('')
+    if (!batch.idProcesso) return setBatchError('Selecione o número do processo.')
+    if (!batch.lines.length) return setBatchError('Selecione ao menos um SKU.')
+    const problems = batch.lines
+      .map((line, index) => {
+        const problem = lineError(line)
+        return problem ? `Linha ${index + 1} (${line.sku}): ${problem}` : ''
+      })
+      .filter(Boolean)
+    if (problems.length) {
+      return setBatchError(problems.slice(0, 5).join(' • ') + (problems.length > 5 ? ` • e mais ${problems.length - 5} linha(s).` : ''))
+    }
+
+    setSaving(true)
+    try {
+      await api('/api/retrabalhos', {
+        method: 'POST',
+        body: JSON.stringify({
+          requestId: batch.requestId,
+          idProcesso: batch.idProcesso,
+          dataEfetivacao: isoDate(batch.dataEfetivacao),
+          linhas: batch.lines.map(line => ({
+            sku: line.sku,
+            quantidade: line.quantidade ?? 0,
+            nacionalizacao: line.nacionalizacao ?? 0,
+            rfid: line.rfid ?? 0,
+            tester: line.tester ?? 0,
+            confeccao: line.confeccao ?? 0,
+          })),
+        }),
+      })
+      setBatchDialog(false)
+      if (!isClient && reworkMonth) setReworkMonth(isoDate(batch.dataEfetivacao).slice(0, 7))
+      await loadItems(isClient ? selectedMonth : undefined)
+    } catch (error) {
+      setBatchError(error instanceof Error ? error.message : 'Falha ao salvar o lançamento.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // ---------- Processos (planilha do cliente) ----------
+  function openProcesses() {
+    if (!canLabor) return
+    setSection('processos')
+    setMobileOpen(false)
+  }
+
+  async function loadProcesses() {
+    setProcessesLoading(true)
+    try {
+      const data = await api('/api/processos')
+      setProcesses(data.data || [])
+    } finally {
+      setProcessesLoading(false)
+    }
+  }
+
+  async function uploadProcess() {
+    if (saving) return
+    setUploadError('')
+    setUploadResult('')
+    const file = uploadForm.file
+    try {
+      if (!uploadForm.numero.trim()) throw new Error('Informe o número do processo.')
+      if (!uploadForm.cnpjCliente) throw new Error('Selecione a filial.')
+      if (!file) throw new Error('Selecione a planilha do cliente.')
+      if (!/\.(xlsx|xls|csv)$/i.test(file.name)) throw new Error('Envie a planilha em Excel (.xlsx ou .xls) ou CSV.')
+      if (file.size > MAX_UPLOAD_BYTES) throw new Error('Arquivo acima de 10 MB.')
+
+      setSaving(true)
+      const arquivoBase64 = await fileToBase64(file)
+      const result = await api('/api/processos', {
+        method: 'POST',
+        body: JSON.stringify({
+          requestId: uploadForm.requestId,
+          numeroProcesso: uploadForm.numero.trim(),
+          cnpjCliente: uploadForm.cnpjCliente,
+          arquivoNome: file.name,
+          arquivoBase64,
+        }),
+      })
+      const created = result.data as ProcessRow
+      setUploadResult(
+        `Processo ${created.numero}: ${intLabel(created.qtdSkus)} SKU(s) importado(s)`
+        + (created.qtdIgnorados ? ` · ${intLabel(created.qtdIgnorados)} linha(s) ignorada(s) por falta de código/descrição ou duplicidade.` : '.')
+      )
+      setUploadForm(createUploadForm())
+      setUploadInputKey(key => key + 1)
+      await loadProcesses()
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Falha ao enviar a planilha.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function openEdit(row: Rework) {
@@ -631,6 +887,9 @@ export default function Home() {
       quantidade: row.quantidade || null,
       nacionalizacao: row.nacionalizacao || null,
       rfid: row.rfid || null,
+      tester: row.tester || null,
+      confeccao: row.confeccao || null,
+      numeroProcesso: row.numeroProcesso || '',
       versao: row.versao,
     })
     setFormError('')
@@ -645,10 +904,8 @@ export default function Home() {
       if (!form.cnpjCliente) throw new Error('Selecione a filial.')
       if (!form.sku.trim()) throw new Error('Informe o SKU.')
       if (!form.descricao.trim()) throw new Error('Informe a descrição.')
-      if (Number(form.quantidade || 0) < 1) throw new Error('Informe a quantidade retrabalhada.')
-      if (Number(form.nacionalizacao || 0) + Number(form.rfid || 0) <= 0) {
-        throw new Error('Informe ao menos uma etiqueta: Nacionalização e/ou RFID/ADIPAC.')
-      }
+      const problem = lineError(form)
+      if (problem) throw new Error(problem.charAt(0).toUpperCase() + problem.slice(1) + '.')
 
       const payload = {
         id: form.id || undefined,
@@ -660,6 +917,8 @@ export default function Home() {
         quantidade: form.quantidade ?? 0,
         nacionalizacao: form.nacionalizacao ?? 0,
         rfid: form.rfid ?? 0,
+        tester: form.tester ?? 0,
+        confeccao: form.confeccao ?? 0,
         versao: form.versao,
       }
 
@@ -973,6 +1232,8 @@ export default function Home() {
           vigenciaInicio: isoDate(priceForm.vigenciaInicio),
           valorNacionalizacao: priceForm.valorNacionalizacao,
           valorRfidAdicional: priceForm.valorRfidAdicional,
+          valorTester: priceForm.valorTester,
+          valorConfeccao: priceForm.valorConfeccao,
           observacao: priceForm.observacao.trim(),
         }),
       })
@@ -1026,13 +1287,21 @@ export default function Home() {
         'Cliente',
         'Filial',
         'CNPJ',
+        'Processo',
+        'Lote',
         'Qtd retrabalhada',
         'Etiquetas Nacionalização',
         'Etiquetas RFID/ADIPAC',
+        'Transformação em tester',
+        'Etiquetas confeccionadas',
         'Tarifa Nacionalização',
         'Tarifa RFID/ADIPAC',
+        'Tarifa tester',
+        'Tarifa etiqueta confeccionada',
         'Valor Nacionalização',
         'Valor RFID/ADIPAC',
+        'Valor tester',
+        'Valor etiquetas confeccionadas',
         'Valor original cobrança',
         'Valor efetivo cobrança',
         'Cobrança cancelada',
@@ -1053,13 +1322,21 @@ export default function Home() {
         item.nomeCliente,
         item.filial,
         cnpjLabel(item.cnpjCliente),
+        item.numeroProcesso || '',
+        item.idLote || '',
         item.quantidade,
         item.nacionalizacao,
         item.rfid,
+        item.tester || 0,
+        item.confeccao || 0,
         item.precoNacionalizacaoUnit.toFixed(4).replace('.', ','),
         item.precoRfidAdicionalUnit.toFixed(4).replace('.', ','),
+        Number(item.precoTesterUnit || 0).toFixed(4).replace('.', ','),
+        Number(item.precoConfeccaoUnit || 0).toFixed(4).replace('.', ','),
         item.valorNacionalizacao.toFixed(4).replace('.', ','),
         item.valorRfidAdicional.toFixed(4).replace('.', ','),
+        Number(item.valorTester || 0).toFixed(4).replace('.', ','),
+        Number(item.valorConfeccao || 0).toFixed(4).replace('.', ','),
         item.valorTotalCobranca.toFixed(4).replace('.', ','),
         item.valorCobrancaEfetiva.toFixed(4).replace('.', ','),
         item.cobrancaCancelada ? 'SIM' : 'NAO',
@@ -1162,13 +1439,42 @@ export default function Home() {
 
     const nat = Number(form.nacionalizacao || 0) * Number(price.valorNacionalizacao || 0)
     const rfid = Number(form.rfid || 0) * Number(price.valorRfidAdicional || 0)
+    const tester = Number(form.tester || 0) * Number(price.valorTester || 0)
+    const confeccao = Number(form.confeccao || 0) * Number(price.valorConfeccao || 0)
     return {
       price,
       nat,
       rfid,
-      total: nat + rfid,
+      tester,
+      confeccao,
+      total: nat + rfid + tester + confeccao,
     }
-  }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, prices])
+  }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, form.tester, form.confeccao, prices])
+
+  const batchSkuOptions = useMemo(
+    () => (processSkus[batch.idProcesso] || []).map(item => ({ label: `${item.sku} — ${item.descricao}`, value: item.sku })),
+    [processSkus, batch.idProcesso],
+  )
+
+  const batchPreview = useMemo(() => {
+    const date = isoDate(batch.dataEfetivacao)
+    const price = prices.find(p => p.vigenciaInicio <= date && (!p.vigenciaFim || p.vigenciaFim >= date))
+    const sum = (field: keyof BatchLine) => batch.lines.reduce((a, b) => a + Number(b[field] || 0), 0)
+    const qty = {
+      quantidade: sum('quantidade'),
+      nacionalizacao: sum('nacionalizacao'),
+      rfid: sum('rfid'),
+      tester: sum('tester'),
+      confeccao: sum('confeccao'),
+    }
+    const total = price
+      ? qty.nacionalizacao * Number(price.valorNacionalizacao || 0)
+        + qty.rfid * Number(price.valorRfidAdicional || 0)
+        + qty.tester * Number(price.valorTester || 0)
+        + qty.confeccao * Number(price.valorConfeccao || 0)
+      : null
+    return { price, qty, total }
+  }, [batch.dataEfetivacao, batch.lines, prices])
 
   const laborMonths = useMemo(() => monthsOf(labor.map(row => row.data)), [labor])
 
@@ -1451,6 +1757,12 @@ export default function Home() {
             <span className="nav-label">{isClient ? 'Acompanhamento' : 'Lançamentos'}</span>
           </button>
           {canLabor && (
+            <button className={`nav ${section === 'processos' ? 'active' : ''}`} onClick={openProcesses} title={collapsed ? 'Processos' : undefined}>
+              <i className="pi pi-folder-open" />
+              <span className="nav-label">Processos</span>
+            </button>
+          )}
+          {canLabor && (
             <button className={`nav ${section === 'maoDeObra' ? 'active' : ''}`} onClick={openLabor} title={collapsed ? 'Mão de obra' : undefined}>
               <i className="pi pi-id-card" />
               <span className="nav-label">Mão de obra</span>
@@ -1514,6 +1826,8 @@ export default function Home() {
                   ? 'Auditoria'
                   : section === 'maoDeObra'
                     ? 'Controle de mão de obra'
+                  : section === 'processos'
+                    ? 'Processos do cliente'
                   : section === 'precos'
                     ? 'Tabela de preços'
                     : section === 'usuarios'
@@ -1562,7 +1876,7 @@ export default function Home() {
               />
             )}
             {section === 'lancamentos' && canCreate && (
-              <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} disabled={!branches.length} />
+              <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} disabled={!branches.length || !processes.length} title={!processes.length ? 'Envie a planilha de um processo antes de lançar.' : undefined} />
             )}
             {section === 'maoDeObra' && canExport && (
               <Button label="Exportar" icon="pi pi-download" outlined className="compact" onClick={exportLabor} disabled={!visibleLabor.length} />
@@ -1656,6 +1970,7 @@ export default function Home() {
               </div>
               <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage={chargeStatus === 'CANCELADOS' ? 'Nenhuma cobrança cancelada no período.' : 'Nenhum retrabalho registrado para o período.'} onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
                 <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
+                <Column field="numeroProcesso" header="Processo" body={(row: Rework) => row.numeroProcesso || '—'} />
                 <Column field="sku" header="SKU" />
                 <Column field="descricao" header="Descrição" />
                 <Column field="nomeCliente" header="Cliente" />
@@ -1664,6 +1979,8 @@ export default function Home() {
                 <Column field="quantidade" header="Qtd." body={(row: Rework) => intLabel(row.quantidade)} />
                 <Column field="nacionalizacao" header="Nacionalização" body={(row: Rework) => intLabel(row.nacionalizacao)} />
                 <Column field="rfid" header="RFID/ADIPAC" body={(row: Rework) => intLabel(row.rfid)} />
+                <Column field="tester" header="Tester" body={(row: Rework) => intLabel(row.tester)} />
+                <Column field="confeccao" header="Confecc." body={(row: Rework) => intLabel(row.confeccao)} />
                 <Column
                   field="valorCobrancaEfetiva"
                   header="Cobrança"
@@ -1692,6 +2009,68 @@ export default function Home() {
               </DataTable>
             </section>
           </>
+        )}
+
+        {section === 'processos' && canLabor && (
+          <section className="panel workspace-page">
+            <div className="panel-head">
+              <div>
+                <small className="panel-eyebrow">PLANILHAS DO CLIENTE</small>
+                <h2>Processos</h2>
+                <p>Envie a planilha do cliente com as colunas CÓD DE BARRAS e DESCRICAO ANVISA. Os SKUs ficam disponíveis para seleção no lançamento.</p>
+              </div>
+              <Button icon="pi pi-refresh" text rounded onClick={() => void loadProcesses()} loading={processesLoading} />
+            </div>
+            <div className="page-body">
+              <div className="process-upload">
+                <label>
+                  Número do processo *
+                  <InputText value={uploadForm.numero} onChange={e => setUploadForm({ ...uploadForm, numero: e.target.value })} placeholder="Ex.: 2026-0458" />
+                </label>
+                <label>
+                  Cliente / filial *
+                  <Dropdown
+                    aria-label="Cliente / filial"
+                    value={uploadForm.cnpjCliente}
+                    options={branches.map(branch => ({ label: branchLabel(branch), value: branch.cnpj }))}
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Selecione a filial"
+                    onChange={e => setUploadForm({ ...uploadForm, cnpjCliente: String(e.value ?? '') })}
+                    filter
+                  />
+                </label>
+                <label>
+                  Planilha do cliente (.xlsx, .xls ou .csv) *
+                  <input
+                    key={uploadInputKey}
+                    className="file-input"
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={e => setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })}
+                  />
+                </label>
+                <Button label="Enviar planilha" icon="pi pi-upload" className="primary" loading={saving} onClick={uploadProcess} />
+              </div>
+              {uploadError && <div className="error"><i className="pi pi-exclamation-circle" />{uploadError}</div>}
+              {uploadResult && <div className="success-note"><i className="pi pi-check-circle" />{uploadResult}</div>}
+              <DataTable className="mobile-record-table process-record-table" value={processes} loading={processesLoading} paginator rows={15} dataKey="id" emptyMessage="Nenhum processo enviado." stripedRows scrollable>
+                <Column field="numero" header="Processo" />
+                <Column field="nomeCliente" header="Cliente" />
+                <Column field="filial" header="Filial" />
+                <Column field="qtdSkus" header="SKUs" body={(row: ProcessRow) => intLabel(row.qtdSkus)} />
+                <Column
+                  field="arquivoNome"
+                  header="Planilha"
+                  body={(row: ProcessRow) => row.arquivoUrl
+                    ? <a className="drive-link" href={row.arquivoUrl} target="_blank" rel="noopener noreferrer"><i className="pi pi-external-link" /> {row.arquivoNome}</a>
+                    : row.arquivoNome}
+                />
+                <Column field="matriculaCriacao" header="Enviado por" />
+                <Column field="criadoEm" header="Enviado em" />
+              </DataTable>
+            </div>
+          </section>
         )}
 
         {section === 'maoDeObra' && canLabor && (
@@ -1809,16 +2188,20 @@ export default function Home() {
                   <label>Nova vigência<Calendar value={priceForm.vigenciaInicio} onChange={e => setPriceForm({ ...priceForm, vigenciaInicio: e.value as Date })} dateFormat="dd/mm/yy" /></label>
                   <label>Nacionalização<InputNumber value={priceForm.valorNacionalizacao} onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label>RFID/ADIPAC<InputNumber value={priceForm.valorRfidAdicional} onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>Transformação em tester<InputNumber value={priceForm.valorTester} onValueChange={e => setPriceForm({ ...priceForm, valorTester: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>Etiqueta confeccionada<InputNumber value={priceForm.valorConfeccao} onValueChange={e => setPriceForm({ ...priceForm, valorConfeccao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label className="price-observation">Observação<InputText value={priceForm.observacao} onChange={e => setPriceForm({ ...priceForm, observacao: e.target.value })} placeholder="Motivo ou referência da alteração" /></label>
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
                 </div>
               )}
-              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização = R$ 0,4100; RFID/ADIPAC = R$ 0,1900 por unidade (RFID, ADIPAC ou os dois); Nacionalização + RFID/ADIPAC = R$ 0,6000. Os itens são opcionais e podem ser lançados separadamente. As tarifas são mantidas com 4 casas decimais.</div>
+              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização = R$ 0,4100; RFID/ADIPAC = R$ 0,1900 por unidade (RFID, ADIPAC ou os dois); Nacionalização + RFID/ADIPAC = R$ 0,6000; Etiqueta confeccionada = R$ 0,1500; Transformação em tester = tarifa a definir. Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. As tarifas são mantidas com 4 casas decimais.</div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
                 <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => rateMoney(r.valorNacionalizacao)} />
                 <Column field="valorRfidAdicional" header="RFID/ADIPAC" body={(r: PriceRow) => rateMoney(r.valorRfidAdicional)} />
+                <Column field="valorTester" header="Tester" body={(r: PriceRow) => rateMoney(Number(r.valorTester || 0))} />
+                <Column field="valorConfeccao" header="Etq. confeccionada" body={(r: PriceRow) => rateMoney(Number(r.valorConfeccao || 0))} />
                 <Column field="observacao" header="Observação" />
                 <Column field="criadoPor" header="Criado por" />
               </DataTable>
@@ -1911,7 +2294,7 @@ export default function Home() {
       </section>
 
       <Dialog
-        header={form.id ? 'Editar retrabalho' : 'Novo retrabalho'}
+        header="Editar retrabalho"
         visible={dialog}
         onHide={() => !saving && setDialog(false)}
         style={{ width: 'min(760px, 96vw)' }}
@@ -1935,16 +2318,23 @@ export default function Home() {
               optionValue="value"
               placeholder="Selecione a filial"
               onChange={e => setForm({ ...form, cnpjCliente: String(e.value ?? '') })}
+              disabled={Boolean(form.numeroProcesso)}
               required
             />
           </label>
+          {form.numeroProcesso && (
+            <label className="span-2">
+              Processo
+              <InputText value={form.numeroProcesso} disabled />
+            </label>
+          )}
           <label>
             SKU *
-            <InputText value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} />
+            <InputText value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} disabled={Boolean(form.numeroProcesso)} />
           </label>
           <label className="span-2">
             Descrição *
-            <InputText value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} />
+            <InputText value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} disabled={Boolean(form.numeroProcesso)} />
           </label>
           <label>
             Quantidade retrabalhada *
@@ -1979,13 +2369,35 @@ export default function Home() {
               maxFractionDigits={0}
             />
           </label>
+          <label>
+            Transformação em tester
+            <InputNumber
+              value={form.tester}
+              onValueChange={e => setForm({ ...form, tester: e.value ?? null })}
+              placeholder="0"
+              min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
+            />
+          </label>
+          <label>
+            Etiquetas confeccionadas
+            <InputNumber
+              value={form.confeccao}
+              onValueChange={e => setForm({ ...form, confeccao: e.value ?? null })}
+              placeholder="0"
+              min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
+            />
+          </label>
           <p className="form-hint span-2">
-            * Campos obrigatórios. Nacionalização e RFID/ADIPAC são opcionais: lance um, outro ou os dois.
-            Para RFID/ADIPAC, informe as unidades — usar RFID, ADIPAC ou ambos na mesma unidade é cobrado uma única vez.
+            * Obrigatórios. Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada.
+            RFID, ADIPAC ou ambos na mesma unidade são cobrados uma única vez.
           </p>
         </div>
 
-        <div className="billing-preview">
+        <div className="billing-preview billing-preview-5">
           <div>
             <span>Nacionalização</span>
             <strong>{previewPrice ? money(previewPrice.nat) : 'Sem vigência'}</strong>
@@ -2003,6 +2415,16 @@ export default function Home() {
                 ? `${intLabel(form.rfid)} × ${rateMoney(previewPrice.price.valorRfidAdicional)}`
                 : '—'}
             </small>
+          </div>
+          <div>
+            <span>Tester</span>
+            <strong>{previewPrice ? money(previewPrice.tester) : '—'}</strong>
+            <small>{previewPrice ? `${intLabel(form.tester)} × ${rateMoney(Number(previewPrice.price.valorTester || 0))}` : '—'}</small>
+          </div>
+          <div>
+            <span>Confeccionadas</span>
+            <strong>{previewPrice ? money(previewPrice.confeccao) : '—'}</strong>
+            <small>{previewPrice ? `${intLabel(form.confeccao)} × ${rateMoney(Number(previewPrice.price.valorConfeccao || 0))}` : '—'}</small>
           </div>
           <div className="billing-total">
             <span>Total previsto</span>
@@ -2087,6 +2509,116 @@ export default function Home() {
           <Button label="Salvar" icon="pi pi-check" className="primary" loading={saving} onClick={saveLabor} />
         </div>
         {laborError && <div className="error"><i className="pi pi-exclamation-circle" />{laborError}</div>}
+      </Dialog>
+
+      <Dialog
+        header="Novo lançamento"
+        visible={batchDialog}
+        onHide={() => !saving && setBatchDialog(false)}
+        style={{ width: 'min(1180px, 98vw)' }}
+      >
+        <div className="batch-head">
+          <label>
+            Data de efetivação *
+            <Calendar
+              value={batch.dataEfetivacao}
+              onChange={e => setBatch({ ...batch, dataEfetivacao: e.value as Date })}
+              dateFormat="dd/mm/yy"
+            />
+          </label>
+          <label>
+            Número do processo *
+            <Dropdown
+              aria-label="Número do processo"
+              value={batch.idProcesso}
+              options={processes.map(item => ({ label: `${item.numero} · ${item.nomeCliente} · ${item.filial}`, value: item.id }))}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Selecione o processo"
+              onChange={e => selectBatchProcess(String(e.value ?? ''))}
+              filter
+            />
+          </label>
+          <label className="batch-skus">
+            SKUs do processo (1 a {MAX_BATCH_SKUS}) *
+            <MultiSelect
+              value={batch.skus}
+              options={batchSkuOptions}
+              onChange={e => changeBatchSkus((e.value || []) as string[])}
+              placeholder={batch.idProcesso ? 'Pesquise por código de barras ou descrição' : 'Selecione o processo primeiro'}
+              disabled={!batch.idProcesso || skusLoading}
+              filter
+              filterPlaceholder="Código de barras ou descrição"
+              selectionLimit={MAX_BATCH_SKUS}
+              display="comma"
+              maxSelectedLabels={2}
+              selectedItemsLabel="{0} SKUs selecionados"
+              virtualScrollerOptions={{ itemSize: 38 }}
+              showSelectAll={false}
+              emptyFilterMessage="Nenhum SKU encontrado"
+            />
+          </label>
+        </div>
+
+        {batch.lines.length > 0 ? (
+          <div className="batch-lines">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>SKU</th>
+                  <th>Descrição</th>
+                  <th>Qtd. retrabalhada *</th>
+                  <th>Nacionalização</th>
+                  <th>RFID/ADIPAC</th>
+                  <th>Tester</th>
+                  <th>Confeccionadas</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {batch.lines.map((line, index) => {
+                  const problem = lineError(line)
+                  return (
+                    <tr key={line.sku} className={problem && line.quantidade != null ? 'has-error' : ''} title={problem || undefined}>
+                      <td>{index + 1}</td>
+                      <td className="batch-sku">{line.sku}</td>
+                      <td className="batch-desc">{line.descricao}</td>
+                      <td><InputNumber value={line.quantidade} onValueChange={e => updateBatchLine(line.sku, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td><InputNumber value={line.nacionalizacao} onValueChange={e => updateBatchLine(line.sku, 'nacionalizacao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td><InputNumber value={line.rfid} onValueChange={e => updateBatchLine(line.sku, 'rfid', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td><InputNumber value={line.tester} onValueChange={e => updateBatchLine(line.sku, 'tester', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td><InputNumber value={line.confeccao} onValueChange={e => updateBatchLine(line.sku, 'confeccao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td><Button icon="pi pi-times" text rounded className="table-action" title="Remover SKU" onClick={() => removeBatchLine(line.sku)} /></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="form-hint batch-empty">Selecione o processo e os SKUs que serão lançados. Cada SKU vira uma linha para preencher as quantidades.</p>
+        )}
+
+        <div className="batch-summary">
+          <span><strong>{batch.lines.length}</strong> SKU(s)</span>
+          <span>Retrabalhadas <strong>{intLabel(batchPreview.qty.quantidade)}</strong></span>
+          <span>Nacionalização <strong>{intLabel(batchPreview.qty.nacionalizacao)}</strong></span>
+          <span>RFID/ADIPAC <strong>{intLabel(batchPreview.qty.rfid)}</strong></span>
+          <span>Tester <strong>{intLabel(batchPreview.qty.tester)}</strong></span>
+          <span>Confeccionadas <strong>{intLabel(batchPreview.qty.confeccao)}</strong></span>
+          <span className="batch-total">Total previsto <strong>{batchPreview.total == null ? 'Sem vigência' : money(batchPreview.total)}</strong></span>
+        </div>
+        <p className="form-hint">
+          Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. Cada SKU precisa de ao menos um serviço.
+          O valor definitivo é calculado pelo backend com a tabela de preços vigente na data.
+        </p>
+
+        <div className="dialog-actions">
+          <Button label="Cancelar" text disabled={saving} onClick={() => setBatchDialog(false)} />
+          <Button label={batch.lines.length > 1 ? `Salvar ${batch.lines.length} lançamentos` : 'Salvar lançamento'} icon="pi pi-check" className="primary" loading={saving} onClick={saveBatch} disabled={!batch.lines.length} />
+        </div>
+        {batchError && <div className="error"><i className="pi pi-exclamation-circle" />{batchError}</div>}
       </Dialog>
 
       <Dialog

@@ -77,3 +77,9 @@ html,body{overflow-x:clip!important}
   overflow:hidden!important;
   text-overflow:ellipsis!important;
 }
+
+/* 5. Tabela de preços com tester e etiquetas confeccionadas: 4 colunas no desktop largo. */
+@media(min-width:1381px){
+  .price-create{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .price-create .price-observation{grid-column:span 2!important}
+}

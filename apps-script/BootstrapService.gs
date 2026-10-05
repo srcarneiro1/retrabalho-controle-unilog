@@ -58,6 +58,15 @@ const BootstrapService = (() => {
       labor: []
     };
 
+    result.processes = [];
+    if (perfil !== 'CLIENTE') {
+      try {
+        result.processes = ProcessService.list(matricula, perfil);
+      } catch (error) {
+        result.processesError = error && error.message ? error.message : String(error);
+      }
+    }
+
     if (perfil !== 'CLIENTE') {
       // Falha na mão de obra não pode impedir o acesso ao restante do sistema.
       try {

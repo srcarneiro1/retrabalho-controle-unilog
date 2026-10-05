@@ -20,6 +20,24 @@ const AuditService = (() => {
     }, ['ID_AUDITORIA','ID_REGISTRO','MATRICULA_AUTOR']);
   }
 
+  // entries: [{ entity, id, action, author, before, after, oldVersion, newVersion }]
+  function logMany(entries) {
+    const now = now_();
+    Repository.appendMany('AUDITORIA', (entries || []).map(e => ({
+      ID_AUDITORIA: uuid_(),
+      ENTIDADE: e.entity,
+      ID_REGISTRO: e.id,
+      ACAO: e.action,
+      MATRICULA_AUTOR: e.author,
+      DATA_HORA: now,
+      VERSAO_ANTERIOR: e.oldVersion == null ? '' : e.oldVersion,
+      VERSAO_NOVA: e.newVersion == null ? '' : e.newVersion,
+      DADOS_ANTES_JSON: e.before ? JSON.stringify(e.before) : '',
+      DADOS_DEPOIS_JSON: e.after ? JSON.stringify(e.after) : '',
+      ORIGEM: 'WEB_APP'
+    })), ['ID_AUDITORIA','ID_REGISTRO','MATRICULA_AUTOR']);
+  }
+
   function list(month, matricula, perfil) {
     const filterMonth = /^\d{4}-\d{2}$/.test(text_(month)) ? text_(month) : '';
     const profile = upper_(perfil);
@@ -63,5 +81,5 @@ const AuditService = (() => {
     return Utilities.formatDate(d, AppConfig.TIMEZONE, 'dd/MM/yyyy HH:mm:ss');
   }
 
-  return { log, list };
+  return { log, logMany, list };
 })();

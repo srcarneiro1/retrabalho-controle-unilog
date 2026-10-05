@@ -43,6 +43,8 @@ const PriceService = (() => {
     return copy;
   }
 
+  const EXTRA_HEADERS = ['VALOR_TESTER', 'VALOR_CONFECCAO'];
+
   function map_(r) {
     return {
       id: text_(r.ID_PRECO),
@@ -51,6 +53,8 @@ const PriceService = (() => {
       valorNacionalizacao: Number(r.VALOR_NACIONALIZACAO || 0),
       valorRfidAdicional: Number(r.VALOR_RFID_ADICIONAL || 0),
       valorValidade: Number(r.VALOR_VALIDADE || 0),
+      valorTester: Number(r.VALOR_TESTER || 0),
+      valorConfeccao: Number(r.VALOR_CONFECCAO || 0),
       ativo: text_(r.ATIVO) || 'SIM',
       criadoEm: r.CRIADO_EM || '',
       criadoPor: text_(r.CRIADO_POR),
@@ -82,25 +86,33 @@ const PriceService = (() => {
     throw new Error('Não existe preço vigente para a data de efetivação informada.');
   }
 
-  function calculate(dateValue, nacionalizacao, rfid, validade) {
-    const price = findByDate(dateValue);
+  function calculate(dateValue, nacionalizacao, rfid, validade, tester, confeccao, priceOverride) {
+    const price = priceOverride || findByDate(dateValue);
     const natQty = Number(nacionalizacao || 0);
     const rfidQty = Number(rfid || 0);
     const validadeQty = Number(validade || 0);
+    const testerQty = Number(tester || 0);
+    const confeccaoQty = Number(confeccao || 0);
 
     const valueNat = amount_(natQty * price.valorNacionalizacao, 'Valor de nacionalização');
     const valueRfid = amount_(rfidQty * price.valorRfidAdicional, 'Valor RFID/ADIPAC');
     const valueValidade = amount_(validadeQty * price.valorValidade, 'Valor de etiqueta de validade');
+    const valueTester = amount_(testerQty * price.valorTester, 'Valor de transformação em tester');
+    const valueConfeccao = amount_(confeccaoQty * price.valorConfeccao, 'Valor de etiquetas confeccionadas');
 
     return {
       idPreco: price.id,
       precoNacionalizacaoUnit: rate_(price.valorNacionalizacao, 'Tarifa de nacionalização'),
       precoRfidAdicionalUnit: rate_(price.valorRfidAdicional, 'Tarifa RFID/ADIPAC'),
       precoValidadeUnit: rate_(price.valorValidade, 'Tarifa de etiqueta de validade'),
+      precoTesterUnit: rate_(price.valorTester, 'Tarifa de transformação em tester'),
+      precoConfeccaoUnit: rate_(price.valorConfeccao, 'Tarifa de etiquetas confeccionadas'),
       valorNacionalizacao: valueNat,
       valorRfidAdicional: valueRfid,
       valorValidade: valueValidade,
-      valorTotalCobranca: amount_(valueNat + valueRfid + valueValidade, 'Valor total')
+      valorTester: valueTester,
+      valorConfeccao: valueConfeccao,
+      valorTotalCobranca: amount_(valueNat + valueRfid + valueValidade + valueTester + valueConfeccao, 'Valor total')
     };
   }
 
@@ -119,8 +131,17 @@ const PriceService = (() => {
       input.valorValidade == null || input.valorValidade === '' ? 0 : input.valorValidade,
       'Tarifa de etiqueta de validade'
     );
+    const valueTester = rate_(
+      input.valorTester == null || input.valorTester === '' ? 0 : input.valorTester,
+      'Tarifa de transformação em tester'
+    );
+    const valueConfeccao = rate_(
+      input.valorConfeccao == null || input.valorConfeccao === '' ? 0 : input.valorConfeccao,
+      'Tarifa de etiquetas confeccionadas'
+    );
     const author = text_(input.matriculaAutor);
     const observation = text_(input.observacao);
+    Repository.ensure('TABELA_PRECOS', EXTRA_HEADERS);
     const rows = rows_();
 
     if (rows.some(x => iso_(x.record.VIGENCIA_INICIO) === iso_(start))) {
@@ -158,7 +179,9 @@ const PriceService = (() => {
       OBSERVACAO: observation,
       VERSAO: 1,
       REQUEST_ID: requestId,
-      VALOR_VALIDADE: valueValidade
+      VALOR_VALIDADE: valueValidade,
+      VALOR_TESTER: valueTester,
+      VALOR_CONFECCAO: valueConfeccao
     };
 
     Repository.append('TABELA_PRECOS', record, ['ID_PRECO','CRIADO_POR','REQUEST_ID']);
