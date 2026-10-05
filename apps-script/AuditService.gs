@@ -31,7 +31,7 @@ const AuditService = (() => {
     const laborAllowed = {};
     if (profile === 'SUPERVISOR' || profile === 'ADMIN') {
       try {
-        LaborService.list(matricula, profile).forEach(item => { laborAllowed[item.id] = true; });
+        LaborService.idsForScope(matricula, profile).forEach(id => { laborAllowed[id] = true; });
       } catch (error) { /* aba ainda inexistente */ }
     }
 

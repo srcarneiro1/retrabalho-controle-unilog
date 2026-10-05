@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.05.4';
+const API_VERSION = '2026.10.05.5';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -95,6 +95,7 @@ function route_(route, action, payload) {
     if (action === 'LISTAR') return ok_({ data: LaborService.list(payload.matriculaAutor, payload.perfilAutor) });
     if (action === 'CRIAR') return ok_(LaborService.create(payload));
     if (action === 'EDITAR') return ok_(LaborService.edit(payload));
+    if (action === 'INATIVAR') return ok_(LaborService.deactivate(payload));
     throw new Error('Ação de mão de obra inválida.');
   }
 

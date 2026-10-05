@@ -16,7 +16,10 @@ const LaborService = (() => {
     'ATUALIZADO_EM',
     'VERSAO',
     'ATIVO',
-    'REQUEST_ID'
+    'REQUEST_ID',
+    'INATIVADO_EM',
+    'INATIVADO_POR',
+    'MOTIVO_INATIVACAO'
   ];
 
   function text_(v) { return String(v == null ? '' : v).trim(); }
@@ -90,6 +93,18 @@ const LaborService = (() => {
   function active_() {
     ensureSheet_();
     return Repository.list(SHEET).filter(x => upper_(x.record.ATIVO) !== 'NAO');
+  }
+
+  // IDs de todos os registros (ativos e inativos) no escopo do usuário — usado pela auditoria.
+  function idsForScope(matricula, perfil) {
+    const profile = upper_(perfil);
+    assertInternal_(profile);
+    ensureSheet_();
+    const allowed = allowedSet_(text_(matricula), profile);
+    return Repository.list(SHEET)
+      .map(x => map_(x.record))
+      .filter(r => Boolean(allowed[r.cnpjCliente]))
+      .map(r => r.id);
   }
 
   function list(matricula, perfil) {
@@ -214,5 +229,49 @@ const LaborService = (() => {
     return { ok: true, data: after };
   }
 
-  return { list, create, edit, ensureSheet: ensureSheet_ };
+  // Inativação lógica: o registro sai da lista e libera a data/filial para novo lançamento,
+  // mas permanece na planilha com autor, data e motivo (rastreável na auditoria).
+  function deactivate(input) {
+    const id = text_(input.id);
+    const author = text_(input.matriculaAutor);
+    const perfil = upper_(input.perfilAutor);
+    const reason = text_(input.motivo);
+    if (perfil !== 'SUPERVISOR' && perfil !== 'ADMIN') {
+      throw new Error('Somente SUPERVISOR e ADMIN podem inativar lançamentos de mão de obra.');
+    }
+    if (!reason) throw new Error('Informe o motivo da inativação.');
+
+    ensureSheet_();
+    const hit = Repository.find(SHEET, 'ID_MAO_OBRA', id);
+    if (!hit) throw new Error('Registro não encontrado.');
+
+    const before = map_(hit.record);
+    const scope = allowedSet_(author, perfil);
+    if (!scope[before.cnpjCliente]) throw new Error('Você não possui acesso a este registro.');
+    if (upper_(hit.record.ATIVO) === 'NAO') return { ok: true, data: before, idempotent: true };
+
+    const currentVersion = Number(hit.record.VERSAO || 0);
+    if (Number(input.versao || 0) !== currentVersion) {
+      throw new Error('O registro foi alterado por outro usuário. Atualize a lista antes de inativar.');
+    }
+
+    const nextVersion = currentVersion + 1;
+    Repository.update(SHEET, hit.rowNumber, {
+      ATIVO: 'NAO',
+      INATIVADO_EM: new Date(),
+      INATIVADO_POR: author,
+      MOTIVO_INATIVACAO: reason,
+      MATRICULA_ATUALIZACAO: author,
+      ATUALIZADO_EM: new Date(),
+      VERSAO: nextVersion
+    }, ['INATIVADO_POR', 'MATRICULA_ATUALIZACAO']);
+
+    const after = map_(Repository.rowObject(SHEET, hit.rowNumber));
+    after.ativo = 'NAO';
+    after.motivoInativacao = reason;
+    AuditService.log('MAO_DE_OBRA', id, 'INATIVAR', author, before, after, currentVersion, nextVersion);
+    return { ok: true, data: after };
+  }
+
+  return { list, idsForScope, create, edit, deactivate, ensureSheet: ensureSheet_ };
 })();
