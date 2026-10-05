@@ -89,13 +89,13 @@ const PriceService = (() => {
     const validadeQty = Number(validade || 0);
 
     const valueNat = amount_(natQty * price.valorNacionalizacao, 'Valor de nacionalização');
-    const valueRfid = amount_(rfidQty * price.valorRfidAdicional, 'Valor adicional RFID');
+    const valueRfid = amount_(rfidQty * price.valorRfidAdicional, 'Valor RFID/ADIPAC');
     const valueValidade = amount_(validadeQty * price.valorValidade, 'Valor de etiqueta de validade');
 
     return {
       idPreco: price.id,
       precoNacionalizacaoUnit: rate_(price.valorNacionalizacao, 'Tarifa de nacionalização'),
-      precoRfidAdicionalUnit: rate_(price.valorRfidAdicional, 'Tarifa adicional RFID'),
+      precoRfidAdicionalUnit: rate_(price.valorRfidAdicional, 'Tarifa RFID/ADIPAC'),
       precoValidadeUnit: rate_(price.valorValidade, 'Tarifa de etiqueta de validade'),
       valorNacionalizacao: valueNat,
       valorRfidAdicional: valueRfid,
@@ -113,8 +113,12 @@ const PriceService = (() => {
 
     const start = parseDate_(input.vigenciaInicio, 'Vigência inicial');
     const valueNat = rate_(input.valorNacionalizacao, 'Tarifa de nacionalização');
-    const valueRfid = rate_(input.valorRfidAdicional, 'Tarifa adicional RFID');
-    const valueValidade = rate_(input.valorValidade, 'Tarifa de etiqueta de validade');
+    const valueRfid = rate_(input.valorRfidAdicional, 'Tarifa RFID/ADIPAC');
+    // Etiqueta de Validade foi descontinuada: novas vigências gravam 0 quando não informada.
+    const valueValidade = rate_(
+      input.valorValidade == null || input.valorValidade === '' ? 0 : input.valorValidade,
+      'Tarifa de etiqueta de validade'
+    );
     const author = text_(input.matriculaAutor);
     const observation = text_(input.observacao);
     const rows = rows_();

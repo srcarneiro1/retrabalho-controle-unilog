@@ -14,7 +14,7 @@ import { Password } from 'primereact/password'
 import { Tag } from 'primereact/tag'
 
 type Profile = 'OPERACIONAL' | 'SUPERVISOR' | 'ADMIN' | 'CLIENTE'
-type Section = 'lancamentos' | 'auditoria' | 'precos' | 'usuarios'
+type Section = 'lancamentos' | 'maoDeObra' | 'auditoria' | 'precos' | 'usuarios'
 
 const PROFILE_OPTIONS = [
   { label: 'OPERACIONAL', value: 'OPERACIONAL' },
@@ -77,6 +77,24 @@ type Rework = {
   versao: number
 }
 
+type LaborRow = {
+  id: string
+  requestId?: string
+  data: string
+  cnpjCliente: string
+  nomeCliente: string
+  filial: string
+  qtdCasa: number
+  qtdTerceiros: number
+  qtdTotal: number
+  observacao: string
+  matriculaCriacao: string
+  criadoEm: string
+  matriculaAtualizacao?: string
+  atualizadoEm?: string
+  versao: number
+}
+
 type ManagedUser = {
   matricula: string
   nome: string
@@ -125,10 +143,21 @@ function createForm() {
     descricao: '',
     cnpjCliente: '',
     quantidade: 0,
-    dataValidade: null as Date | null,
     nacionalizacao: 0,
     rfid: 0,
-    validade: 0,
+    versao: 0,
+  }
+}
+
+function createLaborForm() {
+  return {
+    id: '',
+    requestId: crypto.randomUUID(),
+    data: new Date(),
+    cnpjCliente: '',
+    qtdCasa: 0,
+    qtdTerceiros: 0,
+    observacao: '',
     versao: 0,
   }
 }
@@ -139,7 +168,6 @@ function createPriceForm() {
     vigenciaInicio: new Date(),
     valorNacionalizacao: 0.4100,
     valorRfidAdicional: 0.1900,
-    valorValidade: 0.4114,
     observacao: '',
   }
 }
@@ -255,6 +283,14 @@ export default function Home() {
 
   const [form, setForm] = useState(createForm)
   const [dialog, setDialog] = useState(false)
+  const [formError, setFormError] = useState('')
+
+  const [labor, setLabor] = useState<LaborRow[]>([])
+  const [laborLoading, setLaborLoading] = useState(false)
+  const [laborMonth, setLaborMonth] = useState('')
+  const [laborForm, setLaborForm] = useState(createLaborForm)
+  const [laborDialog, setLaborDialog] = useState(false)
+  const [laborError, setLaborError] = useState('')
 
   const [users, setUsers] = useState<ManagedUser[]>([])
   const [userError, setUserError] = useState('')
@@ -289,6 +325,7 @@ export default function Home() {
   const canManagePrices = user?.perfil === 'ADMIN'
   const canViewPrices = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN' || user?.perfil === 'CLIENTE'
   const canExport = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN' || user?.perfil === 'CLIENTE'
+  const canLabor = Boolean(user && user.perfil !== 'CLIENTE')
 
   async function api(path: string, init?: RequestInit) {
     const response = await fetch(path, {
@@ -420,6 +457,7 @@ export default function Home() {
       setMonths(data.months || [])
       setAllBranches(data.allBranches || [])
       setUsers(data.users || [])
+      setLabor(data.labor || [])
 
       if (currentUser.perfil === 'CLIENTE') {
         setSelectedMonth(data.selectedMonth || currentMonth())
@@ -467,6 +505,7 @@ export default function Home() {
     setItems([])
     setBranches([])
     setAllBranches([])
+    setLabor([])
     setWorkspaceReady(false)
     setWorkspaceError('')
     setBaseConnected(false)
@@ -478,6 +517,7 @@ export default function Home() {
     const next = createForm()
     if (branches.length === 1) next.cnpjCliente = branches[0].cnpj
     setForm(next)
+    setFormError('')
     setDialog(true)
   }
 
@@ -491,21 +531,21 @@ export default function Home() {
       descricao: row.descricao,
       cnpjCliente: row.cnpjCliente,
       quantidade: row.quantidade,
-      dataValidade: fromIso(row.dataValidade),
       nacionalizacao: row.nacionalizacao,
       rfid: row.rfid,
-      validade: row.validade,
       versao: row.versao,
     })
+    setFormError('')
     setDialog(true)
   }
 
   async function save() {
     if (saving || !canCreate) return
     setSaving(true)
+    setFormError('')
     try {
-      if (Number(form.rfid || 0) > Number(form.nacionalizacao || 0)) {
-        throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.')
+      if (Number(form.nacionalizacao || 0) + Number(form.rfid || 0) <= 0) {
+        throw new Error('Informe ao menos uma etiqueta: Nacionalização e/ou RFID/ADIPAC.')
       }
 
       const payload = {
@@ -516,10 +556,8 @@ export default function Home() {
         descricao: form.descricao.trim(),
         cnpjCliente: form.cnpjCliente,
         quantidade: form.quantidade,
-        dataValidade: isoDate(form.dataValidade),
         nacionalizacao: form.nacionalizacao,
         rfid: form.rfid,
-        validade: form.validade,
         versao: form.versao,
       }
 
@@ -530,9 +568,120 @@ export default function Home() {
 
       setDialog(false)
       await loadItems(isClient ? selectedMonth : undefined)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Falha ao salvar.')
     } finally {
       setSaving(false)
     }
+  }
+
+  function openLabor() {
+    if (!canLabor) return
+    setSection('maoDeObra')
+    setMobileOpen(false)
+  }
+
+  async function loadLabor() {
+    if (!canLabor) return
+    setLaborLoading(true)
+    try {
+      const data = await api('/api/mao-de-obra')
+      setLabor(data.data || [])
+    } finally {
+      setLaborLoading(false)
+    }
+  }
+
+  function openNewLabor() {
+    if (!canLabor) return
+    const next = createLaborForm()
+    if (branches.length === 1) next.cnpjCliente = branches[0].cnpj
+    setLaborForm(next)
+    setLaborError('')
+    setLaborDialog(true)
+  }
+
+  function openEditLabor(row: LaborRow) {
+    if (!canEdit) return
+    setLaborForm({
+      id: row.id,
+      requestId: row.requestId || '',
+      data: fromIso(row.data) || new Date(),
+      cnpjCliente: row.cnpjCliente,
+      qtdCasa: row.qtdCasa,
+      qtdTerceiros: row.qtdTerceiros,
+      observacao: row.observacao || '',
+      versao: row.versao,
+    })
+    setLaborError('')
+    setLaborDialog(true)
+  }
+
+  async function saveLabor() {
+    if (saving || !canLabor) return
+    setSaving(true)
+    setLaborError('')
+    try {
+      if (!laborForm.cnpjCliente) throw new Error('Selecione a filial.')
+      if (Number(laborForm.qtdCasa || 0) + Number(laborForm.qtdTerceiros || 0) <= 0) {
+        throw new Error('Informe ao menos uma pessoa (casa ou terceiros).')
+      }
+      await api('/api/mao-de-obra', {
+        method: laborForm.id ? 'PUT' : 'POST',
+        body: JSON.stringify({
+          id: laborForm.id || undefined,
+          requestId: laborForm.requestId,
+          data: isoDate(laborForm.data),
+          cnpjCliente: laborForm.cnpjCliente,
+          qtdCasa: laborForm.qtdCasa,
+          qtdTerceiros: laborForm.qtdTerceiros,
+          observacao: laborForm.observacao.trim(),
+          versao: laborForm.versao,
+        }),
+      })
+      setLaborDialog(false)
+      await loadLabor()
+    } catch (error) {
+      setLaborError(error instanceof Error ? error.message : 'Falha ao salvar.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function exportLabor() {
+    downloadCsv(
+      `mao-de-obra-unilog-${laborMonth || 'completo'}.csv`,
+      [
+        'Data',
+        'Cliente',
+        'Filial',
+        'CNPJ',
+        'Mão de obra da casa',
+        'Terceiros',
+        'Total',
+        'Observação',
+        'Criado por',
+        'Criado em',
+        'Atualizado por',
+        'Atualizado em',
+        'Versão',
+      ],
+      visibleLabor.map(row => [
+        row.data,
+        row.nomeCliente,
+        row.filial,
+        cnpjLabel(row.cnpjCliente),
+        row.qtdCasa,
+        row.qtdTerceiros,
+        row.qtdTotal,
+        row.observacao,
+        row.matriculaCriacao,
+        row.criadoEm,
+        row.matriculaAtualizacao || '',
+        row.atualizadoEm || '',
+        row.versao,
+      ])
+    )
   }
 
   function openUsers() {
@@ -674,7 +823,6 @@ export default function Home() {
           vigenciaInicio: isoDate(priceForm.vigenciaInicio),
           valorNacionalizacao: priceForm.valorNacionalizacao,
           valorRfidAdicional: priceForm.valorRfidAdicional,
-          valorValidade: priceForm.valorValidade,
           observacao: priceForm.observacao.trim(),
         }),
       })
@@ -729,16 +877,12 @@ export default function Home() {
         'Filial',
         'CNPJ',
         'Qtd retrabalhada',
-        'Validade inserida',
         'Etiquetas Nacionalização',
-        'Etiquetas RFID',
-        'Etiquetas Validade',
+        'Etiquetas RFID/ADIPAC',
         'Tarifa Nacionalização',
-        'Tarifa adicional RFID',
-        'Tarifa Etiqueta de Validade',
+        'Tarifa RFID/ADIPAC',
         'Valor Nacionalização',
-        'Valor RFID',
-        'Valor Validade',
+        'Valor RFID/ADIPAC',
         'Valor original cobrança',
         'Valor efetivo cobrança',
         'Cobrança cancelada',
@@ -760,16 +904,12 @@ export default function Home() {
         item.filial,
         cnpjLabel(item.cnpjCliente),
         item.quantidade,
-        item.dataValidade,
         item.nacionalizacao,
         item.rfid,
-        item.validade,
         item.precoNacionalizacaoUnit.toFixed(4).replace('.', ','),
         item.precoRfidAdicionalUnit.toFixed(4).replace('.', ','),
-        item.precoValidadeUnit.toFixed(4).replace('.', ','),
         item.valorNacionalizacao.toFixed(4).replace('.', ','),
         item.valorRfidAdicional.toFixed(4).replace('.', ','),
-        item.valorValidade.toFixed(4).replace('.', ','),
         item.valorTotalCobranca.toFixed(4).replace('.', ','),
         item.valorCobrancaEfetiva.toFixed(4).replace('.', ','),
         item.cobrancaCancelada ? 'SIM' : 'NAO',
@@ -851,15 +991,35 @@ export default function Home() {
 
     const nat = Number(form.nacionalizacao || 0) * Number(price.valorNacionalizacao || 0)
     const rfid = Number(form.rfid || 0) * Number(price.valorRfidAdicional || 0)
-    const validade = Number(form.validade || 0) * Number(price.valorValidade || 0)
     return {
       price,
       nat,
       rfid,
-      validade,
-      total: nat + rfid + validade,
+      total: nat + rfid,
     }
-  }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, form.validade, prices])
+  }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, prices])
+
+  const laborMonths = useMemo(() => {
+    const seen: Record<string, true> = {}
+    labor.forEach(row => { if (row.data) seen[row.data.slice(0, 7)] = true })
+    return Object.keys(seen).sort().reverse()
+  }, [labor])
+
+  const visibleLabor = useMemo(
+    () => laborMonth ? labor.filter(row => row.data.slice(0, 7) === laborMonth) : labor,
+    [labor, laborMonth],
+  )
+
+  const laborTotals = useMemo(() => {
+    const dias: Record<string, true> = {}
+    visibleLabor.forEach(row => { dias[row.data] = true })
+    return {
+      dias: Object.keys(dias).length,
+      casa: visibleLabor.reduce((a, b) => a + Number(b.qtdCasa || 0), 0),
+      terceiros: visibleLabor.reduce((a, b) => a + Number(b.qtdTerceiros || 0), 0),
+      total: visibleLabor.reduce((a, b) => a + Number(b.qtdTotal || 0), 0),
+    }
+  }, [visibleLabor])
 
   if (loadingSession) {
     return (
@@ -1110,6 +1270,12 @@ export default function Home() {
             <i className="pi pi-clipboard" />
             <span className="nav-label">{isClient ? 'Acompanhamento' : 'Lançamentos'}</span>
           </button>
+          {canLabor && (
+            <button className={`nav ${section === 'maoDeObra' ? 'active' : ''}`} onClick={openLabor} title={collapsed ? 'Mão de obra' : undefined}>
+              <i className="pi pi-id-card" />
+              <span className="nav-label">Mão de obra</span>
+            </button>
+          )}
           {canAudit && (
             <button className={`nav ${section === 'auditoria' ? 'active' : ''}`} onClick={openAudit} title={collapsed ? 'Auditoria' : undefined}>
               <i className="pi pi-history" />
@@ -1166,6 +1332,8 @@ export default function Home() {
               <h1>
                 {section === 'auditoria'
                   ? 'Auditoria'
+                  : section === 'maoDeObra'
+                    ? 'Controle de mão de obra'
                   : section === 'precos'
                     ? 'Tabela de preços'
                     : section === 'usuarios'
@@ -1215,6 +1383,12 @@ export default function Home() {
             )}
             {section === 'lancamentos' && canCreate && (
               <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} disabled={!branches.length} />
+            )}
+            {section === 'maoDeObra' && canExport && (
+              <Button label="Exportar" icon="pi pi-download" outlined className="compact" onClick={exportLabor} disabled={!visibleLabor.length} />
+            )}
+            {section === 'maoDeObra' && canLabor && (
+              <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNewLabor} disabled={!branches.length} />
             )}
             {section === 'auditoria' && canExport && (
               <Button label="Exportar auditoria" icon="pi pi-download" outlined className="compact" onClick={exportAudits} disabled={!audits.length} />
@@ -1284,10 +1458,8 @@ export default function Home() {
                 <Column field="filial" header="Filial" />
                 <Column field="cnpjCliente" header="CNPJ" body={(row: Rework) => cnpjLabel(row.cnpjCliente)} />
                 <Column field="quantidade" header="Qtd." />
-                <Column field="dataValidade" header="Validade" body={(row: Rework) => dateLabel(row.dataValidade)} />
                 <Column field="nacionalizacao" header="Nacionalização" />
-                <Column field="rfid" header="RFID" />
-                <Column field="validade" header="Etq. validade" />
+                <Column field="rfid" header="RFID/ADIPAC" />
                 <Column
                   field="valorCobrancaEfetiva"
                   header="Cobrança"
@@ -1310,6 +1482,59 @@ export default function Home() {
                         title={row.cobrancaCancelada ? 'Cobrança já cancelada' : 'Cancelar cobrança'}
                         onClick={() => { setCancelError(''); setCancelReason(''); setCancelTarget(row) }}
                       />
+                    </div>
+                  ) : null}
+                />
+              </DataTable>
+            </section>
+          </>
+        )}
+
+        {section === 'maoDeObra' && canLabor && (
+          <>
+            <div className="metrics metrics-4">
+              <article><i className="pi pi-calendar" /><div><span>Dias lançados</span><strong>{laborTotals.dias}</strong></div></article>
+              <article><i className="pi pi-user" /><div><span>Mão de obra da casa</span><strong>{laborTotals.casa.toLocaleString('pt-BR')}</strong></div></article>
+              <article><i className="pi pi-users" /><div><span>Terceiros</span><strong>{laborTotals.terceiros.toLocaleString('pt-BR')}</strong></div></article>
+              <article><i className="pi pi-chart-bar" /><div><span>Total de pessoas</span><strong>{laborTotals.total.toLocaleString('pt-BR')}</strong></div></article>
+            </div>
+
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <small className="panel-eyebrow">CONTROLE OPERACIONAL</small>
+                  <h2>Mão de obra por dia</h2>
+                  <p>Quantidade diária de mão de obra da casa e de terceiros, por filial.</p>
+                </div>
+                <div className="labor-head-actions">
+                  <Dropdown
+                    aria-label="Mês"
+                    value={laborMonth}
+                    options={[
+                      { label: 'Todos os meses', value: '' },
+                      ...laborMonths.map(month => ({ label: monthLabel(month), value: month })),
+                    ]}
+                    optionLabel="label"
+                    optionValue="value"
+                    onChange={e => setLaborMonth(String(e.value ?? ''))}
+                  />
+                  <Button icon="pi pi-refresh" text rounded onClick={() => void loadLabor()} loading={laborLoading} />
+                </div>
+              </div>
+              <DataTable className="mobile-record-table labor-record-table" value={visibleLabor} loading={laborLoading} paginator rows={15} dataKey="id" emptyMessage="Nenhum lançamento de mão de obra para o período." onRowDoubleClick={e => openEditLabor(e.data as LaborRow)} stripedRows scrollable>
+                <Column field="data" header="Data" body={(row: LaborRow) => dateLabel(row.data)} />
+                <Column field="nomeCliente" header="Cliente" />
+                <Column field="filial" header="Filial" />
+                <Column field="qtdCasa" header="Casa" />
+                <Column field="qtdTerceiros" header="Terceiros" />
+                <Column field="qtdTotal" header="Total" />
+                <Column field="observacao" header="Observação" />
+                <Column field="matriculaCriacao" header="Criado por" />
+                <Column
+                  header=""
+                  body={(row: LaborRow) => canEdit ? (
+                    <div className="row-actions">
+                      <Button icon="pi pi-pencil" text rounded className="table-action" title="Editar" onClick={() => openEditLabor(row)} />
                     </div>
                   ) : null}
                 />
@@ -1358,19 +1583,17 @@ export default function Home() {
                 <div className="price-create">
                   <label>Nova vigência<Calendar value={priceForm.vigenciaInicio} onChange={e => setPriceForm({ ...priceForm, vigenciaInicio: e.value as Date })} dateFormat="dd/mm/yy" /></label>
                   <label>Nacionalização<InputNumber value={priceForm.valorNacionalizacao} onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
-                  <label>RFID adicional<InputNumber value={priceForm.valorRfidAdicional} onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
-                  <label>Etiqueta de validade<InputNumber value={priceForm.valorValidade} onValueChange={e => setPriceForm({ ...priceForm, valorValidade: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>RFID/ADIPAC<InputNumber value={priceForm.valorRfidAdicional} onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label className="price-observation">Observação<InputText value={priceForm.observacao} onChange={e => setPriceForm({ ...priceForm, observacao: e.target.value })} placeholder="Motivo ou referência da alteração" /></label>
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
                 </div>
               )}
-              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização = R$ 0,4100; RFID adicional = R$ 0,1900; Nacionalização + RFID = R$ 0,6000; Etiqueta de Validade = R$ 0,4114. As tarifas são mantidas com 4 casas decimais.</div>
+              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização = R$ 0,4100; RFID/ADIPAC = R$ 0,1900 por unidade (RFID, ADIPAC ou os dois); Nacionalização + RFID/ADIPAC = R$ 0,6000. Os itens são opcionais e podem ser lançados separadamente. As tarifas são mantidas com 4 casas decimais.</div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
                 <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => rateMoney(r.valorNacionalizacao)} />
-                <Column field="valorRfidAdicional" header="RFID adicional" body={(r: PriceRow) => rateMoney(r.valorRfidAdicional)} />
-                <Column field="valorValidade" header="Etiqueta validade" body={(r: PriceRow) => rateMoney(r.valorValidade)} />
+                <Column field="valorRfidAdicional" header="RFID/ADIPAC" body={(r: PriceRow) => rateMoney(r.valorRfidAdicional)} />
                 <Column field="observacao" header="Observação" />
                 <Column field="criadoPor" header="Criado por" />
               </DataTable>
@@ -1507,15 +1730,6 @@ export default function Home() {
             />
           </label>
           <label>
-            Validade inserida
-            <Calendar
-              value={form.dataValidade}
-              onChange={e => setForm({ ...form, dataValidade: e.value as Date })}
-              dateFormat="dd/mm/yy"
-              showButtonBar
-            />
-          </label>
-          <label>
             Etiquetas nacionalização
             <InputNumber
               value={form.nacionalizacao}
@@ -1524,21 +1738,17 @@ export default function Home() {
             />
           </label>
           <label>
-            Etiquetas RFID
+            Etiquetas RFID/ADIPAC
             <InputNumber
               value={form.rfid}
               onValueChange={e => setForm({ ...form, rfid: e.value || 0 })}
               min={0}
             />
           </label>
-          <label>
-            Etiquetas de validade
-            <InputNumber
-              value={form.validade}
-              onValueChange={e => setForm({ ...form, validade: e.value || 0 })}
-              min={0}
-            />
-          </label>
+          <p className="form-hint span-2">
+            Nacionalização e RFID/ADIPAC são opcionais: lance um, outro ou os dois.
+            Para RFID/ADIPAC, informe as unidades — usar RFID, ADIPAC ou ambos na mesma unidade é cobrado uma única vez.
+          </p>
         </div>
 
         <div className="billing-preview">
@@ -1552,20 +1762,11 @@ export default function Home() {
             </small>
           </div>
           <div>
-            <span>RFID adicional</span>
+            <span>RFID/ADIPAC</span>
             <strong>{previewPrice ? money(previewPrice.rfid) : '—'}</strong>
             <small>
               {previewPrice
                 ? `${form.rfid} × ${rateMoney(previewPrice.price.valorRfidAdicional)}`
-                : '—'}
-            </small>
-          </div>
-          <div>
-            <span>Etiqueta de validade</span>
-            <strong>{previewPrice ? money(previewPrice.validade) : '—'}</strong>
-            <small>
-              {previewPrice
-                ? `${form.validade} × ${rateMoney(previewPrice.price.valorValidade)}`
                 : '—'}
             </small>
           </div>
@@ -1580,6 +1781,72 @@ export default function Home() {
           <Button label="Cancelar" text disabled={saving} onClick={() => setDialog(false)} />
           <Button label="Salvar" icon="pi pi-check" className="primary" loading={saving} onClick={save} />
         </div>
+        {formError && <div className="error"><i className="pi pi-exclamation-circle" />{formError}</div>}
+      </Dialog>
+
+      <Dialog
+        header={laborForm.id ? 'Editar mão de obra' : 'Lançar mão de obra'}
+        visible={laborDialog}
+        onHide={() => !saving && setLaborDialog(false)}
+        style={{ width: 'min(620px, 96vw)' }}
+      >
+        <div className="form-grid">
+          <label>
+            Data
+            <Calendar
+              value={laborForm.data}
+              onChange={e => setLaborForm({ ...laborForm, data: e.value as Date })}
+              dateFormat="dd/mm/yy"
+            />
+          </label>
+          <label>
+            Cliente / filial
+            <Dropdown
+              aria-label="Cliente / filial"
+              value={laborForm.cnpjCliente}
+              options={branches.map(branch => ({ label: branchLabel(branch), value: branch.cnpj }))}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Selecione a filial"
+              onChange={e => setLaborForm({ ...laborForm, cnpjCliente: String(e.value ?? '') })}
+            />
+          </label>
+          <label>
+            Mão de obra da casa
+            <InputNumber
+              value={laborForm.qtdCasa}
+              onValueChange={e => setLaborForm({ ...laborForm, qtdCasa: e.value || 0 })}
+              min={0}
+            />
+          </label>
+          <label>
+            Terceiros
+            <InputNumber
+              value={laborForm.qtdTerceiros}
+              onValueChange={e => setLaborForm({ ...laborForm, qtdTerceiros: e.value || 0 })}
+              min={0}
+            />
+          </label>
+          <label className="span-2">
+            Observação (opcional)
+            <InputText
+              value={laborForm.observacao}
+              onChange={e => setLaborForm({ ...laborForm, observacao: e.target.value })}
+              placeholder="Ex.: reforço para inventário"
+            />
+          </label>
+        </div>
+
+        <div className="labor-preview">
+          <span>Total do dia</span>
+          <strong>{(Number(laborForm.qtdCasa || 0) + Number(laborForm.qtdTerceiros || 0)).toLocaleString('pt-BR')} pessoa(s)</strong>
+        </div>
+
+        <div className="dialog-actions">
+          <Button label="Cancelar" text disabled={saving} onClick={() => setLaborDialog(false)} />
+          <Button label="Salvar" icon="pi pi-check" className="primary" loading={saving} onClick={saveLabor} />
+        </div>
+        {laborError && <div className="error"><i className="pi pi-exclamation-circle" />{laborError}</div>}
       </Dialog>
 
       <Dialog

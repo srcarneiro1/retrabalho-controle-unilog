@@ -104,5 +104,29 @@ const Repository = (() => {
     invalidate_(name);
   }
 
-  return { sheet, headers, rowObject, list, find, append, update };
+  // Cria a aba com os cabeçalhos informados caso ela ainda não exista.
+  // Se a aba já existir, acrescenta somente cabeçalhos ausentes ao final (nunca remove colunas).
+  function ensure(name, requiredHeaders) {
+    let sh = ss().getSheetByName(name);
+    if (!sh) {
+      sh = ss().insertSheet(name);
+      sh.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
+      sh.setFrozenRows(1);
+      delete headersCache_[name];
+      invalidate_(name);
+      return sh;
+    }
+    const current = sh.getLastColumn() > 0
+      ? sh.getRange(1, 1, 1, sh.getLastColumn()).getDisplayValues()[0].map(String)
+      : [];
+    const missing = requiredHeaders.filter(h => current.indexOf(h) < 0);
+    if (missing.length) {
+      sh.getRange(1, current.length + 1, 1, missing.length).setValues([missing]);
+      delete headersCache_[name];
+      invalidate_(name);
+    }
+    return sh;
+  }
+
+  return { sheet, headers, rowObject, list, find, append, update, ensure };
 })();

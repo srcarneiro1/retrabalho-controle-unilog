@@ -38,6 +38,26 @@ const ReworkService = (() => {
     return /^\d{4}-\d{2}$/.test(value) ? value : '';
   }
 
+  // Nacionalização e RFID/ADIPAC são independentes e opcionais:
+  // o lançamento pode conter um, outro ou ambos, mas precisa de ao menos uma etiqueta.
+  // RFID/ADIPAC é uma única cobrança por unidade (RFID, ADIPAC ou os dois = mesma tarifa).
+  function labels_(input) {
+    const nacionalizacao = int_(
+      input.nacionalizacao == null || input.nacionalizacao === '' ? 0 : input.nacionalizacao,
+      'Quantidade de etiquetas de nacionalização',
+      true
+    );
+    const rfid = int_(
+      input.rfid == null || input.rfid === '' ? 0 : input.rfid,
+      'Quantidade de etiquetas RFID/ADIPAC',
+      true
+    );
+    if (nacionalizacao + rfid <= 0) {
+      throw new Error('Informe ao menos uma etiqueta: Nacionalização e/ou RFID/ADIPAC.');
+    }
+    return { nacionalizacao, rfid };
+  }
+
   function allowedSet_(matricula, perfil) {
     const set = {};
     ClientBranchService.scopeCnpjs(matricula, perfil).forEach(cnpj => { set[cnpj] = true; });
@@ -127,12 +147,11 @@ const ReworkService = (() => {
     if (!descricao) throw new Error('Informe a descrição.');
 
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
-    const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
-    const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
-    const validade = int_(input.validade == null || input.validade === '' ? 0 : input.validade, 'Quantidade de etiquetas de validade', true);
-    if (rfid > nacionalizacao) {
-      throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.');
-    }
+    const labels = labels_(input);
+    const nacionalizacao = labels.nacionalizacao;
+    const rfid = labels.rfid;
+    // Etiqueta de Validade foi descontinuada: novos lançamentos gravam 0.
+    const validade = 0;
     const price = PriceService.calculate(date, nacionalizacao, rfid, validade);
 
     const now = new Date();
@@ -143,10 +162,11 @@ const ReworkService = (() => {
       SKU: sku,
       DESCRICAO: descricao,
       QTD_RETRABALHADA: int_(input.quantidade,'Quantidade retrabalhada',false),
-      DATA_VALIDADE_INSERIDA: parseDate_(input.dataValidade,'Data de validade',false),
+      // Validade inserida foi descontinuada: novos lançamentos não gravam data.
+      DATA_VALIDADE_INSERIDA: '',
       ETIQUETAS_NACIONALIZACAO: nacionalizacao,
       ETIQUETAS_RFID: rfid,
-      TOTAL_ETIQUETAS: nacionalizacao + rfid + validade,
+      TOTAL_ETIQUETAS: nacionalizacao + rfid,
       MATRICULA_CRIACAO: author,
       CRIADO_EM: now,
       MATRICULA_ATUALIZACAO: '',
@@ -209,12 +229,12 @@ const ReworkService = (() => {
     const before = current;
     const branch = ClientBranchService.assertAllowed(author, perfil, input.cnpjCliente);
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
-    const nacionalizacao = int_(input.nacionalizacao, 'Quantidade de etiquetas de nacionalização', true);
-    const rfid = int_(input.rfid, 'Quantidade de etiquetas RFID', true);
-    const validade = int_(input.validade == null || input.validade === '' ? 0 : input.validade, 'Quantidade de etiquetas de validade', true);
-    if (rfid > nacionalizacao) {
-      throw new Error('A quantidade de etiquetas RFID não pode ser maior que a quantidade de nacionalização.');
-    }
+    const labels = labels_(input);
+    const nacionalizacao = labels.nacionalizacao;
+    const rfid = labels.rfid;
+    // Registros históricos preservam a quantidade de Etiqueta de Validade já gravada,
+    // para que a edição não altere silenciosamente uma cobrança antiga.
+    const validade = Number(hit.record.ETIQUETAS_VALIDADE || 0);
     const price = PriceService.calculate(date, nacionalizacao, rfid, validade);
     const nextVersion = currentVersion + 1;
 
@@ -223,7 +243,6 @@ const ReworkService = (() => {
       SKU: text_(input.sku),
       DESCRICAO: text_(input.descricao),
       QTD_RETRABALHADA: int_(input.quantidade,'Quantidade retrabalhada',false),
-      DATA_VALIDADE_INSERIDA: parseDate_(input.dataValidade,'Data de validade',false),
       ETIQUETAS_NACIONALIZACAO: nacionalizacao,
       ETIQUETAS_RFID: rfid,
       ETIQUETAS_VALIDADE: validade,

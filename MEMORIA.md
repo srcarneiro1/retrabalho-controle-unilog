@@ -3,7 +3,7 @@
 > Sistema Unilog para registro, precificação, auditoria e acompanhamento de retrabalhos por cliente/filial.  
 > Esta memória é a fonte de verdade funcional, técnica e visual do projeto e deve ser atualizada sempre que uma decisão aprovada alterar o baseline.
 
-**Atualizado em:** 02/10/2026  
+**Atualizado em:** 05/10/2026  
 **Produção:** Cloudflare Pages, branch `main`  
 **Referência visual:** Extra Cost Control Unilog + BI Logístico V2
 
@@ -19,7 +19,9 @@ O projeto está em evolução contínua. O estado atual é:
 - [x] Lançamento e edição de retrabalhos com auditoria
 - [x] Precificação histórica por vigência
 - [x] Tarifas com 4 casas decimais
-- [x] Etiqueta de Validade
+- [x] Etiqueta de Validade e Validade inserida descontinuadas (histórico preservado)
+- [x] RFID renomeado para RFID/ADIPAC, independente da Nacionalização
+- [x] Controle de Mão de Obra diário (casa × terceiros) por filial
 - [x] Cancelamento financeiro auditável por SUPERVISOR/ADMIN
 - [x] Dashboard CLIENTE por competência
 - [x] Filtro CLIENTE por filial/CNPJ e busca local
@@ -198,6 +200,7 @@ Abas:
 - `TABELA_PRECOS` — oculta
 - `CLIENTES_FILIAIS` — visível
 - `USUARIO_FILIAIS` — oculta
+- `MAO_DE_OBRA` — criada automaticamente pelo Apps Script no primeiro uso
 
 ### Clientes e filiais
 
@@ -229,18 +232,21 @@ Renomear um cadastro não altera o histórico já gravado.
 
 ## 💰 Preços e cobrança
 
-Regra vigente desde 01/10/2026:
+Regra vigente desde 01/10/2026 (revisada em 05/10/2026):
 
 - Nacionalização = **R$ 0,4100**
-- RFID adicional = **R$ 0,1900**
-- Nacionalização + RFID = **R$ 0,6000**
-- Etiqueta de Validade = **R$ 0,4114**
+- RFID/ADIPAC = **R$ 0,1900** por unidade (RFID, ADIPAC ou os dois = mesma tarifa, cobrada uma vez)
+- Nacionalização + RFID/ADIPAC = **R$ 0,6000**
+- Etiqueta de Validade: **descontinuada** em 05/10/2026
 
 Regras:
 
 - tarifas unitárias são persistidas e exibidas com 4 casas decimais;
-- RFID é adicional à Nacionalização;
-- quantidade RFID não pode superar quantidade de Nacionalização;
+- Nacionalização e RFID/ADIPAC são opcionais e independentes; o lançamento exige ao menos uma etiqueta;
+- a regra antiga "RFID não pode superar Nacionalização" foi removida;
+- novos lançamentos gravam `ETIQUETAS_VALIDADE = 0` e `DATA_VALIDADE_INSERIDA` vazia;
+- edição de registro histórico preserva a quantidade de Etiqueta de Validade já gravada (não altera cobrança antiga);
+- as colunas `ETIQUETAS_RFID`, `PRECO_RFID_ADICIONAL_UNIT`, `VALOR_RFID_ADICIONAL` (retrabalho e tabela de preços) mantêm o nome técnico e passam a representar RFID/ADIPAC;
 - preços são controlados por vigência em `TABELA_PRECOS`;
 - nova vigência deve ser posterior à última;
 - histórico de preços nunca é sobrescrito;
@@ -271,6 +277,23 @@ Regras:
 - grava data, matrícula e motivo;
 - gera evento `CANCELAR_COBRANCA` em `AUDITORIA`;
 - registro cancelado não pode ser editado posteriormente.
+
+## 👷 Controle de Mão de Obra
+
+Aba `MAO_DE_OBRA` (criada automaticamente pelo `LaborService.gs`).
+
+Campos: `ID_MAO_OBRA`, `DATA`, `CNPJ_CLIENTE`, `NOME_CLIENTE`, `FILIAL`, `QTD_CASA`, `QTD_TERCEIROS`, `QTD_TOTAL`, `OBSERVACAO`, autor/data de criação e atualização, `VERSAO`, `ATIVO`, `REQUEST_ID`.
+
+Regras:
+
+- um registro por dia e por filial;
+- exige ao menos uma pessoa (casa ou terceiros);
+- OPERACIONAL, SUPERVISOR e ADMIN lançam; somente SUPERVISOR e ADMIN editam;
+- CLIENTE não acessa (bloqueado no gateway e no Apps Script);
+- respeita o escopo de filiais do usuário;
+- criação usa `REQUEST_ID`, edição usa `VERSAO`, auditoria com entidade `MAO_DE_OBRA`;
+- gateway: `GET/POST/PUT /api/mao-de-obra` → rota Apps Script `maodeobra`;
+- bootstrap retorna `labor` para perfis internos.
 
 ## 🔐 Segurança e consistência
 
@@ -439,7 +462,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.02.1`.
+`2026.10.05.1` (inclui `LaborService.gs`).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`

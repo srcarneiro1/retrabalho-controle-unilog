@@ -53,8 +53,13 @@ const BootstrapService = (() => {
       months,
       selectedMonth,
       allBranches: [],
-      users: []
+      users: [],
+      labor: []
     };
+
+    if (perfil !== 'CLIENTE') {
+      result.labor = LaborService.list(matricula, perfil);
+    }
 
     if (perfil === 'ADMIN') {
       result.allBranches = ClientBranchService.allActive();

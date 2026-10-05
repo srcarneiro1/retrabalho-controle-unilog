@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.02.1';
+const API_VERSION = '2026.10.05.1';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -48,6 +48,14 @@ function doPost(e) {
       if (action === 'EDITAR') return ok_(ReworkService.edit(payload));
       if (action === 'CANCELAR_COBRANCA') return ok_(ReworkService.cancelCharge(payload));
       throw new Error('Ação de retrabalho inválida.');
+    }
+
+    if (route === 'maodeobra') {
+      const action = String(payload.acao || '').toUpperCase();
+      if (action === 'LISTAR') return ok_({ data: LaborService.list(payload.matriculaAutor, payload.perfilAutor) });
+      if (action === 'CRIAR') return ok_(LaborService.create(payload));
+      if (action === 'EDITAR') return ok_(LaborService.edit(payload));
+      throw new Error('Ação de mão de obra inválida.');
     }
 
     if (route === 'precos') {

@@ -1,6 +1,6 @@
 # Retrabalho Controle - Unilog
 
-Aplicação transacional para registrar retrabalho de produtos, quantidades, validade aplicada, etiquetas de Nacionalização/RFID e cobrança histórica por vigência.
+Aplicação transacional para registrar retrabalho de produtos, quantidades, etiquetas de Nacionalização e RFID/ADIPAC, cobrança histórica por vigência e controle diário de mão de obra (casa × terceiros).
 
 ## Arquitetura
 
