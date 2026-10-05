@@ -35,3 +35,18 @@
   .app.sidebar-collapsed .user-card .user-actions{display:flex!important}
   .user-card .user-actions button{display:grid!important}
 }
+
+/* 3. Sidebar sticky.
+   overflow-x:hidden em html/body (mobile-polish.css) transforma o body em
+   container de rolagem e quebra o position:sticky: a sidebar rolava junto com a página.
+   overflow-x:clip corta o excesso lateral sem criar container de rolagem. */
+html,body{overflow-x:clip!important}
+@media(min-width:1101px){
+  .sidebar{
+    position:sticky!important;
+    top:0!important;
+    align-self:start!important;
+    height:100vh!important;
+    height:100dvh!important;
+  }
+}
