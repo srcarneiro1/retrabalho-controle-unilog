@@ -65,3 +65,15 @@ html,body{overflow-x:clip!important}
     height:100dvh!important;
   }
 }
+
+/* 4. Rótulos do menu em uma única linha.
+   Durante a animação de abrir/fechar, a largura diminui e rótulos com mais de
+   uma palavra ("Mão de obra") quebravam em duas linhas, vazando para fora do
+   item de 44 px e sobrepondo os vizinhos. */
+.sidebar .nav{overflow:hidden!important}
+.sidebar .nav-label,
+.sidebar .nav-caption{
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
