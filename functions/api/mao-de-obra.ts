@@ -69,11 +69,11 @@ async function mutation_(env: Env, user: SessionIdentity, payload: Record<string
   }
 
   if (action === 'INATIVAR') {
-    // Inativado deixa de aparecer na lista de ativos.
     const id = String(payload.id || '')
-    if (!rows.some((x: any) => String(x.id || '') === id)) {
-      return { ok: true, data: { id, ativo: 'NAO' }, reconciled: true }
-    }
+    const found = rows.find((x: any) => String(x.id || '') === id)
+    // Compatível com Apps Script anterior (lista só ativos) e atual (lista com status).
+    if (!found) return { ok: true, data: { id, ativo: 'NAO' }, reconciled: true }
+    if (found.ativo === 'NAO') return { ok: true, data: found, reconciled: true }
   }
 
   throw new Error(
