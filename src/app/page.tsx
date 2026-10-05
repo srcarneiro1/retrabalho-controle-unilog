@@ -142,9 +142,10 @@ function createForm() {
     sku: '',
     descricao: '',
     cnpjCliente: '',
-    quantidade: 0,
-    nacionalizacao: 0,
-    rfid: 0,
+    // Vazios por padrão: o usuário digita sem precisar apagar um 0.
+    quantidade: null as number | null,
+    nacionalizacao: null as number | null,
+    rfid: null as number | null,
     versao: 0,
   }
 }
@@ -155,8 +156,8 @@ function createLaborForm() {
     requestId: crypto.randomUUID(),
     data: new Date(),
     cnpjCliente: '',
-    qtdCasa: 0,
-    qtdTerceiros: 0,
+    qtdCasa: null as number | null,
+    qtdTerceiros: null as number | null,
     observacao: '',
     versao: 0,
   }
@@ -215,7 +216,7 @@ function rateMoney(value: number) {
   })
 }
 
-function intLabel(value: number) {
+function intLabel(value: number | null | undefined) {
   return Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 }
 
@@ -597,9 +598,9 @@ export default function Home() {
       sku: row.sku,
       descricao: row.descricao,
       cnpjCliente: row.cnpjCliente,
-      quantidade: row.quantidade,
-      nacionalizacao: row.nacionalizacao,
-      rfid: row.rfid,
+      quantidade: row.quantidade || null,
+      nacionalizacao: row.nacionalizacao || null,
+      rfid: row.rfid || null,
       versao: row.versao,
     })
     setFormError('')
@@ -611,6 +612,8 @@ export default function Home() {
     setSaving(true)
     setFormError('')
     try {
+      if (!form.cnpjCliente) throw new Error('Selecione a filial.')
+      if (Number(form.quantidade || 0) < 1) throw new Error('Informe a quantidade retrabalhada.')
       if (Number(form.nacionalizacao || 0) + Number(form.rfid || 0) <= 0) {
         throw new Error('Informe ao menos uma etiqueta: Nacionalização e/ou RFID/ADIPAC.')
       }
@@ -622,9 +625,9 @@ export default function Home() {
         sku: form.sku.trim(),
         descricao: form.descricao.trim(),
         cnpjCliente: form.cnpjCliente,
-        quantidade: form.quantidade,
-        nacionalizacao: form.nacionalizacao,
-        rfid: form.rfid,
+        quantidade: form.quantidade ?? 0,
+        nacionalizacao: form.nacionalizacao ?? 0,
+        rfid: form.rfid ?? 0,
         versao: form.versao,
       }
 
@@ -676,8 +679,8 @@ export default function Home() {
       requestId: row.requestId || '',
       data: fromIso(row.data) || new Date(),
       cnpjCliente: row.cnpjCliente,
-      qtdCasa: row.qtdCasa,
-      qtdTerceiros: row.qtdTerceiros,
+      qtdCasa: row.qtdCasa || null,
+      qtdTerceiros: row.qtdTerceiros || null,
       observacao: row.observacao || '',
       versao: row.versao,
     })
@@ -701,8 +704,8 @@ export default function Home() {
           requestId: laborForm.requestId,
           data: isoDate(laborForm.data),
           cnpjCliente: laborForm.cnpjCliente,
-          qtdCasa: laborForm.qtdCasa,
-          qtdTerceiros: laborForm.qtdTerceiros,
+          qtdCasa: laborForm.qtdCasa ?? 0,
+          qtdTerceiros: laborForm.qtdTerceiros ?? 0,
           observacao: laborForm.observacao.trim(),
           versao: laborForm.versao,
         }),
@@ -1821,7 +1824,8 @@ export default function Home() {
             Quantidade retrabalhada
             <InputNumber
               value={form.quantidade}
-              onValueChange={e => setForm({ ...form, quantidade: e.value || 0 })}
+              onValueChange={e => setForm({ ...form, quantidade: e.value ?? null })}
+              placeholder="0"
               min={1}
               locale="pt-BR"
               maxFractionDigits={0}
@@ -1831,7 +1835,8 @@ export default function Home() {
             Etiquetas nacionalização
             <InputNumber
               value={form.nacionalizacao}
-              onValueChange={e => setForm({ ...form, nacionalizacao: e.value || 0 })}
+              onValueChange={e => setForm({ ...form, nacionalizacao: e.value ?? null })}
+              placeholder="0"
               min={0}
               locale="pt-BR"
               maxFractionDigits={0}
@@ -1841,7 +1846,8 @@ export default function Home() {
             Etiquetas RFID/ADIPAC
             <InputNumber
               value={form.rfid}
-              onValueChange={e => setForm({ ...form, rfid: e.value || 0 })}
+              onValueChange={e => setForm({ ...form, rfid: e.value ?? null })}
+              placeholder="0"
               min={0}
               locale="pt-BR"
               maxFractionDigits={0}
@@ -1917,7 +1923,8 @@ export default function Home() {
             Mão de obra da casa
             <InputNumber
               value={laborForm.qtdCasa}
-              onValueChange={e => setLaborForm({ ...laborForm, qtdCasa: e.value || 0 })}
+              onValueChange={e => setLaborForm({ ...laborForm, qtdCasa: e.value ?? null })}
+              placeholder="0"
               min={0}
               locale="pt-BR"
               maxFractionDigits={0}
@@ -1927,7 +1934,8 @@ export default function Home() {
             Terceiros
             <InputNumber
               value={laborForm.qtdTerceiros}
-              onValueChange={e => setLaborForm({ ...laborForm, qtdTerceiros: e.value || 0 })}
+              onValueChange={e => setLaborForm({ ...laborForm, qtdTerceiros: e.value ?? null })}
+              placeholder="0"
               min={0}
               locale="pt-BR"
               maxFractionDigits={0}
