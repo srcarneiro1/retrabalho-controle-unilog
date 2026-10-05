@@ -463,7 +463,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.05.3` (lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
+`2026.10.05.4` (SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`
@@ -552,3 +552,5 @@ Próxima validação:
 - **Bootstrap resiliente:** falha ao carregar mão de obra não bloqueia o restante do sistema.
 - **Auditoria:** SUPERVISOR e ADMIN veem eventos `MAO_DE_OBRA` das filiais do seu escopo.
 - **Pendência de governança:** o repositório está público e a documentação contém o ID da planilha de produção; recomenda-se torná-lo privado.
+
+- **SKU e descrição:** obrigatórios na criação e na edição (antes a edição aceitava vazio); validados também na interface.
