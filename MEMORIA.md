@@ -599,3 +599,15 @@ Próxima validação:
 ### Testes
 - backend validado em planilha simulada (25 cenários): upload CSV, colunas ausentes, duplicidade de processo, lote, cálculo, idempotência, regras de quantidade, SKU fora do processo/repetido, limite de 100, edição e bloqueio do CLIENTE;
 - conversão de Excel depende do Drive real: validar com a primeira planilha do cliente.
+
+## 📱 Registros no celular — padrão Extra Cost Control (05/10/2026)
+
+- `src/app/mobile-records.css` (carregado por último) replica o padrão do projeto Extra Cost Control: até **820 px** cada linha das tabelas vira um **cartão**; desktop continua tabela;
+- **rótulos vêm da coluna** via `data-label` (helper `cell(label, role)` em `page.tsx`, usando `pt.bodyCell` do PrimeReact 10.9). Antes eram fixados por posição (`nth-child`) em `mobile-polish.css` e estavam desalinhados após a inclusão de Processo/Tester/Confecc. e remoção de Validade — **não voltar a usar nth-child para rótulos**;
+- papéis: `title` (topo do cartão, largura total, negrito), `wide` (linha inteira), `actions` (rodapé, botões de 44 px; oculto se vazio);
+- títulos por tabela: Retrabalho = Descrição; Processos = Processo; Mão de obra = Data; Auditoria = Data/hora; Preços = Início; Usuários = Nome;
+- 2 colunas por cartão até 361 px; 1 coluna em telas ≤ 360 px;
+- lançamento em lote: até 760 px cada SKU vira cartão com os 5 campos (inputs de 16 px para evitar zoom do iOS), remover no canto, linha com erro destacada;
+- especificidade reforçada (`.p-datatable.mobile-record-table`) para vencer `component-geometry.css` independentemente da ordem do bundle;
+- validado em Chromium headless: 1280 px (tabela), 820/390 px (cartões em 2 colunas), 360 px (1 coluna), sem rolagem horizontal.
+- **Login entre 761 e 900 px:** o painel da marca ficava oculto nessa faixa (regra de `unilog-design-system.css` escondia até 900 px; `mobile-polish.css` só reexibia abaixo de 760 px). `responsive-shell.css` (seção 6) mantém o layout lado a lado compactado, como no Extra Cost Control. Validado em 10 larguras (1366 a 390 px): painel sempre visível, lado a lado acima de 760 px, empilhado abaixo, sem rolagem lateral.
