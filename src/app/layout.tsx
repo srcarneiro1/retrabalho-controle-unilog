@@ -7,6 +7,7 @@ import './unilog-design-system.css'
 import './component-geometry.css'
 import './mobile-polish.css'
 import './responsive-shell.css'
+import './mobile-records.css'
 
 export const metadata: Metadata = {
   title: 'Retrabalho | Unilog Express',

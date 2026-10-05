@@ -330,6 +330,14 @@ function rateMoney(value: number) {
   })
 }
 
+// Atributos da célula para o modo cartão no celular (≤ 820 px):
+// o rótulo vem da coluna, então incluir/remover colunas nunca desalinha os nomes.
+type CellRole = 'title' | 'actions' | 'wide'
+function cell(label: string, role?: CellRole) {
+  const className = role === 'title' ? 'card-title' : role === 'actions' ? 'card-actions' : role === 'wide' ? 'card-wide' : undefined
+  return { bodyCell: { 'data-label': label, className } as unknown as React.HTMLAttributes<HTMLTableCellElement> }
+}
+
 function intLabel(value: number | null | undefined) {
   return Number(value || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 }
@@ -1969,27 +1977,27 @@ export default function Home() {
                 </div>
               </div>
               <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage={chargeStatus === 'CANCELADOS' ? 'Nenhuma cobrança cancelada no período.' : 'Nenhum retrabalho registrado para o período.'} onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
-                <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
-                <Column field="numeroProcesso" header="Processo" body={(row: Rework) => row.numeroProcesso || '—'} />
-                <Column field="sku" header="SKU" />
-                <Column field="descricao" header="Descrição" />
-                <Column field="nomeCliente" header="Cliente" />
-                <Column field="filial" header="Filial" />
-                <Column field="cnpjCliente" header="CNPJ" body={(row: Rework) => cnpjLabel(row.cnpjCliente)} />
-                <Column field="quantidade" header="Qtd." body={(row: Rework) => intLabel(row.quantidade)} />
-                <Column field="nacionalizacao" header="Nacionalização" body={(row: Rework) => intLabel(row.nacionalizacao)} />
-                <Column field="rfid" header="RFID/ADIPAC" body={(row: Rework) => intLabel(row.rfid)} />
-                <Column field="tester" header="Tester" body={(row: Rework) => intLabel(row.tester)} />
-                <Column field="confeccao" header="Confecc." body={(row: Rework) => intLabel(row.confeccao)} />
-                <Column
+                <Column pt={cell('Data')} field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
+                <Column pt={cell('Processo')} field="numeroProcesso" header="Processo" body={(row: Rework) => row.numeroProcesso || '—'} />
+                <Column pt={cell('SKU', 'wide')} field="sku" header="SKU" />
+                <Column pt={cell('Descrição', 'title')} field="descricao" header="Descrição" />
+                <Column pt={cell('Cliente')} field="nomeCliente" header="Cliente" />
+                <Column pt={cell('Filial')} field="filial" header="Filial" />
+                <Column pt={cell('CNPJ')} field="cnpjCliente" header="CNPJ" body={(row: Rework) => cnpjLabel(row.cnpjCliente)} />
+                <Column pt={cell('Qtd.')} field="quantidade" header="Qtd." body={(row: Rework) => intLabel(row.quantidade)} />
+                <Column pt={cell('Nacionalização')} field="nacionalizacao" header="Nacionalização" body={(row: Rework) => intLabel(row.nacionalizacao)} />
+                <Column pt={cell('RFID/ADIPAC')} field="rfid" header="RFID/ADIPAC" body={(row: Rework) => intLabel(row.rfid)} />
+                <Column pt={cell('Tester')} field="tester" header="Tester" body={(row: Rework) => intLabel(row.tester)} />
+                <Column pt={cell('Confecc.')} field="confeccao" header="Confecc." body={(row: Rework) => intLabel(row.confeccao)} />
+                <Column pt={cell('Cobrança')}
                   field="valorCobrancaEfetiva"
                   header="Cobrança"
                   body={(row: Rework) => row.cobrancaCancelada
                     ? <Tag severity="danger" value="CANCELADA" />
                     : money(row.valorCobrancaEfetiva)}
                 />
-                <Column field="matriculaCriacao" header="Criado por" />
-                <Column
+                <Column pt={cell('Criado por')} field="matriculaCriacao" header="Criado por" />
+                <Column pt={cell('Ações', 'actions')}
                   header=""
                   body={(row: Rework) => canEdit ? (
                     <div className="row-actions">
@@ -2055,19 +2063,19 @@ export default function Home() {
               {uploadError && <div className="error"><i className="pi pi-exclamation-circle" />{uploadError}</div>}
               {uploadResult && <div className="success-note"><i className="pi pi-check-circle" />{uploadResult}</div>}
               <DataTable className="mobile-record-table process-record-table" value={processes} loading={processesLoading} paginator rows={15} dataKey="id" emptyMessage="Nenhum processo enviado." stripedRows scrollable>
-                <Column field="numero" header="Processo" />
-                <Column field="nomeCliente" header="Cliente" />
-                <Column field="filial" header="Filial" />
-                <Column field="qtdSkus" header="SKUs" body={(row: ProcessRow) => intLabel(row.qtdSkus)} />
-                <Column
+                <Column pt={cell('Processo', 'title')} field="numero" header="Processo" />
+                <Column pt={cell('Cliente')} field="nomeCliente" header="Cliente" />
+                <Column pt={cell('Filial')} field="filial" header="Filial" />
+                <Column pt={cell('SKUs')} field="qtdSkus" header="SKUs" body={(row: ProcessRow) => intLabel(row.qtdSkus)} />
+                <Column pt={cell('Planilha', 'wide')}
                   field="arquivoNome"
                   header="Planilha"
                   body={(row: ProcessRow) => row.arquivoUrl
                     ? <a className="drive-link" href={row.arquivoUrl} target="_blank" rel="noopener noreferrer"><i className="pi pi-external-link" /> {row.arquivoNome}</a>
                     : row.arquivoNome}
                 />
-                <Column field="matriculaCriacao" header="Enviado por" />
-                <Column field="criadoEm" header="Enviado em" />
+                <Column pt={cell('Enviado por')} field="matriculaCriacao" header="Enviado por" />
+                <Column pt={cell('Enviado em')} field="criadoEm" header="Enviado em" />
               </DataTable>
             </div>
           </section>
@@ -2110,13 +2118,13 @@ export default function Home() {
                 </div>
               </div>
               <DataTable className="mobile-record-table labor-record-table" value={visibleLabor} loading={laborLoading} paginator rows={15} dataKey="id" emptyMessage={laborStatus === 'INATIVOS' ? 'Nenhum lançamento inativado no período.' : 'Nenhum lançamento de mão de obra para o período.'} onRowDoubleClick={e => openEditLabor(e.data as LaborRow)} stripedRows scrollable>
-                <Column field="data" header="Data" body={(row: LaborRow) => dateLabel(row.data)} />
-                <Column field="nomeCliente" header="Cliente" />
-                <Column field="filial" header="Filial" />
-                <Column field="qtdCasa" header="Casa" body={(row: LaborRow) => intLabel(row.qtdCasa)} />
-                <Column field="qtdTerceiros" header="Terceiros" body={(row: LaborRow) => intLabel(row.qtdTerceiros)} />
-                <Column field="qtdTotal" header="Total" body={(row: LaborRow) => intLabel(row.qtdTotal)} />
-                <Column
+                <Column pt={cell('Data', 'title')} field="data" header="Data" body={(row: LaborRow) => dateLabel(row.data)} />
+                <Column pt={cell('Cliente')} field="nomeCliente" header="Cliente" />
+                <Column pt={cell('Filial')} field="filial" header="Filial" />
+                <Column pt={cell('Casa')} field="qtdCasa" header="Casa" body={(row: LaborRow) => intLabel(row.qtdCasa)} />
+                <Column pt={cell('Terceiros')} field="qtdTerceiros" header="Terceiros" body={(row: LaborRow) => intLabel(row.qtdTerceiros)} />
+                <Column pt={cell('Total')} field="qtdTotal" header="Total" body={(row: LaborRow) => intLabel(row.qtdTotal)} />
+                <Column pt={cell('Observação', 'wide')}
                   field="observacao"
                   header="Observação"
                   body={(row: LaborRow) => laborInactive(row)
@@ -2125,8 +2133,8 @@ export default function Home() {
                       </span>
                     : row.observacao}
                 />
-                <Column field="matriculaCriacao" header="Criado por" />
-                <Column
+                <Column pt={cell('Criado por')} field="matriculaCriacao" header="Criado por" />
+                <Column pt={cell('Ações', 'actions')}
                   header=""
                   body={(row: LaborRow) => canEdit && !laborInactive(row) ? (
                     <div className="row-actions">
@@ -2159,14 +2167,14 @@ export default function Home() {
             </div>
             <div className="page-table">
               <DataTable className="mobile-record-table audit-record-table" value={audits} paginator rows={20} scrollable dataKey="idAuditoria" emptyMessage="Nenhum evento de auditoria encontrado.">
-                <Column field="dataHora" header="Data/hora" />
-                <Column field="entidade" header="Entidade" />
-                <Column field="idRegistro" header="Registro" />
-                <Column field="acao" header="Ação" />
-                <Column field="matriculaAutor" header="Autor" />
-                <Column field="versaoAnterior" header="Versão anterior" />
-                <Column field="versaoNova" header="Versão nova" />
-                <Column header="" body={(r: AuditRow) => <Button icon="pi pi-search" text rounded title="Ver detalhes" onClick={() => setSelectedAudit(r)} />} />
+                <Column pt={cell('Data/hora', 'title')} field="dataHora" header="Data/hora" />
+                <Column pt={cell('Entidade')} field="entidade" header="Entidade" />
+                <Column pt={cell('Registro', 'wide')} field="idRegistro" header="Registro" />
+                <Column pt={cell('Ação')} field="acao" header="Ação" />
+                <Column pt={cell('Autor')} field="matriculaAutor" header="Autor" />
+                <Column pt={cell('Versão anterior')} field="versaoAnterior" header="Versão anterior" />
+                <Column pt={cell('Versão nova')} field="versaoNova" header="Versão nova" />
+                <Column pt={cell('Ações', 'actions')} header="" body={(r: AuditRow) => <Button icon="pi pi-search" text rounded title="Ver detalhes" onClick={() => setSelectedAudit(r)} />} />
               </DataTable>
             </div>
           </section>
@@ -2196,14 +2204,14 @@ export default function Home() {
               )}
               <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização = R$ 0,4100; RFID/ADIPAC = R$ 0,1900 por unidade (RFID, ADIPAC ou os dois); Nacionalização + RFID/ADIPAC = R$ 0,6000; Etiqueta confeccionada = R$ 0,1500; Transformação em tester = tarifa a definir. Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. As tarifas são mantidas com 4 casas decimais.</div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
-                <Column field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
-                <Column field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
-                <Column field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => rateMoney(r.valorNacionalizacao)} />
-                <Column field="valorRfidAdicional" header="RFID/ADIPAC" body={(r: PriceRow) => rateMoney(r.valorRfidAdicional)} />
-                <Column field="valorTester" header="Tester" body={(r: PriceRow) => rateMoney(Number(r.valorTester || 0))} />
-                <Column field="valorConfeccao" header="Etq. confeccionada" body={(r: PriceRow) => rateMoney(Number(r.valorConfeccao || 0))} />
-                <Column field="observacao" header="Observação" />
-                <Column field="criadoPor" header="Criado por" />
+                <Column pt={cell('Início', 'title')} field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
+                <Column pt={cell('Fim')} field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
+                <Column pt={cell('Nacionalização')} field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => rateMoney(r.valorNacionalizacao)} />
+                <Column pt={cell('RFID/ADIPAC')} field="valorRfidAdicional" header="RFID/ADIPAC" body={(r: PriceRow) => rateMoney(r.valorRfidAdicional)} />
+                <Column pt={cell('Tester')} field="valorTester" header="Tester" body={(r: PriceRow) => rateMoney(Number(r.valorTester || 0))} />
+                <Column pt={cell('Etq. confeccionada')} field="valorConfeccao" header="Etq. confeccionada" body={(r: PriceRow) => rateMoney(Number(r.valorConfeccao || 0))} />
+                <Column pt={cell('Observação', 'wide')} field="observacao" header="Observação" />
+                <Column pt={cell('Criado por')} field="criadoPor" header="Criado por" />
               </DataTable>
             </div>
           </section>
@@ -2276,16 +2284,16 @@ export default function Home() {
                 </div>
               )}
               <DataTable className="mobile-record-table users-record-table" value={users} rows={15} paginator dataKey="matricula">
-                <Column field="matricula" header="Matrícula" />
-                <Column field="nome" header="Nome" />
-                <Column field="perfil" header="Perfil" body={(r: ManagedUser) => <Tag value={r.perfil} />} />
-                <Column field="ativo" header="Ativo" body={(r: ManagedUser) => <Tag severity={r.ativo === 'SIM' ? 'success' : 'secondary'} value={r.ativo} />} />
-                <Column field="trocaSenhaObrigatoria" header="Troca pendente" />
-                <Column
+                <Column pt={cell('Matrícula')} field="matricula" header="Matrícula" />
+                <Column pt={cell('Nome', 'title')} field="nome" header="Nome" />
+                <Column pt={cell('Perfil')} field="perfil" header="Perfil" body={(r: ManagedUser) => <Tag value={r.perfil} />} />
+                <Column pt={cell('Ativo')} field="ativo" header="Ativo" body={(r: ManagedUser) => <Tag severity={r.ativo === 'SIM' ? 'success' : 'secondary'} value={r.ativo} />} />
+                <Column pt={cell('Troca pendente')} field="trocaSenhaObrigatoria" header="Troca pendente" />
+                <Column pt={cell('Filiais')}
                   header="Filiais"
                   body={(r: ManagedUser) => r.cnpjs?.length ? `${r.cnpjs.length} vinculada(s)` : r.perfil === 'ADMIN' ? 'Todas' : 'Nenhuma'}
                 />
-                <Column header="" body={(r: ManagedUser) => <Button icon="pi pi-pencil" text rounded onClick={() => { setUserError(''); setEditingUser({ ...r }) }} />} />
+                <Column pt={cell('Ações', 'actions')} header="" body={(r: ManagedUser) => <Button icon="pi pi-pencil" text rounded onClick={() => { setUserError(''); setEditingUser({ ...r }) }} />} />
               </DataTable>
             </div>
           </section>
@@ -2581,15 +2589,15 @@ export default function Home() {
                   const problem = lineError(line)
                   return (
                     <tr key={line.sku} className={problem && line.quantidade != null ? 'has-error' : ''} title={problem || undefined}>
-                      <td>{index + 1}</td>
-                      <td className="batch-sku">{line.sku}</td>
-                      <td className="batch-desc">{line.descricao}</td>
-                      <td><InputNumber value={line.quantidade} onValueChange={e => updateBatchLine(line.sku, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
-                      <td><InputNumber value={line.nacionalizacao} onValueChange={e => updateBatchLine(line.sku, 'nacionalizacao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
-                      <td><InputNumber value={line.rfid} onValueChange={e => updateBatchLine(line.sku, 'rfid', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
-                      <td><InputNumber value={line.tester} onValueChange={e => updateBatchLine(line.sku, 'tester', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
-                      <td><InputNumber value={line.confeccao} onValueChange={e => updateBatchLine(line.sku, 'confeccao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
-                      <td><Button icon="pi pi-times" text rounded className="table-action" title="Remover SKU" onClick={() => removeBatchLine(line.sku)} /></td>
+                      <td className="batch-index" data-label="#">{index + 1}</td>
+                      <td className="batch-sku" data-label="SKU">{line.sku}</td>
+                      <td className="batch-desc" data-label="Descrição">{line.descricao}</td>
+                      <td data-label="Qtd. retrabalhada *"><InputNumber value={line.quantidade} onValueChange={e => updateBatchLine(line.sku, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Nacionalização"><InputNumber value={line.nacionalizacao} onValueChange={e => updateBatchLine(line.sku, 'nacionalizacao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="RFID/ADIPAC"><InputNumber value={line.rfid} onValueChange={e => updateBatchLine(line.sku, 'rfid', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Tester"><InputNumber value={line.tester} onValueChange={e => updateBatchLine(line.sku, 'tester', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Confeccionadas"><InputNumber value={line.confeccao} onValueChange={e => updateBatchLine(line.sku, 'confeccao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td className="batch-remove"><Button icon="pi pi-times" text rounded className="table-action" title="Remover SKU" aria-label={`Remover SKU ${line.sku}`} onClick={() => removeBatchLine(line.sku)} /></td>
                     </tr>
                   )
                 })}
