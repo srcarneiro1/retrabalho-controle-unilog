@@ -613,6 +613,8 @@ export default function Home() {
     setFormError('')
     try {
       if (!form.cnpjCliente) throw new Error('Selecione a filial.')
+      if (!form.sku.trim()) throw new Error('Informe o SKU.')
+      if (!form.descricao.trim()) throw new Error('Informe a descrição.')
       if (Number(form.quantidade || 0) < 1) throw new Error('Informe a quantidade retrabalhada.')
       if (Number(form.nacionalizacao || 0) + Number(form.rfid || 0) <= 0) {
         throw new Error('Informe ao menos uma etiqueta: Nacionalização e/ou RFID/ADIPAC.')
@@ -1792,7 +1794,7 @@ export default function Home() {
       >
         <div className="form-grid">
           <label>
-            Data de efetivação
+            Data de efetivação *
             <Calendar
               value={form.dataEfetivacao}
               onChange={e => setForm({ ...form, dataEfetivacao: e.value as Date })}
@@ -1800,7 +1802,7 @@ export default function Home() {
             />
           </label>
           <label className="span-2">
-            Cliente / filial
+            Cliente / filial *
             <Dropdown
               aria-label="Cliente / filial"
               value={form.cnpjCliente}
@@ -1813,15 +1815,15 @@ export default function Home() {
             />
           </label>
           <label>
-            SKU
+            SKU *
             <InputText value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} />
           </label>
           <label className="span-2">
-            Descrição
+            Descrição *
             <InputText value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} />
           </label>
           <label>
-            Quantidade retrabalhada
+            Quantidade retrabalhada *
             <InputNumber
               value={form.quantidade}
               onValueChange={e => setForm({ ...form, quantidade: e.value ?? null })}
@@ -1854,7 +1856,7 @@ export default function Home() {
             />
           </label>
           <p className="form-hint span-2">
-            Nacionalização e RFID/ADIPAC são opcionais: lance um, outro ou os dois.
+            * Campos obrigatórios. Nacionalização e RFID/ADIPAC são opcionais: lance um, outro ou os dois.
             Para RFID/ADIPAC, informe as unidades — usar RFID, ADIPAC ou ambos na mesma unidade é cobrado uma única vez.
           </p>
         </div>
