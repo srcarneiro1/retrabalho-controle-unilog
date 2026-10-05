@@ -228,6 +228,11 @@ const ReworkService = (() => {
 
     const before = current;
     const branch = ClientBranchService.assertAllowed(author, perfil, input.cnpjCliente);
+    // SKU e descrição são obrigatórios também na edição (antes só na criação).
+    const sku = text_(input.sku);
+    const descricao = text_(input.descricao);
+    if (!sku) throw new Error('Informe o SKU.');
+    if (!descricao) throw new Error('Informe a descrição.');
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const labels = labels_(input);
     const nacionalizacao = labels.nacionalizacao;
@@ -240,8 +245,8 @@ const ReworkService = (() => {
 
     const updates = {
       DATA_EFETIVACAO: date,
-      SKU: text_(input.sku),
-      DESCRICAO: text_(input.descricao),
+      SKU: sku,
+      DESCRICAO: descricao,
       QTD_RETRABALHADA: int_(input.quantidade,'Quantidade retrabalhada',false),
       ETIQUETAS_NACIONALIZACAO: nacionalizacao,
       ETIQUETAS_RFID: rfid,
