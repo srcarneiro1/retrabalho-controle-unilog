@@ -86,7 +86,10 @@ const LaborService = (() => {
       matriculaAtualizacao: text_(r.MATRICULA_ATUALIZACAO),
       atualizadoEm: dt_(r.ATUALIZADO_EM),
       versao: Number(r.VERSAO || 0),
-      ativo: text_(r.ATIVO) || 'SIM'
+      ativo: upper_(r.ATIVO) === 'NAO' ? 'NAO' : 'SIM',
+      inativadoEm: dt_(r.INATIVADO_EM),
+      inativadoPor: text_(r.INATIVADO_POR),
+      motivoInativacao: text_(r.MOTIVO_INATIVACAO)
     };
   }
 
@@ -111,7 +114,9 @@ const LaborService = (() => {
     const profile = upper_(perfil);
     assertInternal_(profile);
     const allowed = allowedSet_(text_(matricula), profile);
-    return active_()
+    // Retorna ativos e inativados; a interface filtra pelo status (padrão: ativos).
+    ensureSheet_();
+    return Repository.list(SHEET)
       .map(x => map_(x.record))
       .filter(r => Boolean(allowed[r.cnpjCliente]))
       .sort((a, b) => (b.data + b.criadoEm).localeCompare(a.data + a.criadoEm));
@@ -195,6 +200,7 @@ const LaborService = (() => {
     const before = map_(hit.record);
     const scope = allowedSet_(author, perfil);
     if (!scope[before.cnpjCliente]) throw new Error('Você não possui acesso a este registro.');
+    if (before.ativo === 'NAO') throw new Error('Lançamento inativado não pode ser editado.');
 
     const currentVersion = Number(hit.record.VERSAO || 0);
     if (Number(input.versao || 0) !== currentVersion) {
@@ -267,8 +273,6 @@ const LaborService = (() => {
     }, ['INATIVADO_POR', 'MATRICULA_ATUALIZACAO']);
 
     const after = map_(Repository.rowObject(SHEET, hit.rowNumber));
-    after.ativo = 'NAO';
-    after.motivoInativacao = reason;
     AuditService.log('MAO_DE_OBRA', id, 'INATIVAR', author, before, after, currentVersion, nextVersion);
     return { ok: true, data: after };
   }
