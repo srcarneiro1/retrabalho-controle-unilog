@@ -465,7 +465,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.05.5` (inativação de mão de obra, SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
+`2026.10.05.6` (filtro de status da mão de obra, inativação de mão de obra, SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`
@@ -556,4 +556,5 @@ Próxima validação:
 - **Pendência de governança:** o repositório está público e a documentação contém o ID da planilha de produção; recomenda-se torná-lo privado.
 
 - **SKU e descrição:** obrigatórios na criação e na edição (antes a edição aceitava vazio); validados também na interface.
-- **Filtro de status da cobrança (Histórico/Acompanhamento):** `Ativos` (padrão), `Cancelados` e `Todos os status`. Todos os cards (registros, unidades, etiquetas e valor) e o CSV seguem o filtro. Antes, registros/unidades/etiquetas somavam cancelados enquanto o valor os excluía. Em `Cancelados` o card de valor vira `Valor cancelado` (soma do valor original).
+- **Filtro de status da cobrança (Histórico/Acompanhamento):** `Ativos` (padrão), `Cancelados` e `Todos os status`. A tabela e o CSV seguem o filtro; os cards também, exceto em `Todos os status`, onde cancelados aparecem na tabela mas não somam nos cards. Antes, registros/unidades/etiquetas somavam cancelados enquanto o valor os excluía. Em `Cancelados` o card de valor vira `Valor cancelado` (soma do valor original).
+- **Filtro de status da Mão de obra:** `Ativos` (padrão), `Inativados` e `Todos os status`. O Apps Script passa a devolver ativos e inativados com `ativo`, `inativadoEm`, `inativadoPor` e `motivoInativacao`; a interface filtra. Inativados aparecem com tag `INATIVO` e motivo, sem ações de edição/inativação, e não podem ser editados no backend. Em `Todos os status`, inativados aparecem na tabela mas não somam nos cards. CSV inclui status e dados da inativação.
