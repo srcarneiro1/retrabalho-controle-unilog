@@ -531,3 +531,15 @@ Próxima validação:
   - ≤ 1100 px: drawer (ESC fecha, fundo não rola);
   - 1101–1279 px: recolhida automaticamente (expansão temporária não altera a preferência);
   - ≥ 1280 px: preferência do usuário salva.
+
+### Sidebar sticky (revisão 3)
+- causa: `html,body{overflow-x:hidden}` em `mobile-polish.css` transforma o body em container de rolagem e quebra `position:sticky`; a sidebar rolava junto com a página;
+- correção: `overflow-x:clip` em `responsive-shell.css` e sticky reafirmado acima de 1100 px.
+
+### Filtro mensal para perfis internos (revisão 3)
+- Histórico de retrabalho e Mão de obra abrem no mês mais recente com dados (sem dados: mês corrente);
+- opção `Todos os meses` disponível;
+- KPIs e exportação CSV respeitam o mês selecionado;
+- após salvar um lançamento, o filtro acompanha o mês do registro salvo;
+- filtro é local (os dados já vêm no bootstrap); CLIENTE mantém a competência no topo, carregada pelo backend;
+- próxima evolução sugerida: quando o volume crescer, carregar perfis internos por mês no backend, como já é feito para CLIENTE.

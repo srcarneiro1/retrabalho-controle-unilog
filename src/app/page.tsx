@@ -244,6 +244,16 @@ function writeSidebarPref(collapsed: boolean) {
   try { localStorage.setItem(SIDEBAR_PREF_KEY, collapsed ? 'collapsed' : 'expanded') } catch { /* sem storage */ }
 }
 
+// Meses (AAAA-MM) presentes nos registros, do mais recente para o mais antigo.
+function monthsOf(values: string[]) {
+  const seen: Record<string, true> = {}
+  values.forEach(value => {
+    const month = String(value || '').slice(0, 7)
+    if (/^\d{4}-\d{2}$/.test(month)) seen[month] = true
+  })
+  return Object.keys(seen).sort().reverse()
+}
+
 function csvCell(value: unknown) {
   let text = String(value == null ? '' : value)
   if (/^[=+\-@]/.test(text)) text = "'" + text
@@ -285,6 +295,8 @@ export default function Home() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [clientBranchFilter, setClientBranchFilter] = useState('')
   const [clientSearch, setClientSearch] = useState('')
+  // Filtro de mês dos perfis internos ('' = todos os meses).
+  const [reworkMonth, setReworkMonth] = useState('')
   const [loading, setLoading] = useState(false)
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [workspaceReady, setWorkspaceReady] = useState(false)
@@ -501,6 +513,13 @@ export default function Home() {
       setAllBranches(data.allBranches || [])
       setUsers(data.users || [])
       setLabor(data.labor || [])
+      // Abre no mês mais recente com dados; sem dados, no mês corrente.
+      setReworkMonth(
+        monthsOf((data.items || []).map((x: Rework) => x.dataEfetivacao))[0] || currentMonth()
+      )
+      setLaborMonth(
+        monthsOf((data.labor || []).map((x: LaborRow) => x.data))[0] || currentMonth()
+      )
 
       if (currentUser.perfil === 'CLIENTE') {
         setSelectedMonth(data.selectedMonth || currentMonth())
@@ -610,6 +629,7 @@ export default function Home() {
       })
 
       setDialog(false)
+      if (!isClient && reworkMonth) setReworkMonth(isoDate(form.dataEfetivacao).slice(0, 7))
       await loadItems(isClient ? selectedMonth : undefined)
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Falha ao salvar.')
@@ -683,6 +703,7 @@ export default function Home() {
         }),
       })
       setLaborDialog(false)
+      if (laborMonth) setLaborMonth(isoDate(laborForm.data).slice(0, 7))
       await loadLabor()
     } catch (error) {
       setLaborError(error instanceof Error ? error.message : 'Falha ao salvar.')
@@ -910,7 +931,7 @@ export default function Home() {
   }
 
   function exportReworks() {
-    const label = isClient ? selectedMonth : 'completo'
+    const label = isClient ? selectedMonth : (reworkMonth || 'completo')
     downloadCsv(
       `retrabalho-unilog-${label}.csv`,
       [
@@ -940,7 +961,7 @@ export default function Home() {
         'Atualizado em',
         'Versão',
       ],
-      (isClient ? visibleItems : items).map(item => [
+      visibleItems.map(item => [
         item.dataEfetivacao,
         item.sku,
         item.descricao,
@@ -1003,8 +1024,17 @@ export default function Home() {
     ? branches[0].cnpj
     : clientBranchFilter
 
+  const reworkMonths = useMemo(
+    () => monthsOf(items.map(item => item.dataEfetivacao)),
+    [items],
+  )
+
   const visibleItems = useMemo(() => {
-    if (!isClient) return items
+    if (!isClient) {
+      return reworkMonth
+        ? items.filter(item => item.dataEfetivacao.slice(0, 7) === reworkMonth)
+        : items
+    }
     const query = clientSearch.trim().toLowerCase()
     return items.filter(item => {
       if (effectiveClientBranchFilter && item.cnpjCliente !== effectiveClientBranchFilter) return false
@@ -1017,7 +1047,7 @@ export default function Home() {
         item.cnpjCliente,
       ].some(value => String(value || '').toLowerCase().includes(query))
     })
-  }, [items, isClient, effectiveClientBranchFilter, clientSearch])
+  }, [items, isClient, reworkMonth, effectiveClientBranchFilter, clientSearch])
 
   const totals = useMemo(() => ({
     registros: visibleItems.length,
@@ -1043,11 +1073,15 @@ export default function Home() {
     }
   }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, prices])
 
-  const laborMonths = useMemo(() => {
-    const seen: Record<string, true> = {}
-    labor.forEach(row => { if (row.data) seen[row.data.slice(0, 7)] = true })
-    return Object.keys(seen).sort().reverse()
-  }, [labor])
+  const laborMonths = useMemo(() => monthsOf(labor.map(row => row.data)), [labor])
+
+  function monthOptions(available: string[], selected: string) {
+    const list = selected && !available.includes(selected) ? [selected, ...available] : available
+    return [
+      { label: 'Todos os meses', value: '' },
+      ...list.map(month => ({ label: monthLabel(month), value: month })),
+    ]
+  }
 
   const visibleLabor = useMemo(
     () => laborMonth ? labor.filter(row => row.data.slice(0, 7) === laborMonth) : labor,
@@ -1422,7 +1456,7 @@ export default function Home() {
                 outlined
                 className={isClient ? 'compact client-export' : 'compact'}
                 onClick={exportReworks}
-                disabled={isClient ? !visibleItems.length : !items.length}
+                disabled={!visibleItems.length}
               />
             )}
             {section === 'lancamentos' && canCreate && (
@@ -1490,9 +1524,25 @@ export default function Home() {
                 <div>
                   <small className="panel-eyebrow">CONTROLE OPERACIONAL</small>
                   <h2>{isClient ? 'Detalhamento da competência' : 'Histórico de retrabalho'}</h2>
-                  <p>{isClient ? `Consulta somente leitura · ${monthLabel(selectedMonth)}` : 'Registros, quantidades, etiquetas aplicadas e cobrança histórica.'}</p>
+                  <p>{isClient
+                    ? `Consulta somente leitura · ${monthLabel(selectedMonth)}`
+                    : reworkMonth
+                      ? `Registros, etiquetas e cobrança · ${monthLabel(reworkMonth)}`
+                      : 'Registros, quantidades, etiquetas aplicadas e cobrança histórica.'}</p>
                 </div>
-                <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
+                <div className="labor-head-actions">
+                  {!isClient && (
+                    <Dropdown
+                      aria-label="Mês"
+                      value={reworkMonth}
+                      options={monthOptions(reworkMonths, reworkMonth)}
+                      optionLabel="label"
+                      optionValue="value"
+                      onChange={e => setReworkMonth(String(e.value ?? ''))}
+                    />
+                  )}
+                  <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
+                </div>
               </div>
               <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage="Nenhum retrabalho registrado para o período." onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
                 <Column field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
@@ -1554,10 +1604,7 @@ export default function Home() {
                   <Dropdown
                     aria-label="Mês"
                     value={laborMonth}
-                    options={[
-                      { label: 'Todos os meses', value: '' },
-                      ...laborMonths.map(month => ({ label: monthLabel(month), value: month })),
-                    ]}
+                    options={monthOptions(laborMonths, laborMonth)}
                     optionLabel="label"
                     optionValue="value"
                     onChange={e => setLaborMonth(String(e.value ?? ''))}
