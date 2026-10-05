@@ -25,4 +25,13 @@ jobs:
           test -s dist/brand/unilog-favicon-red.svg
           ICON_COUNT="$(grep -o '<link[^>]*rel="icon"[^>]*>' dist/index.html | wc -l)"
           test "$ICON_COUNT" -eq 1
-          grep -q '/brand/unilog-favicon-red.svg?v=20261002-1' dist/index.html
+          grep -q '/brand/unilog-favicon-red.svg?v=20261005-1' dist/index.html
+          test -s dist/favicon.ico
+          test -s dist/apple-touch-icon.png
+          grep -q 'viewBox="0 -276.5 1200 1200"' dist/brand/unilog-favicon-red.svg
+      - name: Block PrimeReact indigo colors
+        run: |
+          if grep -qiE '#(6366f1|4f46e5|4338ca|c7d2fe|eef2ff)|rgba\(99, ?102, ?241' dist/_next/static/css/*.css; then
+            echo "Cor indigo/roxa do tema Lara encontrada no CSS final."
+            exit 1
+          fi
