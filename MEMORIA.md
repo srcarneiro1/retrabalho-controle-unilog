@@ -291,6 +291,8 @@ Regras:
 - exige ao menos uma pessoa (casa ou terceiros);
 - OPERACIONAL, SUPERVISOR e ADMIN lançam; somente SUPERVISOR e ADMIN editam;
 - CLIENTE não acessa (bloqueado no gateway e no Apps Script);
+- SUPERVISOR e ADMIN podem **inativar** um lançamento (motivo obrigatório): `ATIVO=NAO` + `INATIVADO_EM`, `INATIVADO_POR`, `MOTIVO_INATIVACAO`; sai da lista e dos totais, libera a data/filial para novo lançamento e gera evento `INATIVAR` na auditoria; nada é apagado da planilha;
+- gateway: `PATCH /api/mao-de-obra` → ação `INATIVAR`;
 - respeita o escopo de filiais do usuário;
 - criação usa `REQUEST_ID`, edição usa `VERSAO`, auditoria com entidade `MAO_DE_OBRA`;
 - gateway: `GET/POST/PUT /api/mao-de-obra` → rota Apps Script `maodeobra`;
@@ -463,7 +465,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.05.4` (SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
+`2026.10.05.5` (inativação de mão de obra, SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`
