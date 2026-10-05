@@ -38,10 +38,20 @@ const AuditService = (() => {
     })), ['ID_AUDITORIA','ID_REGISTRO','MATRICULA_AUTOR']);
   }
 
+  function eventMonth_(value) {
+    if (!value) return '';
+    const d = Object.prototype.toString.call(value) === '[object Date]' ? value : new Date(value);
+    return isNaN(d.getTime()) ? '' : Utilities.formatDate(d, AppConfig.TIMEZONE, 'yyyy-MM');
+  }
+
+  // CLIENTE: eventos dos registros da competência (mês do lançamento).
+  // Perfis internos com mês: eventos OCORRIDOS no mês (data/hora do evento), de registros
+  // do escopo em qualquer competência. ADMIN vê todas as entidades.
   function list(month, matricula, perfil) {
     const filterMonth = /^\d{4}-\d{2}$/.test(text_(month)) ? text_(month) : '';
     const profile = upper_(perfil);
-    const scopedIds = ReworkService.idsForScope(filterMonth, matricula, profile);
+    const byEventMonth = Boolean(filterMonth) && profile !== 'CLIENTE';
+    const scopedIds = ReworkService.idsForScope(byEventMonth ? '' : filterMonth, matricula, profile);
     const allowed = {};
     scopedIds.forEach(id => { allowed[id] = true; });
 
@@ -54,6 +64,7 @@ const AuditService = (() => {
     }
 
     return Repository.list('AUDITORIA')
+      .filter(x => !byEventMonth || eventMonth_(x.record.DATA_HORA) === filterMonth)
       .map(x => ({
         idAuditoria: text_(x.record.ID_AUDITORIA),
         entidade: text_(x.record.ENTIDADE),
@@ -68,7 +79,7 @@ const AuditService = (() => {
         origem: text_(x.record.ORIGEM)
       }))
       .filter(item => {
-        if (profile === 'ADMIN' && !filterMonth) return true;
+        if (profile === 'ADMIN' && (!filterMonth || byEventMonth)) return true;
         if (item.entidade === 'MAO_DE_OBRA') return Boolean(laborAllowed[item.idRegistro]);
         return item.entidade === 'RETRABALHO' && Boolean(allowed[item.idRegistro]);
       })

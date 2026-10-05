@@ -474,6 +474,10 @@ export default function Home() {
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null)
 
   const [audits, setAudits] = useState<AuditRow[]>([])
+  // Perfis internos: auditoria carregada sob demanda, por mês do evento.
+  const [auditMonth, setAuditMonth] = useState(currentMonth)
+  const [auditLoadedMonth, setAuditLoadedMonth] = useState('')
+  const [auditLoading, setAuditLoading] = useState(false)
   const [selectedAudit, setSelectedAudit] = useState<AuditRow | null>(null)
   const [cancelTarget, setCancelTarget] = useState<Rework | null>(null)
   const [cancelReason, setCancelReason] = useState('')
@@ -556,6 +560,12 @@ export default function Home() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Perfis internos: o mês é buscado no servidor ('' = todos os meses, sob demanda).
+  async function changeReworkMonth(value: string) {
+    setReworkMonth(value)
+    await loadItems(value || undefined)
   }
 
   async function loadClientDashboard() {
@@ -660,10 +670,9 @@ export default function Home() {
       setUsers(data.users || [])
       setLabor(data.labor || [])
       setProcesses(data.processes || [])
-      // Abre no mês mais recente com dados; sem dados, no mês corrente.
-      setReworkMonth(
-        monthsOf((data.items || []).map((x: Rework) => x.dataEfetivacao))[0] || currentMonth()
-      )
+      // O servidor envia só o mês mais recente com dados (ou o corrente) e a lista de meses.
+      setReworkMonth(String(data.selectedMonth || (data.months || [])[0] || currentMonth()))
+      setAuditLoadedMonth('')
       setLaborMonth(
         monthsOf((data.labor || []).map((x: LaborRow) => x.data))[0] || currentMonth()
       )
@@ -818,8 +827,13 @@ export default function Home() {
         }),
       })
       setBatchDialog(false)
-      if (!isClient && reworkMonth) setReworkMonth(isoDate(batch.dataEfetivacao).slice(0, 7))
-      await loadItems(isClient ? selectedMonth : undefined)
+      const savedMonth = isoDate(batch.dataEfetivacao).slice(0, 7)
+      const target = reworkMonth ? savedMonth : ''
+      if (!isClient) {
+        setReworkMonth(target)
+        setMonths(current => current.includes(savedMonth) ? current : [savedMonth, ...current].sort().reverse())
+      }
+      await loadItems(isClient ? selectedMonth : (target || undefined))
     } catch (error) {
       setBatchError(error instanceof Error ? error.message : 'Falha ao salvar o lançamento.')
     } finally {
@@ -936,8 +950,13 @@ export default function Home() {
       })
 
       setDialog(false)
-      if (!isClient && reworkMonth) setReworkMonth(isoDate(form.dataEfetivacao).slice(0, 7))
-      await loadItems(isClient ? selectedMonth : undefined)
+      const savedMonth = isoDate(form.dataEfetivacao).slice(0, 7)
+      const target = reworkMonth ? savedMonth : ''
+      if (!isClient) {
+        setReworkMonth(target)
+        setMonths(current => current.includes(savedMonth) ? current : [savedMonth, ...current].sort().reverse())
+      }
+      await loadItems(isClient ? selectedMonth : (target || undefined))
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Falha ao salvar.')
     } finally {
@@ -1198,15 +1217,25 @@ export default function Home() {
     if (!canAudit) return
     setSection('auditoria')
     setMobileOpen(false)
+    if (!isClient && auditLoadedMonth !== auditMonth) void reloadAudit(auditMonth)
   }
 
-  async function reloadAudit() {
+  async function reloadAudit(month?: string) {
     if (!canAudit) return
-    const query = isClient
-      ? '?audit=1&mes=' + encodeURIComponent(selectedMonth)
-      : '?audit=1'
-    const data = await api('/api/retrabalhos' + query)
-    setAudits(data.data || [])
+    const target = isClient ? selectedMonth : (month || auditMonth)
+    setAuditLoading(true)
+    try {
+      const data = await api('/api/retrabalhos?audit=1&mes=' + encodeURIComponent(target))
+      setAudits(data.data || [])
+      if (!isClient) setAuditLoadedMonth(target)
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+
+  async function changeAuditMonth(value: string) {
+    setAuditMonth(value)
+    await reloadAudit(value)
   }
 
   function openPrices() {
@@ -1395,8 +1424,8 @@ export default function Home() {
     : clientBranchFilter
 
   const reworkMonths = useMemo(
-    () => monthsOf(items.map(item => item.dataEfetivacao)),
-    [items],
+    () => monthsOf([...months.map(month => month + '-01'), ...items.map(item => item.dataEfetivacao)]),
+    [months, items],
   )
 
   const visibleItems = useMemo(() => {
@@ -1486,10 +1515,10 @@ export default function Home() {
 
   const laborMonths = useMemo(() => monthsOf(labor.map(row => row.data)), [labor])
 
-  function monthOptions(available: string[], selected: string) {
+  function monthOptions(available: string[], selected: string, allLabel = 'Todos os meses') {
     const list = selected && !available.includes(selected) ? [selected, ...available] : available
     return [
-      { label: 'Todos os meses', value: '' },
+      { label: allLabel, value: '' },
       ...list.map(month => ({ label: monthLabel(month), value: month })),
     ]
   }
@@ -1967,13 +1996,13 @@ export default function Home() {
                     <Dropdown
                       aria-label="Mês"
                       value={reworkMonth}
-                      options={monthOptions(reworkMonths, reworkMonth)}
+                      options={monthOptions(reworkMonths, reworkMonth, 'Todos os meses (mais lento)')}
                       optionLabel="label"
                       optionValue="value"
-                      onChange={e => setReworkMonth(String(e.value ?? ''))}
+                      onChange={e => void changeReworkMonth(String(e.value ?? ''))}
                     />
                   )}
-                  <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : undefined)} loading={loading} />
+                  <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : (reworkMonth || undefined))} loading={loading} />
                 </div>
               </div>
               <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage={chargeStatus === 'CANCELADOS' ? 'Nenhuma cobrança cancelada no período.' : 'Nenhum retrabalho registrado para o período.'} onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
@@ -2161,12 +2190,24 @@ export default function Home() {
               <div>
                 <small className="panel-eyebrow">GOVERNANÇA</small>
                 <h2>Histórico de auditoria</h2>
-                <p>{isClient ? `Eventos vinculados à competência ${monthLabel(selectedMonth)}.` : 'Alterações relevantes registradas com autor, versão e estado anterior/posterior.'}</p>
+                <p>{isClient ? `Eventos vinculados à competência ${monthLabel(selectedMonth)}.` : `Alterações registradas em ${monthLabel(auditMonth)}, com autor, versão e estado anterior/posterior.`}</p>
               </div>
-              <Button icon="pi pi-refresh" text rounded onClick={() => void reloadAudit()} />
+              <div className="labor-head-actions">
+                {!isClient && (
+                  <Dropdown
+                    aria-label="Mês da auditoria"
+                    value={auditMonth}
+                    options={monthsOf([currentMonth() + '-01', ...reworkMonths.map(month => month + '-01')]).map(month => ({ label: monthLabel(month), value: month }))}
+                    optionLabel="label"
+                    optionValue="value"
+                    onChange={e => void changeAuditMonth(String(e.value || currentMonth()))}
+                  />
+                )}
+                <Button icon="pi pi-refresh" text rounded onClick={() => void reloadAudit()} loading={auditLoading} />
+              </div>
             </div>
             <div className="page-table">
-              <DataTable className="mobile-record-table audit-record-table" value={audits} paginator rows={20} scrollable dataKey="idAuditoria" emptyMessage="Nenhum evento de auditoria encontrado.">
+              <DataTable className="mobile-record-table audit-record-table" value={audits} loading={auditLoading} paginator rows={20} scrollable dataKey="idAuditoria" emptyMessage="Nenhum evento de auditoria encontrado.">
                 <Column pt={cell('Data/hora', 'title')} field="dataHora" header="Data/hora" />
                 <Column pt={cell('Entidade')} field="entidade" header="Entidade" />
                 <Column pt={cell('Registro', 'wide')} field="idRegistro" header="Registro" />

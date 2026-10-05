@@ -4,13 +4,42 @@ const UserService = (() => {
   function clean_(value) { return String(value == null ? '' : value).trim(); }
   function upper_(value) { return clean_(value).toUpperCase(); }
 
+  // Proteção contra tentativas repetidas (força bruta):
+  // - 5 falhas por matrícula em 15 min bloqueiam a matrícula por 15 min;
+  // - 30 falhas por origem (IP informado pelo gateway) em 15 min bloqueiam a origem.
+  // Matrícula inexistente conta igual a senha errada (não revela quais matrículas existem).
+  const LOGIN_WINDOW_SECONDS = 900;
+  const MAX_FAILS_PER_USER = 5;
+  const MAX_FAILS_PER_ORIGIN = 30;
+  const LOCKED_MESSAGE = 'Muitas tentativas de acesso. Aguarde 15 minutos ou procure um administrador.';
+
+  function failCount_(key) {
+    return Number(CacheService.getScriptCache().get(key) || 0);
+  }
+
+  function registerFail_(keys) {
+    const cache = CacheService.getScriptCache();
+    keys.forEach(key => cache.put(key, String(failCount_(key) + 1), LOGIN_WINDOW_SECONDS));
+  }
+
   function authenticate(input) {
     const matricula = clean_(input.matricula);
     const senha = String(input.senha || '');
-    const hit = Repository.find('USUARIOS','MATRICULA',matricula);
-    if (!hit || upper_(hit.record.ATIVO) !== 'SIM') throw new Error('Matrícula ou senha inválida.');
-    if (!SecurityService.verify(senha, hit.record.SENHA_SALT, hit.record.SENHA_HASH)) throw new Error('Matrícula ou senha inválida.');
+    const origin = clean_(input.origem).slice(0, 64);
+    const userKey = 'login:fail:user:' + matricula.toUpperCase();
+    const originKey = origin ? 'login:fail:origin:' + origin : '';
+    const keys = originKey ? [userKey, originKey] : [userKey];
 
+    if (failCount_(userKey) >= MAX_FAILS_PER_USER) throw new Error(LOCKED_MESSAGE);
+    if (originKey && failCount_(originKey) >= MAX_FAILS_PER_ORIGIN) throw new Error(LOCKED_MESSAGE);
+
+    const hit = Repository.find('USUARIOS','MATRICULA',matricula);
+    if (!hit || upper_(hit.record.ATIVO) !== 'SIM' || !SecurityService.verify(senha, hit.record.SENHA_SALT, hit.record.SENHA_HASH)) {
+      registerFail_(keys);
+      throw new Error('Matrícula ou senha inválida.');
+    }
+
+    CacheService.getScriptCache().remove(userKey);
     Repository.update('USUARIOS', hit.rowNumber, { ULTIMO_LOGIN_EM: new Date() }, []);
     return {
       matricula,

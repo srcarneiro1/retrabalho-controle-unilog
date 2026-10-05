@@ -23,25 +23,23 @@ const BootstrapService = (() => {
     const branches = ClientBranchService.availableForUser(matricula, perfil);
     const allItems = ReworkService.list('', matricula, perfil);
 
-    let items = allItems;
-    let months = [];
-    let selectedMonth = '';
+    // Todos os perfis recebem só o mês selecionado (padrão: mês mais recente com dados).
+    // O histórico completo é lido no servidor só para montar a lista de meses: o navegador
+    // não baixa mais todo o histórico a cada login (~1 KB por lançamento).
+    const seen = {};
+    allItems.forEach(item => {
+      const month = monthFromItem_(item);
+      if (month) seen[month] = true;
+    });
+    const months = Object.keys(seen).sort().reverse();
+    const requested = /^\d{4}-\d{2}$/.test(text_(input.mes)) ? text_(input.mes) : '';
+    const selectedMonth = requested || months[0] || currentMonth_();
+    const items = allItems.filter(item => monthFromItem_(item) === selectedMonth);
 
-    if (perfil === 'CLIENTE') {
-      const seen = {};
-      allItems.forEach(item => {
-        const month = monthFromItem_(item);
-        if (month) seen[month] = true;
-      });
-      months = Object.keys(seen).sort().reverse();
-
-      const requested = /^\d{4}-\d{2}$/.test(text_(input.mes)) ? text_(input.mes) : '';
-      selectedMonth = requested || months[0] || currentMonth_();
-      items = allItems.filter(item => monthFromItem_(item) === selectedMonth);
-    }
-
-    const audits = allowedAudit_(perfil)
-      ? AuditService.list(perfil === 'CLIENTE' ? selectedMonth : '', matricula, perfil)
+    // Auditoria: CLIENTE recebe a competência no bootstrap; perfis internos carregam
+    // sob demanda, ao abrir a tela de Auditoria (por mês).
+    const audits = perfil === 'CLIENTE' && allowedAudit_(perfil)
+      ? AuditService.list(selectedMonth, matricula, perfil)
       : [];
 
     const result = {

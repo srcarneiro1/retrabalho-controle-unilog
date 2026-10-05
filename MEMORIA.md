@@ -465,7 +465,7 @@ Bootstrap:
 - bootstrap retorna preços, filiais, lançamentos, auditoria e, para ADMIN, usuários + catálogo completo de filiais em uma única travessia Cloudflare → Apps Script.
 
 Versão esperada do Apps Script:
-`2026.10.05.7` (processos + lançamento em lote, filtro de status da mão de obra, inativação de mão de obra, SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
+`2026.10.05.8` (carregamento por mês, limite de tentativas de login, processos + lançamento em lote, filtro de status da mão de obra, inativação de mão de obra, SKU/descrição obrigatórios também na edição, lock de gravação, `LaborService.gs`, bloqueio de preços para CLIENTE).
 
 Arquivos Apps Script que precisam estar publicados:
 - `Api.gs`
@@ -611,3 +611,27 @@ Próxima validação:
 - especificidade reforçada (`.p-datatable.mobile-record-table`) para vencer `component-geometry.css` independentemente da ordem do bundle;
 - validado em Chromium headless: 1280 px (tabela), 820/390 px (cartões em 2 colunas), 360 px (1 coluna), sem rolagem horizontal.
 - **Login entre 761 e 900 px:** o painel da marca ficava oculto nessa faixa (regra de `unilog-design-system.css` escondia até 900 px; `mobile-polish.css` só reexibia abaixo de 760 px). `responsive-shell.css` (seção 6) mantém o layout lado a lado compactado, como no Extra Cost Control. Validado em 10 larguras (1366 a 390 px): painel sempre visível, lado a lado acima de 760 px, empilhado abaixo, sem rolagem lateral.
+
+## ⚡ Desempenho e segurança — 05/10/2026 (API 2026.10.05.8)
+
+### Carregamento por mês (todos os perfis)
+- volume esperado: 600 a 900 SKUs/mês (~10 mil registros/ano, ~1 KB cada no navegador);
+- antes: perfis internos baixavam **todo o histórico** a cada login (e ADMIN, toda a auditoria, ~2,3 KB/evento) — ~10 MB/login em 1 ano;
+- agora: bootstrap envia só o mês mais recente com dados + lista de meses (`months`, `selectedMonth`); trocar o mês busca no servidor; `Todos os meses (mais lento)` continua disponível sob demanda;
+- auditoria de perfis internos não vem mais no login: carrega ao abrir a tela, **por mês do evento** (data/hora), com seletor de mês; CLIENTE mantém a auditoria da competência;
+- capacidade da planilha (10 milhões de células; ~52 células por SKU lançado): ~17 anos no volume atual — arquivamento não necessário.
+
+### Limite de tentativas de login
+- 5 falhas por matrícula em 15 min bloqueiam a matrícula por 15 min (inclusive com a senha certa);
+- 30 falhas por origem (IP via `CF-Connecting-IP`, informado pelo gateway) em 15 min bloqueiam a origem;
+- matrícula inexistente conta como falha e recebe a mesma mensagem genérica;
+- login bem-sucedido zera o contador da matrícula; contadores em `CacheService` (Apps Script);
+- gateway responde 429 quando bloqueado.
+
+### Testes
+- simulador do Apps Script: 36 cenários aprovados (anteriores + mês no bootstrap, auditoria por mês do evento, bloqueio por matrícula/origem e reset).
+
+### Tema e build (05/10/2026)
+- gerador do tema passou a trocar também a escala `--primary-*`/`--indigo-*` do Lara 10 e o anel de foco dos botões (`#b1b3f8`), que continuavam roxos; CI bloqueia esses tons;
+- Next.js 15.5.27 (última correção da linha 15); `package-lock.json` versionado e CI com `npm ci` (builds reproduzíveis);
+- vulnerabilidade conhecida do PostCSS é de build (processa só o CSS do próprio projeto); correção completa exige Next 16 — avaliar migração futuramente.
