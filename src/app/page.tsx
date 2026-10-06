@@ -134,6 +134,7 @@ type BatchLine = {
 }
 
 const MAX_BATCH_SKUS = 100
+const SKU_PICKER_LIMIT = 200
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 // Regras por SKU (espelham o backend).
@@ -486,6 +487,7 @@ export default function Home() {
   const [batch, setBatch] = useState(createBatchForm)
   const [batchDialog, setBatchDialog] = useState(false)
   const [batchError, setBatchError] = useState('')
+  const [skuSearch, setSkuSearch] = useState('')
   const [uploadForm, setUploadForm] = useState(createUploadForm)
   const [uploadInputKey, setUploadInputKey] = useState(0)
   const [uploadError, setUploadError] = useState('')
@@ -774,6 +776,7 @@ export default function Home() {
     if (processes.length === 1) next.idProcesso = processes[0].id
     setBatch(next)
     setBatchError('')
+    setSkuSearch('')
     setBatchDialog(true)
     if (next.idProcesso) void loadProcessSkus(next.idProcesso)
   }
@@ -794,6 +797,7 @@ export default function Home() {
   function selectBatchProcess(idProcesso: string) {
     setBatch(current => ({ ...current, idProcesso, skus: [], lines: [] }))
     setBatchError('')
+    setSkuSearch('')
     void loadProcessSkus(idProcesso)
   }
 
@@ -814,6 +818,15 @@ export default function Home() {
       })
       return { ...current, skus: limited, lines }
     })
+  }
+
+  function toggleBatchSku(sku: string) {
+    if (batch.skus.includes(sku)) {
+      changeBatchSkus(batch.skus.filter(item => item !== sku))
+      return
+    }
+    if (batch.skus.length >= MAX_BATCH_SKUS) return
+    changeBatchSkus([...batch.skus, sku])
   }
 
   function updateBatchLine(sku: string, field: keyof BatchLine, value: number | null) {
@@ -1525,10 +1538,21 @@ export default function Home() {
     }
   }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, form.tester, form.confeccao, prices])
 
-  const batchSkuOptions = useMemo(
-    () => (processSkus[batch.idProcesso] || []).map(item => ({ label: `${item.sku} — ${item.descricao}`, value: item.sku })),
-    [processSkus, batch.idProcesso],
-  )
+  // Lista de SKUs do processo filtrada pela busca (ignora acentos e maiúsculas).
+  // Renderiza no máximo SKU_PICKER_LIMIT itens: sem rolagem virtual (que no Safari deixava
+  // itens "fantasmas" e trechos em branco ao rolar), e continua rápida em processos grandes.
+  const batchSkuMatches = useMemo(() => {
+    const all = processSkus[batch.idProcesso] || []
+    const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    const terms = normalize(skuSearch.trim()).split(/\s+/).filter(Boolean)
+    const filtered = terms.length
+      ? all.filter(item => {
+          const text = normalize(`${item.sku} ${item.descricao}`)
+          return terms.every(term => text.includes(term))
+        })
+      : all
+    return { total: filtered.length, shown: filtered.slice(0, SKU_PICKER_LIMIT), all: all.length }
+  }, [processSkus, batch.idProcesso, skuSearch])
 
   const batchPreview = useMemo(() => {
     const date = isoDate(batch.dataEfetivacao)
@@ -2594,6 +2618,7 @@ export default function Home() {
       <Dialog
         header="Novo lançamento"
         visible={batchDialog}
+        closeOnEscape={false}
         onHide={() => !saving && setBatchDialog(false)}
         style={{ width: 'min(1180px, 98vw)' }}
       >
@@ -2619,25 +2644,52 @@ export default function Home() {
               filter
             />
           </label>
-          <label className="batch-skus">
-            SKUs do processo (1 a {MAX_BATCH_SKUS}) *
-            <MultiSelect
-              value={batch.skus}
-              options={batchSkuOptions}
-              onChange={e => changeBatchSkus((e.value || []) as string[])}
+
+        </div>
+
+        <div className="batch-picker">
+          <div className="batch-picker-head">
+            <span>SKUs do processo (1 a {MAX_BATCH_SKUS}) *</span>
+            <small className={batch.skus.length >= MAX_BATCH_SKUS ? 'is-full' : ''}>
+              {batch.skus.length} de {MAX_BATCH_SKUS} selecionado(s)
+            </small>
+          </div>
+          <span className="batch-picker-search">
+            <i className="pi pi-search" aria-hidden="true" />
+            <InputText
+              value={skuSearch}
+              onChange={e => setSkuSearch(e.target.value)}
               placeholder={batch.idProcesso ? 'Pesquise por código de barras ou descrição' : 'Selecione o processo primeiro'}
               disabled={!batch.idProcesso || skusLoading}
-              filter
-              filterPlaceholder="Código de barras ou descrição"
-              selectionLimit={MAX_BATCH_SKUS}
-              display="comma"
-              maxSelectedLabels={2}
-              selectedItemsLabel="{0} SKUs selecionados"
-              virtualScrollerOptions={{ itemSize: 38 }}
-              showSelectAll={false}
-              emptyFilterMessage="Nenhum SKU encontrado"
+              aria-label="Pesquisar SKU do processo"
             />
-          </label>
+          </span>
+          <div className="batch-picker-list" role="group" aria-label="SKUs do processo">
+            {!batch.idProcesso ? (
+              <p className="batch-picker-empty">Selecione o número do processo para ver os SKUs.</p>
+            ) : skusLoading ? (
+              <p className="batch-picker-empty"><i className="pi pi-spin pi-spinner" /> Carregando SKUs do processo…</p>
+            ) : batchSkuMatches.total === 0 ? (
+              <p className="batch-picker-empty">Nenhum SKU encontrado para “{skuSearch}”.</p>
+            ) : (
+              batchSkuMatches.shown.map(item => {
+                const checked = batch.skus.includes(item.sku)
+                const blocked = !checked && batch.skus.length >= MAX_BATCH_SKUS
+                return (
+                  <label key={item.sku} className={`batch-picker-item${checked ? ' is-checked' : ''}${blocked ? ' is-blocked' : ''}`}>
+                    <input type="checkbox" checked={checked} disabled={blocked} onChange={() => toggleBatchSku(item.sku)} />
+                    <span className="batch-picker-sku">{item.sku}</span>
+                    <span className="batch-picker-desc">{item.descricao}</span>
+                  </label>
+                )
+              })
+            )}
+            {batchSkuMatches.total > batchSkuMatches.shown.length && (
+              <p className="batch-picker-more">
+                Mostrando {batchSkuMatches.shown.length} de {batchSkuMatches.total}. Refine a busca para encontrar outros SKUs.
+              </p>
+            )}
+          </div>
         </div>
 
         {batch.lines.length > 0 ? (

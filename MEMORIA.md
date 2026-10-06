@@ -658,3 +658,19 @@ Medidas extraídas do Extra rodando no navegador e replicadas em `responsive-she
   - barra superior de ponta a ponta e margens do conteúdo por faixa, iguais ao Extra: >1180 = 34 px; 1101–1180 = 20; 901–1100 = 24; 761–900 = 18; 481–760 = 12; ≤480 = 10 (barra: 30/18/18/18/14/14 px);
   - indicadores em 2 colunas até 1180 px; botão de expandir com menu recolhido 38×38 px sem contorno;
   - validado em 19 larguras (1440 a 360 px): margens, altura e padding da barra idênticos ao Extra; menu gaveta abre/fecha (inclusive ESC) em 1150 px; sem rolagem lateral.
+
+## 🧩 Seletor de SKUs do lançamento em lote — 06/10/2026 (a partir de vídeo no Safari)
+
+Diagnóstico:
+- a lista suspensa (MultiSelect com rolagem virtual) desenhava só os itens visíveis e reposicionava o conteúdo a cada evento de rolagem; no Safari a rolagem do trackpad chega antes dessa atualização → itens "fantasmas"/sobrepostos e trechos em branco (medido: conteúdo deslocado 85 px acima do topo da lista);
+- com o diálogo ainda baixo (nenhum SKU escolhido), a lista abria para fora dele, por cima da página, com altura fixa de 200 px (4–5 itens) e cortada em janelas baixas;
+- ESC fechava o diálogo e descartava todos os SKUs e quantidades preenchidos.
+
+Correção:
+- lista fixa dentro do diálogo (`.batch-picker`), sem rolagem virtual, com busca que ignora acentos/maiúsculas e aceita várias palavras (código + descrição);
+- renderiza até 200 resultados por vez (`SKU_PICKER_LIMIT`) com aviso "Mostrando 200 de N — refine a busca" (rápido mesmo com milhares de SKUs);
+- caixas de seleção nativas, contador "N de 100 selecionado(s)", itens além do limite bloqueados;
+- `closeOnEscape={false}` no diálogo de lançamento;
+- celular: código e descrição em duas linhas, lista de 300 px, campo de busca com 16 px.
+
+Testes (Chromium, 1.500 SKUs): 15 cenários — lista dentro do diálogo, limite de 200 exibidos, busca, seleção/desmarcação, rolagem sem itens fora da lista, ESC sem perder dados, limite de 100, envio do lote com os SKUs certos, sem erros de JavaScript.
