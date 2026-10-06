@@ -646,3 +646,15 @@ Medidas extraídas do Extra rodando no navegador e replicadas em `responsive-she
 - celular: cabeçalho dos painéis empilha (antes os filtros espremiam o título em 32 px);
 - validado em 1366, 820 e 390 px, sem rolagem lateral.
 - **Celular (390 px), seção 9 de `responsive-shell.css`:** barra superior 64 px/margem 14 px; botão ☰ 38×44 px escuro; botões de ação 42 px; "X" 38×44 px; logo do menu 96×42 px (mesmo arquivo do Extra, limitado em altura); botões do rodapé 40×44 px com fundo sutil; fundo escurecido `rgba(13,16,22,.44)`. Medição automática: 0 diferenças nos 9 elementos comparados. Mantido de propósito: o retrabalho fecha o menu com ESC (o Extra não).
+- **Hover e rodapé (seção 10 de `responsive-shell.css`), medidos contra o Extra em 8 elementos:**
+  - "retângulos" no canto inferior: botões do rodapé tinham contorno 14% sem fundo → agora fundo 3,5%, contorno 8%, hover só intensifica o fundo (9%), como o "Sair" do Extra;
+  - por terem dois botões (senha e sair) onde o Extra tem um: 36×44 px (Extra 40×44) e nome/linha secundária em linha única com reticências (nome completo no `title`);
+  - itens do menu: transição de 0,14 s (antes instantânea);
+  - botão recolher: hover só muda o fundo; filtros (dropdowns): borda não escurece no hover;
+  - resultado: comportamento de hover idêntico ao Extra em todos os elementos medidos.
+- **Faixa intermediária (tablet), seções 11 e 12 de `responsive-shell.css`:**
+  - causa dos "retângulos nas extremidades": abaixo de 1100 px o contêiner `.content` tinha 18 px de margem lateral (regra em `unilog-design-system.css`), deixando a barra superior como um bloco solto com sobras cinza; o corpo somava mais 34 px (52 px no total);
+  - menu gaveta passa a valer até **1180 px** (antes 1100 px), como no Extra; removido o recolhimento automático entre 1101 e 1279 px (o Extra mantém a preferência do usuário) — `DRAWER_QUERY` em `page.tsx`;
+  - barra superior de ponta a ponta e margens do conteúdo por faixa, iguais ao Extra: >1180 = 34 px; 1101–1180 = 20; 901–1100 = 24; 761–900 = 18; 481–760 = 12; ≤480 = 10 (barra: 30/18/18/18/14/14 px);
+  - indicadores em 2 colunas até 1180 px; botão de expandir com menu recolhido 38×38 px sem contorno;
+  - validado em 19 larguras (1440 a 360 px): margens, altura e padding da barra idênticos ao Extra; menu gaveta abre/fecha (inclusive ESC) em 1150 px; sem rolagem lateral.

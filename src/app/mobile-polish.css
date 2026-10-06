@@ -4,7 +4,7 @@
 html,body{max-width:100%;overflow-x:hidden}
 body{-webkit-text-size-adjust:100%}
 
-@media(max-width:1100px){
+@media(max-width:1180px){
   .sidebar,.app.sidebar-collapsed .sidebar{
     width:min(276px,calc(100vw - 24px))!important;
     height:100dvh!important;

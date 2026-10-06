@@ -27,8 +27,8 @@
 /* Sidebar recolhida: tooltip nativo já existe via title; garante ícones centralizados. */
 .app.sidebar-collapsed .sidebar nav{overflow-x:hidden!important}
 
-/* 2. Drawer (≤ 1100 px): usuário sempre vê nome, troca de senha e sair. */
-@media(max-width:1100px){
+/* 2. Drawer (≤ 1180 px): usuário sempre vê nome, troca de senha e sair. */
+@media(max-width:1180px){
   .user-card .user-copy,
   .app.sidebar-collapsed .user-card .user-copy{display:grid!important}
   .user-card .user-actions,
@@ -184,17 +184,8 @@ html,body{overflow-x:clip!important}
 .sidebar-mobile-close:hover{background:rgba(255,255,255,.07)!important;color:#fff!important}
 .sidebar-mobile-close:focus-visible{outline:2px solid rgba(255,255,255,.35)!important;outline-offset:2px!important}
 
-/* Rodapé do usuário: botões com contorno, como o "Sair" do Extra */
-.user-card .user-actions button{
-  width:36px!important;
-  height:36px!important;
-  border:1px solid rgba(255,255,255,.14)!important;
-  border-radius:10px!important;
-  background:transparent!important;
-}
-.user-card .user-actions button:hover{background:rgba(255,255,255,.07)!important}
 
-@media(max-width:1100px){
+@media(max-width:1180px){
   .sidebar{width:min(292px,86vw)!important}
   .topbar{padding:0 16px!important}
 }
@@ -218,7 +209,7 @@ html,body{overflow-x:clip!important}
 }
 
 /* 9. Paridade do celular com o Extra Cost Control (medido em 390 px, 05/10/2026). */
-@media(max-width:1100px){
+@media(max-width:1180px){
   .topbar{height:64px!important;min-height:64px!important;padding:0 14px!important}
   .mobile-menu-button{
     width:38px!important;
@@ -230,15 +221,96 @@ html,body{overflow-x:clip!important}
   .sidebar-mobile-close{height:44px!important}
   .sidebar-brand img{width:96px!important;height:42px!important;object-fit:contain!important;object-position:left center!important}
   .user-card{min-height:63px!important}
-  .user-card .user-actions button{
-    width:40px!important;
-    height:44px!important;
-    background:rgba(255,255,255,.035)!important;
-    border:1px solid rgba(255,255,255,.08)!important;
-    color:#d6dae0!important;
-  }
   .sidebar-backdrop{background:rgba(13,16,22,.44)!important}
 }
 @media(max-width:760px){
   .page-heading-actions .p-button{height:42px!important;min-height:42px!important;padding:12px 20px!important}
+}
+
+/* 10. Hover e rodapé idênticos ao Extra Cost Control (medidos em 05/10/2026).
+   - Botões do rodapé: o contorno anterior (14%) e a ausência de fundo destacavam demais
+     os dois botões ("retângulos" no canto). Agora: fundo 3,5%, contorno 8%, 40×44 px;
+     no hover só o fundo intensifica (9%), sem mudar a cor do ícone.
+   - Itens do menu: transição suave de 0,14 s (antes a troca de cor era instantânea).
+   - Botão recolher: no hover muda só o fundo (antes clareava também o ícone).
+   - Filtros: a borda não escurece no hover (comportamento do Extra). */
+.user-card .user-actions{gap:4px!important}
+/* Dois botões (senha e sair) no espaço em que o Extra tem um: 36 px cada e nome em linha única. */
+.user-card .user-actions button{
+  width:36px!important;
+  height:44px!important;
+  min-width:36px!important;
+  display:grid!important;
+  place-items:center!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  border-radius:10px!important;
+  background:rgba(255,255,255,.035)!important;
+  color:#d6dae0!important;
+  transition:none!important;
+}
+.user-card .user-actions button:hover{
+  background:rgba(255,255,255,.09)!important;
+  color:#d6dae0!important;
+}
+.sidebar .nav{transition:background-color .14s ease,color .14s ease!important}
+.sidebar-collapse:hover{color:#aeb4be!important;border-color:#aeb4be!important}
+.panel .p-dropdown:not(.p-disabled):hover,
+.page-heading .p-dropdown:not(.p-disabled):hover,
+.client-dashboard-filters .p-dropdown:not(.p-disabled):hover{border-color:#d9dde3!important}
+
+.user-card .user-copy{min-width:0!important}
+.user-card .user-copy strong,
+.user-card .user-copy span{
+  display:block!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+/* 11. Largura total ("wide") entre o computador e o celular — valores medidos no Extra.
+   Antes, abaixo de 1100 px: o contêiner da página tinha 18 px de margem lateral (a barra
+   superior virava um bloco branco solto, com sobras cinza nas laterais) e o corpo somava
+   mais 34 px (52 px no total). O Extra usa barra de ponta a ponta e margens menores.
+   Faixas (margem lateral do conteúdo / margem interna da barra superior):
+     > 1180 px .......... 34 px / 30 px  (menu fixo, aberto ou recolhido pelo usuário)
+     1101–1180 px ....... 20 px / 18 px  (menu gaveta)
+     901–1100 px ........ 24 px / 18 px
+     761–900 px ......... 18 px / 18 px
+     481–760 px ......... 12 px / 14 px
+     ≤ 480 px ........... 10 px / 14 px */
+@media(max-width:1180px){
+  .content{padding-left:0!important;padding-right:0!important}
+  .topbar{
+    height:62px!important;
+    min-height:62px!important;
+    margin:0!important;
+    padding:0 18px!important;
+    border-radius:0!important;
+  }
+  .workspace-body{padding-left:20px!important;padding-right:20px!important}
+  .metrics.metrics-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:1100px){
+  .workspace-body{padding-left:24px!important;padding-right:24px!important}
+}
+@media(max-width:900px){
+  .workspace-body{padding-left:18px!important;padding-right:18px!important}
+}
+@media(max-width:760px){
+  .topbar{height:64px!important;min-height:64px!important;padding:0 14px!important}
+  .workspace-body{padding-left:12px!important;padding-right:12px!important}
+}
+@media(max-width:480px){
+  .workspace-body{padding-left:10px!important;padding-right:10px!important}
+}
+
+/* 12. Botão de expandir com o menu recolhido: 38×38 px, sem contorno (Extra). Antes 32 px com contorno. */
+@media(min-width:1181px){
+  .app.sidebar-collapsed .sidebar-collapse{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+    border:0!important;
+    margin-top:9px!important;
+  }
 }

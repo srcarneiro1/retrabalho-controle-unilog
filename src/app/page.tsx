@@ -400,9 +400,9 @@ function branchLabel(branch: Branch) {
 }
 
 const SIDEBAR_PREF_KEY = 'retrabalho-unilog:sidebar'
-// ≤ 1100 px: drawer. 1101–1279 px: menu recolhido automaticamente. ≥ 1280 px: preferência do usuário.
-const DRAWER_QUERY = '(max-width: 1100px)'
-const COMPACT_QUERY = '(min-width: 1101px) and (max-width: 1279px)'
+// Mesmo comportamento do Extra Cost Control:
+// ≤ 1180 px: menu gaveta; acima disso, o menu fica como o usuário deixou (aberto ou recolhido).
+const DRAWER_QUERY = '(max-width: 1180px)'
 
 function readSidebarPref() {
   try { return localStorage.getItem(SIDEBAR_PREF_KEY) === 'collapsed' } catch { return false }
@@ -649,19 +649,15 @@ export default function Home() {
   // Sidebar responsiva: reage à mudança de largura da janela, não só ao carregamento.
   useEffect(() => {
     const drawer = window.matchMedia(DRAWER_QUERY)
-    const compact = window.matchMedia(COMPACT_QUERY)
     const sync = () => {
-      if (!drawer.matches) setMobileOpen(false)
-      if (compact.matches) setCollapsed(true)
-      else if (!drawer.matches) setCollapsed(readSidebarPref())
+      if (!drawer.matches) {
+        setMobileOpen(false)
+        setCollapsed(readSidebarPref())
+      }
     }
     sync()
     drawer.addEventListener('change', sync)
-    compact.addEventListener('change', sync)
-    return () => {
-      drawer.removeEventListener('change', sync)
-      compact.removeEventListener('change', sync)
-    }
+    return () => drawer.removeEventListener('change', sync)
   }, [])
 
   // Drawer móvel: ESC fecha e o fundo não rola enquanto estiver aberto.
@@ -1294,8 +1290,7 @@ export default function Home() {
   function toggleSidebar() {
     setCollapsed(current => {
       const next = !current
-      // Na faixa compacta a expansão é temporária e não sobrescreve a preferência de desktop.
-      if (!window.matchMedia(COMPACT_QUERY).matches) writeSidebarPref(next)
+      writeSidebarPref(next)
       return next
     })
   }
@@ -1872,7 +1867,7 @@ export default function Home() {
 
         <div className="user-card">
           <div className="avatar">{user.nome.slice(0, 1).toUpperCase()}</div>
-          <div className="user-copy">
+          <div className="user-copy" title={`${user.nome} · ${user.matricula} · ${user.perfil}`}>
             <strong>{user.nome}</strong>
             <span>{user.matricula} · {user.perfil}</span>
           </div>

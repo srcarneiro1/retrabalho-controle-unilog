@@ -623,7 +623,7 @@ body:has(.app){
 /* --------------------------------------------------------------------------
    RESPONSIVE DRAWER
    -------------------------------------------------------------------------- */
-@media(max-width:1100px){
+@media(max-width:1180px){
   .app,.app.sidebar-collapsed{display:block!important}
   .sidebar-backdrop{
     display:block;
