@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - name: Validate exported browser identity
         run: |
@@ -31,7 +31,7 @@ jobs:
           grep -q 'viewBox="0 -276.5 1200 1200"' dist/brand/unilog-favicon-red.svg
       - name: Block PrimeReact indigo colors
         run: |
-          if grep -qiE '#(6366f1|4f46e5|4338ca|c7d2fe|eef2ff)|rgba\(99, ?102, ?241' dist/_next/static/css/*.css; then
+          if grep -qiE '#(6366f1|4f46e5|4338ca|c7d2fe|eef2ff|b1b3f8|5457cd|8183f4)|rgba\(99, ?102, ?241' dist/_next/static/css/*.css; then
             echo "Cor indigo/roxa do tema Lara encontrada no CSS final."
             exit 1
           fi
