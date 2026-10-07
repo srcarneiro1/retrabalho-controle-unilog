@@ -275,15 +275,16 @@ function createLaborForm() {
   }
 }
 
-function createPriceForm() {
+// Formulário de nova vigência pré-preenchido com os valores da vigência atual
+// (antes eram valores fixos no código, que ficavam desatualizados a cada reajuste).
+function createPriceForm(base?: { valorNacionalizacao: number; valorRfidAdicional: number; valorTester?: number; valorConfeccao?: number }) {
   return {
     requestId: crypto.randomUUID(),
     vigenciaInicio: new Date(),
-    valorNacionalizacao: 0.4100,
-    valorRfidAdicional: 0.1900,
-    // Transformação em tester: tarifa ainda não definida.
-    valorTester: 0,
-    valorConfeccao: 0.1500,
+    valorNacionalizacao: base ? Number(base.valorNacionalizacao || 0) : 0,
+    valorRfidAdicional: base ? Number(base.valorRfidAdicional || 0) : 0,
+    valorTester: base ? Number(base.valorTester || 0) : 0,
+    valorConfeccao: base ? Number(base.valorConfeccao || 0) : 0,
     observacao: '',
   }
 }
@@ -1291,6 +1292,7 @@ export default function Home() {
 
   function openPrices() {
     if (!canViewPrices) return
+    setPriceForm(createPriceForm(currentPrice))
     setSection('precos')
     setMobileOpen(false)
   }
@@ -1324,8 +1326,9 @@ export default function Home() {
           observacao: priceForm.observacao.trim(),
         }),
       })
-      await loadPrices()
-      setPriceForm(createPriceForm())
+      const fresh: PriceRow[] = await loadPrices()
+      const latest = [...fresh].sort((x, y) => y.vigenciaInicio.localeCompare(x.vigenciaInicio))[0]
+      setPriceForm(createPriceForm(latest))
     } finally {
       setSaving(false)
     }
@@ -1553,6 +1556,12 @@ export default function Home() {
       : all
     return { total: filtered.length, shown: filtered.slice(0, SKU_PICKER_LIMIT), all: all.length }
   }, [processSkus, batch.idProcesso, skuSearch])
+
+  const currentPrice = useMemo(() => {
+    const today = isoDate(new Date())
+    return prices.find(p => p.vigenciaInicio <= today && (!p.vigenciaFim || p.vigenciaFim >= today))
+      || [...prices].sort((a, b) => b.vigenciaInicio.localeCompare(a.vigenciaInicio))[0]
+  }, [prices])
 
   const batchPreview = useMemo(() => {
     const date = isoDate(batch.dataEfetivacao)
@@ -2298,7 +2307,20 @@ export default function Home() {
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
                 </div>
               )}
-              <div className="price-rule"><strong>Regra de cobrança:</strong> Nacionalização = R$ 0,4100; RFID/ADIPAC = R$ 0,1900 por unidade (RFID, ADIPAC ou os dois); Nacionalização + RFID/ADIPAC = R$ 0,6000; Etiqueta confeccionada = R$ 0,1500; Transformação em tester = tarifa a definir. Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. As tarifas são mantidas com 4 casas decimais.</div>
+              <div className="price-rule">
+                <strong>Regra de cobrança:</strong> o combo (nacionalização + RFID/ADIPAC na mesma unidade) é a soma das duas tarifas.
+                Por isso, em RFID/ADIPAC cadastre a diferença entre o valor do combo e o da nacionalização.
+                {currentPrice && (
+                  <>
+                    {' '}Vigência atual: Nacionalização {rateMoney(currentPrice.valorNacionalizacao)};
+                    RFID/ADIPAC {rateMoney(currentPrice.valorRfidAdicional)};
+                    combo {rateMoney(currentPrice.valorNacionalizacao + currentPrice.valorRfidAdicional)};
+                    Etiqueta confeccionada {rateMoney(Number(currentPrice.valorConfeccao || 0))};
+                    Transformação em tester {Number(currentPrice.valorTester || 0) > 0 ? rateMoney(Number(currentPrice.valorTester)) : 'a definir'}.
+                  </>
+                )}
+                {' '}Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. As tarifas usam 4 casas decimais.
+              </div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column pt={cell('Início', 'title')} field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column pt={cell('Fim')} field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
@@ -2533,7 +2555,7 @@ export default function Home() {
           <div className="billing-total">
             <span>Total previsto</span>
             <strong>{previewPrice ? money(previewPrice.total) : '—'}</strong>
-            <small>O valor definitivo é calculado pelo backend ao salvar.</small>
+            <small>O valor definitivo é calculado pelo sistema ao salvar.</small>
           </div>
         </div>
 
@@ -2743,7 +2765,7 @@ export default function Home() {
         </div>
         <p className="form-hint">
           Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. Cada SKU precisa de ao menos um serviço.
-          O valor definitivo é calculado pelo backend com a tabela de preços vigente na data.
+          O valor definitivo é calculado pelo sistema com a tabela de preços vigente na data.
         </p>
 
         <div className="dialog-actions">

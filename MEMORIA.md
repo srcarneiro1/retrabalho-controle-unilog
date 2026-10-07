@@ -674,3 +674,21 @@ Correção:
 - celular: código e descrição em duas linhas, lista de 300 px, campo de busca com 16 px.
 
 Testes (Chromium, 1.500 SKUs): 15 cenários — lista dentro do diálogo, limite de 200 exibidos, busca, seleção/desmarcação, rolagem sem itens fora da lista, ESC sem perder dados, limite de 100, envio do lote com os SKUs certos, sem erros de JavaScript.
+
+## 💲 Reajuste de 07/10/2026 e tela de Preços
+
+Valores informados pela operação:
+- **Combo** (nacionalização + RFID e/ou ADIPAC na mesma unidade) = **R$ 0,60**;
+- **Nacionalização** = **R$ 0,4114**;
+- **Confecção/impressão de etiqueta de nacionalização** = **R$ 0,15**;
+- **Tester** = a definir.
+
+Como cadastrar: o sistema soma tarifas por unidade, então o combo é obtido com **RFID/ADIPAC = R$ 0,6000 − R$ 0,4114 = R$ 0,1886**. Validado em 6 cenários (combo, só nacionalização, misto, confeccionadas): resultado idêntico à regra, com 4 casas decimais.
+Pendente de confirmação com a operação: preço de RFID/ADIPAC **sem** nacionalização (hoje sairia R$ 0,1886).
+
+Tela de Preços (`page.tsx`):
+- texto "Regra de cobrança" deixou de ter valores fixos no código: mostra a vigência atual (nacionalização, RFID/ADIPAC, combo calculado, confeccionada, tester) e explica que RFID/ADIPAC é a diferença do combo;
+- formulário "Nova vigência" vem pré-preenchido com os valores da vigência atual (antes: 0,4100/0,1900 fixos, que induziam a cadastrar valores antigos);
+- textos "calculado pelo backend" → "calculado pelo sistema".
+
+Manual do usuário (PDF, 18 páginas): gerado com Playwright (capturas com dados fictícios) e a identidade visual Unilog com o logo oficial; seção 10 traz os preços atuais e o passo a passo do reajuste.
