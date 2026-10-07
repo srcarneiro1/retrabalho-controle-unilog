@@ -316,10 +316,20 @@ function createLaborForm() {
 
 // Formulário de nova vigência pré-preenchido com os valores da vigência atual
 // (antes eram valores fixos no código, que ficavam desatualizados a cada reajuste).
-function createPriceForm(base?: { valorNacionalizacao: number; valorCombo?: number; valorTester?: number; valorConfeccao?: number }) {
+// Primeiro dia permitido para uma nova vigência: depois do início da vigência mais recente.
+function nextPriceStart(latestStart?: string) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  if (!latestStart) return today
+  const [y, m, d] = latestStart.split('-').map(Number)
+  const next = new Date(y, m - 1, d + 1)
+  return next > today ? next : today
+}
+
+function createPriceForm(base?: { valorNacionalizacao: number; valorCombo?: number; valorTester?: number; valorConfeccao?: number; vigenciaInicio?: string }) {
   return {
     requestId: crypto.randomUUID(),
-    vigenciaInicio: new Date(),
+    vigenciaInicio: nextPriceStart(base?.vigenciaInicio),
     valorNacionalizacao: base ? Number(base.valorNacionalizacao || 0) : 0,
     valorCombo: base ? Number(base.valorCombo || 0) : 0,
     valorTester: base ? Number(base.valorTester || 0) : 0,
@@ -520,6 +530,12 @@ export default function Home() {
   const [form, setForm] = useState(createForm)
   const [dialog, setDialog] = useState(false)
   const [formError, setFormError] = useState('')
+  const [priceError, setPriceError] = useState('')
+  const [priceSuccess, setPriceSuccess] = useState('')
+  // Correção (sobrescrita) da vigência mais recente.
+  const [correctTarget, setCorrectTarget] = useState<PriceRow | null>(null)
+  const [correctForm, setCorrectForm] = useState({ valorCombo: 0, valorNacionalizacao: 0, valorTester: 0, valorConfeccao: 0, observacao: '', motivo: '' })
+  const [correctError, setCorrectError] = useState('')
 
   const [processes, setProcesses] = useState<ProcessRow[]>([])
   const [processSkus, setProcessSkus] = useState<Record<string, SkuOption[]>>({})
@@ -1168,6 +1184,56 @@ export default function Home() {
     }
   }
 
+  function openCorrectPrice(row: PriceRow) {
+    if (!canManagePrices) return
+    setCorrectForm({
+      valorCombo: Number(row.valorCombo || 0),
+      valorNacionalizacao: Number(row.valorNacionalizacao || 0),
+      valorTester: Number(row.valorTester || 0),
+      valorConfeccao: Number(row.valorConfeccao || 0),
+      observacao: row.observacao || '',
+      motivo: '',
+    })
+    setCorrectError('')
+    setCorrectTarget(row)
+  }
+
+  async function correctPrice() {
+    if (!correctTarget || saving) return
+    if (!correctForm.motivo.trim()) return setCorrectError('Informe o motivo da correção.')
+    if (!(Number(correctForm.valorCombo) > 0)) return setCorrectError('Informe a tarifa do combo.')
+    setSaving(true)
+    setCorrectError('')
+    try {
+      const result = await api('/api/precos', {
+        method: 'PUT',
+        body: JSON.stringify({
+          id: correctTarget.id,
+          versao: correctTarget.versao,
+          valorCombo: correctForm.valorCombo,
+          valorNacionalizacao: correctForm.valorNacionalizacao,
+          valorTester: correctForm.valorTester,
+          valorConfeccao: correctForm.valorConfeccao,
+          observacao: correctForm.observacao.trim(),
+          motivo: correctForm.motivo.trim(),
+        }),
+      })
+      const fresh: PriceRow[] = await loadPrices()
+      const latest = [...fresh].sort((x, y) => y.vigenciaInicio.localeCompare(x.vigenciaInicio))[0]
+      setPriceForm(createPriceForm(latest))
+      const n = Number(result?.recalculados ?? 0)
+      setPriceSuccess(`Vigência de ${dateLabel(correctTarget.vigenciaInicio)} corrigida. ${n} lançamento(s) recalculado(s) com os novos valores; o histórico está na auditoria.`)
+      setPriceError('')
+      setCorrectTarget(null)
+      await loadItems(isClient ? selectedMonth : (reworkMonth || undefined))
+      setAuditLoadedMonth('')
+    } catch (error) {
+      setCorrectError(error instanceof Error ? error.message : 'Não foi possível corrigir a vigência.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   function exportLabor() {
     downloadCsv(
       `mao-de-obra-unilog-${laborMonth || 'completo'}.csv`,
@@ -1333,7 +1399,10 @@ export default function Home() {
 
   function openPrices() {
     if (!canViewPrices) return
-    setPriceForm(createPriceForm(currentPrice))
+    const latest = [...prices].sort((x, y) => y.vigenciaInicio.localeCompare(x.vigenciaInicio))[0]
+    setPriceForm(createPriceForm(latest || currentPrice))
+    setPriceError('')
+    setPriceSuccess('')
     setSection('precos')
     setMobileOpen(false)
   }
@@ -1353,6 +1422,19 @@ export default function Home() {
 
   async function createPrice() {
     if (!canManagePrices || saving) return
+    setPriceError('')
+    setPriceSuccess('')
+    const start = isoDate(priceForm.vigenciaInicio)
+    const latestStart = [...prices].map(p => p.vigenciaInicio).sort().reverse()[0]
+    if (!start) return setPriceError('Informe a data de início da nova vigência.')
+    if (latestStart && start <= latestStart) {
+      return setPriceError(
+        `A nova vigência precisa começar depois de ${dateLabel(latestStart)}, que é o início da vigência mais recente. `
+        + `Use ${dateLabel(isoDate(nextPriceStart(latestStart)))} ou uma data posterior. `
+        + 'Se a intenção é consertar os valores da vigência atual, use o botão Corrigir na tabela abaixo.'
+      )
+    }
+    if (!(Number(priceForm.valorCombo) > 0)) return setPriceError('Informe a tarifa do combo (nacionalização + RFID ou ADIPAC).')
     setSaving(true)
     try {
       await api('/api/precos', {
@@ -1371,6 +1453,10 @@ export default function Home() {
       const fresh: PriceRow[] = await loadPrices()
       const latest = [...fresh].sort((x, y) => y.vigenciaInicio.localeCompare(x.vigenciaInicio))[0]
       setPriceForm(createPriceForm(latest))
+      setPriceSuccess(`Vigência criada: os novos valores valem a partir de ${dateLabel(start)}.`)
+    } catch (error) {
+      // Antes não havia tratamento: o erro do servidor se perdia e a tela não mostrava nada.
+      setPriceError(error instanceof Error ? error.message : 'Não foi possível criar a vigência.')
     } finally {
       setSaving(false)
     }
@@ -1604,6 +1690,11 @@ export default function Home() {
     return prices.find(p => p.vigenciaInicio <= today && (!p.vigenciaFim || p.vigenciaFim >= today))
       || [...prices].sort((a, b) => b.vigenciaInicio.localeCompare(a.vigenciaInicio))[0]
   }, [prices])
+
+  const latestPriceId = useMemo(
+    () => [...prices].sort((a, b) => b.vigenciaInicio.localeCompare(a.vigenciaInicio))[0]?.id,
+    [prices],
+  )
 
   const batchPreview = useMemo(() => {
     const date = isoDate(batch.dataEfetivacao)
@@ -2350,6 +2441,8 @@ export default function Home() {
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
                 </div>
               )}
+              {priceError && <div className="error"><i className="pi pi-exclamation-circle" />{priceError}</div>}
+              {priceSuccess && <div className="success-note"><i className="pi pi-check-circle" />{priceSuccess}</div>}
               <div className="price-rule">
                 <strong>Regra de cobrança:</strong> cada unidade recebe um tipo de etiquetagem — <strong>combo</strong> (nacionalização + RFID ou ADIPAC)
                 ou <strong>só nacionalização</strong> — e pode ter <strong>tester</strong> e <strong>etiquetas confeccionadas</strong>. Cada serviço tem tarifa própria.
@@ -2372,6 +2465,17 @@ export default function Home() {
                 <Column pt={cell('Etq. confeccionada')} field="valorConfeccao" header="Confecção" body={(r: PriceRow) => rateMoney(Number(r.valorConfeccao || 0))} />
                 <Column pt={cell('Observação', 'wide')} field="observacao" header="Observação" />
                 <Column pt={cell('Criado por')} field="criadoPor" header="Criado por" />
+                {canManagePrices && (
+                  <Column
+                    pt={cell('Ações', 'actions')}
+                    header=""
+                    body={(r: PriceRow) => r.id === latestPriceId ? (
+                      <div className="row-actions">
+                        <Button icon="pi pi-pencil" label="Corrigir" text className="table-action" title="Corrigir os valores desta vigência" onClick={() => openCorrectPrice(r)} />
+                      </div>
+                    ) : null}
+                  />
+                )}
               </DataTable>
             </div>
           </section>
@@ -2816,6 +2920,59 @@ export default function Home() {
           <Button label={batch.lines.length > 1 ? `Salvar ${batch.lines.length} lançamentos` : 'Salvar lançamento'} icon="pi pi-check" className="primary" loading={saving} onClick={saveBatch} disabled={!batch.lines.length} />
         </div>
         {batchError && <div className="error"><i className="pi pi-exclamation-circle" />{batchError}</div>}
+      </Dialog>
+
+      <Dialog
+        header="Corrigir vigência"
+        visible={Boolean(correctTarget)}
+        onHide={() => !saving && setCorrectTarget(null)}
+        closeOnEscape={false}
+        style={{ width: 'min(620px, 96vw)' }}
+      >
+        {correctTarget && (
+          <div className="cancel-charge">
+            <div className="cancel-summary">
+              <span>Vigência</span>
+              <strong>{dateLabel(correctTarget.vigenciaInicio)} — {correctTarget.vigenciaFim ? dateLabel(correctTarget.vigenciaFim) : 'vigente'}</strong>
+            </div>
+            <p>
+              Os valores desta vigência serão <strong>sobrescritos</strong> e todos os lançamentos que a usam serão
+              <strong> recalculados</strong> (cancelados continuam cancelados). Os valores anteriores e o motivo ficam registrados na auditoria.
+              Para mudar a data, crie uma nova vigência.
+            </p>
+            <div className="form-grid">
+          <label>
+            Combo (nacionalização + RFID ou ADIPAC)
+            <InputNumber value={correctForm.valorCombo} onValueChange={e => setCorrectForm({ ...correctForm, valorCombo: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
+          </label>
+          <label>
+            Nacionalização
+            <InputNumber value={correctForm.valorNacionalizacao} onValueChange={e => setCorrectForm({ ...correctForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
+          </label>
+          <label>
+            Transformação em tester
+            <InputNumber value={correctForm.valorTester} onValueChange={e => setCorrectForm({ ...correctForm, valorTester: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
+          </label>
+          <label>
+            Confecção / impressão de etiqueta
+            <InputNumber value={correctForm.valorConfeccao} onValueChange={e => setCorrectForm({ ...correctForm, valorConfeccao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
+          </label>
+              <label className="span-2">
+                Observação da vigência
+                <InputText value={correctForm.observacao} onChange={e => setCorrectForm({ ...correctForm, observacao: e.target.value })} />
+              </label>
+              <label className="span-2">
+                Motivo da correção *
+                <InputText value={correctForm.motivo} onChange={e => { setCorrectForm({ ...correctForm, motivo: e.target.value }); setCorrectError('') }} placeholder="Ex.: tester cadastrado com R$ 0 por engano" />
+              </label>
+            </div>
+            {correctError && <div className="error"><i className="pi pi-exclamation-circle" />{correctError}</div>}
+          </div>
+        )}
+        <div className="dialog-actions">
+          <Button label="Voltar" text disabled={saving} onClick={() => setCorrectTarget(null)} />
+          <Button label="Corrigir e recalcular" icon="pi pi-check" className="primary" loading={saving} onClick={correctPrice} />
+        </div>
       </Dialog>
 
       <Dialog

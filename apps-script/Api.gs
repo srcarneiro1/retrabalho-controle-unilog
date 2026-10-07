@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.07.1';
+const API_VERSION = '2026.10.07.2';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -111,6 +111,7 @@ function route_(route, action, payload) {
   if (route === 'precos') {
     if (action === 'LISTAR') return ok_({ data: PriceService.list() });
     if (action === 'CRIAR_VIGENCIA') return ok_(PriceService.create(payload));
+    if (action === 'CORRIGIR_VIGENCIA') return ok_(PriceService.correct(payload));
     throw new Error('Ação de preço inválida.');
   }
 

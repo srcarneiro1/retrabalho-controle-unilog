@@ -109,6 +109,41 @@ const Repository = (() => {
     return firstRow;
   }
 
+  // Atualiza várias linhas com UMA leitura e UMA gravação (recálculo em massa).
+  // changes: [{ rowNumber, updates }]. Lê a faixa de linhas/colunas afetadas, altera na memória
+  // e grava de volta — gravar célula a célula estouraria o tempo do Apps Script com centenas de linhas.
+  function updateMany(name, changes, textFields) {
+    if (!changes || !changes.length) return 0;
+    const sh = sheet(name);
+    const hs = headers(name);
+    const fields = {};
+    changes.forEach(c => Object.keys(c.updates).forEach(f => { fields[f] = true; }));
+    const idxs = Object.keys(fields).map(f => {
+      const i = hs.indexOf(f);
+      if (i < 0) throw new Error('Campo não encontrado em ' + name + ': ' + f);
+      return i;
+    });
+    const minCol = Math.min.apply(null, idxs) + 1;
+    const maxCol = Math.max.apply(null, idxs) + 1;
+    const rowsN = changes.map(c => c.rowNumber);
+    const minRow = Math.min.apply(null, rowsN);
+    const maxRow = Math.max.apply(null, rowsN);
+    const range = sh.getRange(minRow, minCol, maxRow - minRow + 1, maxCol - minCol + 1);
+    const values = range.getValues();
+    changes.forEach(c => {
+      Object.keys(c.updates).forEach(f => {
+        values[c.rowNumber - minRow][hs.indexOf(f) + 1 - minCol] = c.updates[f];
+      });
+    });
+    (textFields || []).forEach(f => {
+      const i = hs.indexOf(f) + 1;
+      if (i >= minCol && i <= maxCol) sh.getRange(minRow, i, maxRow - minRow + 1, 1).setNumberFormat('@');
+    });
+    range.setValues(values);
+    invalidate_(name);
+    return changes.length;
+  }
+
   function update(name, rowNumber, updates, textFields) {
     const sh = sheet(name);
     const hs = headers(name);
@@ -146,5 +181,5 @@ const Repository = (() => {
     return sh;
   }
 
-  return { sheet, headers, rowObject, list, find, append, appendMany, update, ensure };
+  return { sheet, headers, rowObject, list, find, append, appendMany, update, updateMany, ensure };
 })();

@@ -90,6 +90,56 @@ const ReworkService = (() => {
     return { quantidade, combo, nacionalizacao, rfid: 0, tester, confeccao };
   }
 
+  // Recalcula todos os lançamentos que usam a vigência informada (após correção de preço).
+  // Lançamentos do modelo antigo (nacionalização + RFID adicional) são convertidos para combo:
+  // combo = mín(nacionalização, RFID); nacionalização = restante; unidades só com RFID ficam em RFID (tarifa da vigência).
+  // Uma leitura e uma gravação em bloco (Repository.updateMany) + auditoria em lote.
+  function recalculateForPrice(price, author) {
+    ensureColumns_();
+    const now = new Date();
+    const changes = [];
+    const audits = [];
+    let rfidAvulso = 0;
+    Repository.list('RETRABALHOS')
+      .filter(x => text_(x.record.ID_PRECO) === price.id && upper_(x.record.ATIVO) !== 'NAO')
+      .forEach(x => {
+        const r = x.record;
+        let combo = Number(r.QTD_COMBO || 0);
+        let nat = Number(r.ETIQUETAS_NACIONALIZACAO || 0);
+        let rfid = Number(r.ETIQUETAS_RFID || 0);
+        if (!(combo > 0) && rfid > 0) {
+          combo = Math.min(nat, rfid);
+          const soRfid = Math.max(0, rfid - nat);
+          nat = nat - combo;
+          rfid = soRfid;
+        }
+        rfidAvulso += rfid;
+        const services = {
+          quantidade: Number(r.QTD_RETRABALHADA || 0),
+          combo, nacionalizacao: nat, rfid,
+          tester: Number(r.QTD_TESTER || 0),
+          confeccao: Number(r.ETIQUETAS_CONFECCIONADAS || 0)
+        };
+        const validade = Number(r.ETIQUETAS_VALIDADE || 0);
+        const charge = PriceService.calculate(null, Object.assign({}, services, { validade }), price);
+        const version = Number(r.VERSAO || 0);
+        const updates = Object.assign(chargeFields_(services, validade, charge), {
+          MATRICULA_ATUALIZACAO: author,
+          ATUALIZADO_EM: now,
+          VERSAO: version + 1
+        });
+        changes.push({ rowNumber: x.rowNumber, updates });
+        audits.push({
+          entity: 'RETRABALHO', id: text_(r.ID_RETRABALHO), action: 'RECALCULAR_PRECO', author,
+          before: map_(r), after: map_(Object.assign({}, r, updates)),
+          oldVersion: version, newVersion: version + 1
+        });
+      });
+    Repository.updateMany('RETRABALHOS', changes, ['ID_PRECO', 'MATRICULA_ATUALIZACAO']);
+    if (audits.length) AuditService.logMany(audits);
+    return { count: changes.length, rfidAvulso };
+  }
+
   function newId_(now) {
     return 'RT-' + Utilities.formatDate(now, AppConfig.TIMEZONE, 'yyyyMMddHHmmss') + '-' + Utilities.getUuid().slice(0,8).toUpperCase();
   }
@@ -455,5 +505,5 @@ const ReworkService = (() => {
     return { ok:true, data:after };
   }
 
-  return { list, months, idsForScope, create, createBatch, edit, cancelCharge };
+  return { list, months, idsForScope, create, createBatch, edit, cancelCharge, recalculateForPrice };
 })();

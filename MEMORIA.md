@@ -721,3 +721,20 @@ Frontend:
 Testes: 15 cenários no simulador do Apps Script (cálculos, regras, vigência sem combo recusada, compatibilidade e edição) e 13 na interface (histórico, conversão de registro antigo, lote com total R$ 704,34, bloqueio de regra, Preços, CSV e celular).
 
 **Cadastro necessário após publicar:** nova vigência em Preços — Combo 0,6000; Nacionalização 0,4114; Tester 0,6000; Confecção 0,1500.
+- **Criar vigência sem resposta (07/10/2026):** a tela tentava criar vigência na mesma data de início da vigência atual (07/10), recusada pelo backend ("Já existe uma tabela de preços iniciando nessa data"), mas `createPrice` não tinha `catch` e a mensagem se perdia — a tela não mostrava nada. Corrigido: erro do servidor exibido no painel; validação antes de enviar com a data mínima ("precisa começar depois de dd/mm; use dd/mm"); data do formulário sugerida automaticamente como o primeiro dia permitido (dia seguinte ao início da vigência mais recente, ou hoje); confirmação de sucesso. Testado no cenário real (vigência de 07/10 no modelo anterior): sugere 08/10, bloqueia 07/10 com explicação, mostra erro do servidor, cria 08/10 com combo 0,60/nacionalização 0,4114/tester 0,60/confecção 0,15 e passa a sugerir 09/10.
+
+## ✏️ Corrigir vigência (sobrescrever) — 07/10/2026 (API 2026.10.07.2)
+
+Necessidade: corrigir uma vigência cadastrada com valor errado, sem precisar criar outra em data posterior.
+
+- botão **Corrigir** na tabela de Preços, só para **ADMIN** e só na **vigência mais recente** (vigências antigas podem já ter sido faturadas);
+- sobrescreve combo, nacionalização, tester, confecção e observação; **datas não mudam** (para outra data, nova vigência); motivo obrigatório;
+- **recalcula todos os lançamentos** com `ID_PRECO` da vigência (inclusive cancelados, que continuam cancelados), incrementando a versão de cada um;
+- lançamentos do modelo antigo (nacionalização + RFID) são convertidos para combo no recálculo (combo = mín(nac., RFID); nacionalização = restante), preservando o valor quando a tarifa de RFID avulso é zerada;
+- histórico na auditoria: `PRECO / CORRIGIR` (antes, depois, motivo e quantidade recalculada) e `RETRABALHO / RECALCULAR_PRECO` por lançamento;
+- proteções: versão otimista (correção concorrente recusada), perfil ADMIN no gateway e no Apps Script;
+- desempenho: `Repository.updateMany` — uma leitura e uma gravação em bloco da faixa afetada (gravar célula a célula estouraria o tempo do Apps Script com centenas de lançamentos) + `AuditService.logMany`;
+- gateway: `PUT /api/precos` → `CORRIGIR_VIGENCIA`; tabela de preços ganha `ATUALIZADO_EM` e `ATUALIZADO_POR`;
+- ao tentar criar vigência na mesma data da atual, a mensagem indica o botão Corrigir.
+
+Testes: 13 no simulador do Apps Script (recálculo de tester de R$ 0 para R$ 60,00, combo mantido, conversão de lançamento antigo com valor preservado, auditoria, versão, motivo, perfil, vigência antiga bloqueada) e 7 na interface (botão só na mais recente e só para ADMIN, valores pré-preenchidos, motivo obrigatório, ESC não fecha, envio e confirmação).

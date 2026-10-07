@@ -1,5 +1,6 @@
 const PriceService = (() => {
   function text_(v) { return String(v == null ? '' : v).trim(); }
+  function upper_(v) { return text_(v).toUpperCase(); }
 
   function parseDate_(v, label) {
     const s = text_(v);
@@ -206,5 +207,53 @@ const PriceService = (() => {
     return { ok:true, data:mapped };
   }
 
-  return { list, findByDate, calculate, create };
+  // Corrige (sobrescreve) os valores da vigência MAIS RECENTE e recalcula os lançamentos que a usam.
+  // O histórico fica na auditoria (antes/depois + motivo). Datas não mudam: para mudar a data,
+  // crie uma nova vigência. Vigências anteriores não podem ser corrigidas (meses possivelmente já faturados).
+  function correct(input) {
+    const author = text_(input.matriculaAutor);
+    if (text_(input.perfilAutor).toUpperCase() !== 'ADMIN') throw new Error('Apenas ADMIN pode corrigir vigência de preço.');
+    const id = text_(input.id);
+    const motivo = text_(input.motivo);
+    if (!motivo) throw new Error('Informe o motivo da correção.');
+
+    Repository.ensure('TABELA_PRECOS', EXTRA_HEADERS.concat(['ATUALIZADO_EM', 'ATUALIZADO_POR']));
+    const rows = rows_();
+    const hit = rows.find(x => text_(x.record.ID_PRECO) === id);
+    if (!hit) throw new Error('Vigência não encontrada.');
+    const start = iso_(hit.record.VIGENCIA_INICIO);
+    const newer = rows.some(x => x !== hit && upper_(x.record.ATIVO) !== 'NAO' && iso_(x.record.VIGENCIA_INICIO) > start);
+    if (newer) throw new Error('Só a vigência mais recente pode ser corrigida. Para mudar preços daqui para frente, crie uma nova vigência.');
+
+    const currentVersion = Number(hit.record.VERSAO || 0);
+    if (Number(input.versao || 0) !== currentVersion) {
+      throw new Error('A vigência foi alterada por outro usuário. Atualize a tabela antes de corrigir.');
+    }
+
+    const valueCombo = rate_(input.valorCombo, 'Tarifa do combo');
+    if (!(valueCombo > 0)) throw new Error('Informe a tarifa do combo (nacionalização + RFID ou ADIPAC).');
+    const before = map_(hit.record);
+    const nextVersion = currentVersion + 1;
+    Repository.update('TABELA_PRECOS', hit.rowNumber, {
+      VALOR_NACIONALIZACAO: rate_(input.valorNacionalizacao, 'Tarifa de nacionalização'),
+      VALOR_COMBO: valueCombo,
+      VALOR_RFID_ADICIONAL: 0,
+      VALOR_TESTER: rate_(input.valorTester == null || input.valorTester === '' ? 0 : input.valorTester, 'Tarifa de transformação em tester'),
+      VALOR_CONFECCAO: rate_(input.valorConfeccao == null || input.valorConfeccao === '' ? 0 : input.valorConfeccao, 'Tarifa de etiquetas confeccionadas'),
+      OBSERVACAO: text_(input.observacao),
+      VERSAO: nextVersion,
+      ATUALIZADO_EM: new Date(),
+      ATUALIZADO_POR: author
+    }, ['ATUALIZADO_POR']);
+
+    const after = map_(Repository.rowObject('TABELA_PRECOS', hit.rowNumber));
+    const recalc = ReworkService.recalculateForPrice(after, author);
+    AuditService.log('PRECO', id, 'CORRIGIR', author, before,
+      Object.assign({}, after, { motivoCorrecao: motivo, lancamentosRecalculados: recalc.count }),
+      currentVersion, nextVersion);
+    return { ok: true, data: after, recalculados: recalc.count, rfidAvulso: recalc.rfidAvulso };
+  }
+
+  return {
+    correct, list, findByDate, calculate, create };
 })();

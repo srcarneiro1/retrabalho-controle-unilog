@@ -80,3 +80,38 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ ok: false, error: { message } }, 400)
   }
 }
+
+// Corrigir (sobrescrever) a vigência mais recente e recalcular os lançamentos que a usam.
+export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
+  try {
+    const user = await identity(request, env)
+    if (user.perfil !== 'ADMIN') {
+      return json({ ok: false, error: { message: 'Apenas ADMIN pode corrigir vigência de preço.' } }, 403)
+    }
+    const body = await request.json() as Record<string, unknown>
+    const payload = { ...body, acao: 'CORRIGIR_VIGENCIA', matriculaAutor: user.matricula, perfilAutor: user.perfil }
+    try {
+      const response = await mutateAppsScriptOnce(env, 'precos', payload)
+      const upstream = await parseUpstream(response)
+      if (upstream !== null) {
+        if (!response.ok || !apiSucceeded(upstream)) {
+          throw new Error(upstream?.error?.message || 'Falha ao corrigir vigência.')
+        }
+        return json(upstream)
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message && !/fetch|network|invalid|response|connection/i.test(error.message)) {
+        throw error
+      }
+    }
+    // Resposta ambígua: confirma pela versão da vigência, sem reenviar.
+    const current = await list_(env)
+    const rows = Array.isArray(current.data) ? current.data : []
+    const found = rows.find((x: any) => String(x.id || '') === String(body.id || '') && Number(x.versao || 0) > Number(body.versao || 0))
+    if (found) return json({ ok: true, data: found, reconciled: true })
+    throw new Error('Não foi possível confirmar a correção. Atualize a tabela antes de tentar novamente.')
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Falha ao corrigir vigência.'
+    return json({ ok: false, error: { message } }, 400)
+  }
+}
