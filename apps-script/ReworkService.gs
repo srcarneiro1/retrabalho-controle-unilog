@@ -47,7 +47,10 @@ const ReworkService = (() => {
     'PRECO_TESTER_UNIT',
     'PRECO_CONFECCAO_UNIT',
     'VALOR_TESTER',
-    'VALOR_CONFECCAO'
+    'VALOR_CONFECCAO',
+    'QTD_COMBO',
+    'PRECO_COMBO_UNIT',
+    'VALOR_COMBO'
   ];
   const TEXT_FIELDS = ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO','CNPJ_CLIENTE','CANCELADO_POR','ID_PROCESSO','NUMERO_PROCESSO','ID_LOTE'];
   const MAX_BATCH = 100;
@@ -60,26 +63,31 @@ const ReworkService = (() => {
     return int_(v == null || v === '' ? 0 : v, label, true);
   }
 
-  // Regras dos serviços (por SKU):
+  // Serviços por SKU (modelo de 07/10/2026 — cada unidade recebe UM tipo de etiquetagem):
+  // - Combo: nacionalização + RFID ou ADIPAC, cobrado como um serviço único;
+  // - Nacionalização: só a etiqueta de nacionalização;
+  // - Tester: transformação em tester;
+  // - Confeccionadas: confecção/impressão de etiqueta de nacionalização.
+  // Regras:
   // - quantidade retrabalhada é obrigatória (>= 1);
-  // - Nacionalização, RFID/ADIPAC e Transformação em tester não podem passar da quantidade retrabalhada;
-  // - Etiquetas confeccionadas são independentes da quantidade;
-  // - ao menos um serviço precisa ser informado.
-  // RFID/ADIPAC é uma única cobrança por unidade (RFID, ADIPAC ou os dois = mesma tarifa).
+  // - combo + nacionalização não pode passar da quantidade (a unidade recebe um ou outro);
+  // - tester não pode passar da quantidade; confeccionadas são livres;
+  // - ao menos um serviço. RFID/ADIPAC avulso não existe mais (sempre 0 em gravações novas).
   function services_(input, prefix) {
     const p = prefix || '';
     const quantidade = int_(input.quantidade, p + 'Quantidade retrabalhada', false);
-    const nacionalizacao = optionalInt_(input.nacionalizacao, p + 'Quantidade de etiquetas de nacionalização');
-    const rfid = optionalInt_(input.rfid, p + 'Quantidade de etiquetas RFID/ADIPAC');
+    const combo = optionalInt_(input.combo, p + 'Quantidade de combo (nacionalização + RFID/ADIPAC)');
+    const nacionalizacao = optionalInt_(input.nacionalizacao, p + 'Quantidade de nacionalização');
     const tester = optionalInt_(input.tester, p + 'Quantidade de transformação em tester');
     const confeccao = optionalInt_(input.confeccao, p + 'Quantidade de etiquetas confeccionadas');
-    if (nacionalizacao > quantidade) throw new Error(p + 'Etiquetas de nacionalização não podem ser maiores que a quantidade retrabalhada.');
-    if (rfid > quantidade) throw new Error(p + 'Etiquetas RFID/ADIPAC não podem ser maiores que a quantidade retrabalhada.');
-    if (tester > quantidade) throw new Error(p + 'Transformação em tester não pode ser maior que a quantidade retrabalhada.');
-    if (nacionalizacao + rfid + tester + confeccao <= 0) {
-      throw new Error(p + 'Informe ao menos um serviço: nacionalização, RFID/ADIPAC, tester ou etiquetas confeccionadas.');
+    if (combo + nacionalizacao > quantidade) {
+      throw new Error(p + 'Combo + nacionalização não pode ser maior que a quantidade retrabalhada (cada unidade recebe um ou outro).');
     }
-    return { quantidade, nacionalizacao, rfid, tester, confeccao };
+    if (tester > quantidade) throw new Error(p + 'Transformação em tester não pode ser maior que a quantidade retrabalhada.');
+    if (combo + nacionalizacao + tester + confeccao <= 0) {
+      throw new Error(p + 'Informe ao menos um serviço: combo, nacionalização, tester ou etiquetas confeccionadas.');
+    }
+    return { quantidade, combo, nacionalizacao, rfid: 0, tester, confeccao };
   }
 
   function newId_(now) {
@@ -92,18 +100,22 @@ const ReworkService = (() => {
       QTD_RETRABALHADA: services.quantidade,
       ETIQUETAS_NACIONALIZACAO: services.nacionalizacao,
       ETIQUETAS_RFID: services.rfid,
+      QTD_COMBO: services.combo,
       ETIQUETAS_VALIDADE: validade,
       QTD_TESTER: services.tester,
       ETIQUETAS_CONFECCIONADAS: services.confeccao,
-      TOTAL_ETIQUETAS: services.nacionalizacao + services.rfid + services.confeccao + validade,
+      // Cada combo aplica 2 etiquetas (nacionalização + RFID/ADIPAC).
+      TOTAL_ETIQUETAS: services.nacionalizacao + 2 * services.combo + services.rfid + services.confeccao + validade,
       ID_PRECO: price.idPreco,
       PRECO_NACIONALIZACAO_UNIT: price.precoNacionalizacaoUnit,
       PRECO_RFID_ADICIONAL_UNIT: price.precoRfidAdicionalUnit,
+      PRECO_COMBO_UNIT: price.precoComboUnit,
       PRECO_VALIDADE_UNIT: price.precoValidadeUnit,
       PRECO_TESTER_UNIT: price.precoTesterUnit,
       PRECO_CONFECCAO_UNIT: price.precoConfeccaoUnit,
       VALOR_NACIONALIZACAO: price.valorNacionalizacao,
       VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
+      VALOR_COMBO: price.valorCombo,
       VALOR_VALIDADE: price.valorValidade,
       VALOR_TESTER: price.valorTester,
       VALOR_CONFECCAO: price.valorConfeccao,
@@ -130,6 +142,9 @@ const ReworkService = (() => {
       dataValidade: iso_(r.DATA_VALIDADE_INSERIDA),
       nacionalizacao: Number(r.ETIQUETAS_NACIONALIZACAO || 0),
       rfid: Number(r.ETIQUETAS_RFID || 0),
+      combo: Number(r.QTD_COMBO || 0),
+      precoComboUnit: Number(r.PRECO_COMBO_UNIT || 0),
+      valorCombo: Number(r.VALOR_COMBO || 0),
       validade: Number(r.ETIQUETAS_VALIDADE || 0),
       tester: Number(r.QTD_TESTER || 0),
       confeccao: Number(r.ETIQUETAS_CONFECCIONADAS || 0),
@@ -211,7 +226,7 @@ const ReworkService = (() => {
 
     const date = parseDate_(input.dataEfetivacao,'Data de efetivação',true);
     const services = services_(input);
-    const price = PriceService.calculate(date, services.nacionalizacao, services.rfid, 0, services.tester, services.confeccao);
+    const price = PriceService.calculate(date, services);
 
     ensureColumns_();
     const now = new Date();
@@ -286,7 +301,7 @@ const ReworkService = (() => {
       if (!descricao) throw new Error(label + 'o SKU ' + sku + ' está sem descrição no processo.');
 
       const services = services_(line || {}, label);
-      const charge = PriceService.calculate(date, services.nacionalizacao, services.rfid, 0, services.tester, services.confeccao, price);
+      const charge = PriceService.calculate(date, services, price);
 
       return Object.assign({
         ID_RETRABALHO: newId_(now),
@@ -371,7 +386,7 @@ const ReworkService = (() => {
     // Registros históricos preservam a quantidade de Etiqueta de Validade já gravada,
     // para que a edição não altere silenciosamente uma cobrança antiga.
     const validade = Number(hit.record.ETIQUETAS_VALIDADE || 0);
-    const price = PriceService.calculate(date, services.nacionalizacao, services.rfid, validade, services.tester, services.confeccao);
+    const price = PriceService.calculate(date, Object.assign({}, services, { validade: validade }));
     const nextVersion = currentVersion + 1;
     ensureColumns_();
 

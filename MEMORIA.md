@@ -684,7 +684,7 @@ Valores informados pela operação:
 - **Tester** = a definir.
 
 Como cadastrar: o sistema soma tarifas por unidade, então o combo é obtido com **RFID/ADIPAC = R$ 0,6000 − R$ 0,4114 = R$ 0,1886**. Validado em 6 cenários (combo, só nacionalização, misto, confeccionadas): resultado idêntico à regra, com 4 casas decimais.
-Pendente de confirmação com a operação: preço de RFID/ADIPAC **sem** nacionalização (hoje sairia R$ 0,1886).
+(Substituído pelo modelo de serviços abaixo — RFID/ADIPAC avulso não existe.)
 
 Tela de Preços (`page.tsx`):
 - texto "Regra de cobrança" deixou de ter valores fixos no código: mostra a vigência atual (nacionalização, RFID/ADIPAC, combo calculado, confeccionada, tester) e explica que RFID/ADIPAC é a diferença do combo;
@@ -692,3 +692,32 @@ Tela de Preços (`page.tsx`):
 - textos "calculado pelo backend" → "calculado pelo sistema".
 
 Manual do usuário (PDF, 18 páginas): gerado com Playwright (capturas com dados fictícios) e a identidade visual Unilog com o logo oficial; seção 10 traz os preços atuais e o passo a passo do reajuste.
+
+## 🧾 Modelo de serviços e preços — 07/10/2026 (API 2026.10.07.1)
+
+Regra da operação: **só existem 4 opções** e o combo é **um serviço único** (não é nacionalização + adicional):
+
+| Serviço | Tarifa | Campo |
+|---|---|---|
+| Combo (nacionalização + RFID ou ADIPAC) | R$ 0,6000 | `combo` / `QTD_COMBO` |
+| Transformação em tester | R$ 0,6000 | `tester` / `QTD_TESTER` |
+| Só nacionalização | R$ 0,4114 | `nacionalizacao` / `ETIQUETAS_NACIONALIZACAO` |
+| Confecção/impressão de etiqueta de nacionalização | R$ 0,1500 | `confeccao` / `ETIQUETAS_CONFECCIONADAS` |
+
+Regras por SKU: quantidade ≥ 1; **combo + nacionalização ≤ quantidade** (cada unidade recebe um ou outro); tester ≤ quantidade; confeccionadas livres; ao menos um serviço. RFID/ADIPAC avulso **não existe** (gravado 0). `TOTAL_ETIQUETAS` = nacionalização + 2 × combo + confeccionadas (combo aplica 2 etiquetas).
+
+Backend:
+- `TABELA_PRECOS.VALOR_COMBO` (obrigatório em novas vigências; `VALOR_RFID_ADICIONAL` = 0);
+- `RETRABALHOS.QTD_COMBO`, `PRECO_COMBO_UNIT`, `VALOR_COMBO` (colunas criadas automaticamente);
+- `PriceService.calculate(data, quantidades, preçoOpcional)` (parâmetro em objeto);
+- **compatibilidade:** vigências antigas sem `VALOR_COMBO` têm combo = nacionalização + RFID adicional (R$ 0,41 + R$ 0,19 = R$ 0,60), exatamente o cobrado na época — nenhum lançamento antigo muda de valor.
+
+Frontend:
+- lançamento em lote e edição: Combo, Nacionalização, Tester, Confecção;
+- lançamentos antigos (nacionalização + RFID) exibidos e editados convertidos: combo = mín(nacionalização, RFID), nacionalização = restante (`servicesOf`/`chargesOf`); se houver unidades só com RFID, a edição avisa que deixarão de ser cobradas;
+- Preços: formulário com Combo/Nacionalização/Tester/Confecção, pré-preenchido com a vigência atual; regra de cobrança dinâmica; histórico mostra o combo efetivo;
+- CSV: colunas Combo e Nacionalização (quantidade, tarifa e valor), registros antigos convertidos com os preços da época.
+
+Testes: 15 cenários no simulador do Apps Script (cálculos, regras, vigência sem combo recusada, compatibilidade e edição) e 13 na interface (histórico, conversão de registro antigo, lote com total R$ 704,34, bloqueio de regra, Preços, CSV e celular).
+
+**Cadastro necessário após publicar:** nova vigência em Preços — Combo 0,6000; Nacionalização 0,4114; Tester 0,6000; Confecção 0,1500.

@@ -72,6 +72,9 @@ type Rework = {
   dataValidade: string
   nacionalizacao: number
   rfid: number
+  combo?: number
+  precoComboUnit?: number
+  valorCombo?: number
   validade: number
   tester?: number
   confeccao?: number
@@ -127,8 +130,8 @@ type BatchLine = {
   sku: string
   descricao: string
   quantidade: number | null
+  combo: number | null
   nacionalizacao: number | null
-  rfid: number | null
   tester: number | null
   confeccao: number | null
 }
@@ -137,19 +140,53 @@ const MAX_BATCH_SKUS = 100
 const SKU_PICKER_LIMIT = 200
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
-// Regras por SKU (espelham o backend).
-function lineError(line: { quantidade: number | null; nacionalizacao: number | null; rfid: number | null; tester: number | null; confeccao: number | null }) {
+// Serviços por SKU (modelo de 07/10/2026; espelha o backend):
+// combo (nacionalização + RFID ou ADIPAC), nacionalização (só a etiqueta), tester e confeccionadas.
+// Cada unidade recebe combo OU nacionalização: combo + nacionalização ≤ quantidade.
+type ServiceQty = { quantidade: number | null; combo: number | null; nacionalizacao: number | null; tester: number | null; confeccao: number | null }
+
+function lineError(line: ServiceQty) {
   const qtd = Number(line.quantidade || 0)
+  const combo = Number(line.combo || 0)
   const nat = Number(line.nacionalizacao || 0)
-  const rfid = Number(line.rfid || 0)
   const tester = Number(line.tester || 0)
   const conf = Number(line.confeccao || 0)
   if (qtd < 1) return 'informe a quantidade retrabalhada'
-  if (nat > qtd) return 'nacionalização maior que a quantidade retrabalhada'
-  if (rfid > qtd) return 'RFID/ADIPAC maior que a quantidade retrabalhada'
+  if (combo + nat > qtd) return 'combo + nacionalização maior que a quantidade retrabalhada'
   if (tester > qtd) return 'tester maior que a quantidade retrabalhada'
-  if (nat + rfid + tester + conf <= 0) return 'informe ao menos um serviço'
+  if (combo + nat + tester + conf <= 0) return 'informe ao menos um serviço'
   return null
+}
+
+// Lançamentos do modelo antigo (nacionalização + RFID adicional) vistos no modelo novo:
+// unidades com as duas etiquetas viram combo; o restante da nacionalização fica como "só nacionalização".
+function servicesOf(item: Rework) {
+  if (Number(item.combo || 0) > 0 || Number(item.rfid || 0) === 0) {
+    return { combo: Number(item.combo || 0), nacionalizacao: Number(item.nacionalizacao || 0), rfidAvulso: 0 }
+  }
+  const combo = Math.min(Number(item.nacionalizacao || 0), Number(item.rfid || 0))
+  return {
+    combo,
+    nacionalizacao: Number(item.nacionalizacao || 0) - combo,
+    rfidAvulso: Math.max(0, Number(item.rfid || 0) - Number(item.nacionalizacao || 0)),
+  }
+}
+
+// Tarifas e valores por serviço para exibição/CSV (registros antigos convertidos com os preços da época).
+function chargesOf(item: Rework) {
+  const sv = servicesOf(item)
+  const legacy = !(Number(item.combo || 0) > 0) && Number(item.rfid || 0) > 0
+  const precoNac = Number(item.precoNacionalizacaoUnit || 0)
+  const precoCombo = legacy
+    ? precoNac + Number(item.precoRfidAdicionalUnit || 0)
+    : Number(item.precoComboUnit || 0) || precoNac + Number(item.precoRfidAdicionalUnit || 0)
+  return {
+    ...sv,
+    precoNac,
+    precoCombo,
+    valorNac: legacy ? sv.nacionalizacao * precoNac : Number(item.valorNacionalizacao || 0),
+    valorCombo: legacy ? sv.combo * precoCombo : Number(item.valorCombo || 0),
+  }
 }
 
 function fileToBase64(file: File) {
@@ -199,6 +236,8 @@ type PriceRow = {
   vigenciaFim: string
   valorNacionalizacao: number
   valorRfidAdicional: number
+  valorCombo?: number
+  comboLegado?: boolean
   valorValidade: number
   valorTester?: number
   valorConfeccao?: number
@@ -234,8 +273,8 @@ function createForm() {
     cnpjCliente: '',
     // Vazios por padrão: o usuário digita sem precisar apagar um 0.
     quantidade: null as number | null,
+    combo: null as number | null,
     nacionalizacao: null as number | null,
-    rfid: null as number | null,
     tester: null as number | null,
     confeccao: null as number | null,
     numeroProcesso: '',
@@ -277,12 +316,12 @@ function createLaborForm() {
 
 // Formulário de nova vigência pré-preenchido com os valores da vigência atual
 // (antes eram valores fixos no código, que ficavam desatualizados a cada reajuste).
-function createPriceForm(base?: { valorNacionalizacao: number; valorRfidAdicional: number; valorTester?: number; valorConfeccao?: number }) {
+function createPriceForm(base?: { valorNacionalizacao: number; valorCombo?: number; valorTester?: number; valorConfeccao?: number }) {
   return {
     requestId: crypto.randomUUID(),
     vigenciaInicio: new Date(),
     valorNacionalizacao: base ? Number(base.valorNacionalizacao || 0) : 0,
-    valorRfidAdicional: base ? Number(base.valorRfidAdicional || 0) : 0,
+    valorCombo: base ? Number(base.valorCombo || 0) : 0,
     valorTester: base ? Number(base.valorTester || 0) : 0,
     valorConfeccao: base ? Number(base.valorConfeccao || 0) : 0,
     observacao: '',
@@ -812,8 +851,8 @@ export default function Home() {
         sku,
         descricao: catalog.find(item => item.sku === sku)?.descricao || '',
         quantidade: null,
+        combo: null,
         nacionalizacao: null,
-        rfid: null,
         tester: null,
         confeccao: null,
       })
@@ -871,8 +910,8 @@ export default function Home() {
           linhas: batch.lines.map(line => ({
             sku: line.sku,
             quantidade: line.quantidade ?? 0,
+            combo: line.combo ?? 0,
             nacionalizacao: line.nacionalizacao ?? 0,
-            rfid: line.rfid ?? 0,
             tester: line.tester ?? 0,
             confeccao: line.confeccao ?? 0,
           })),
@@ -959,14 +998,16 @@ export default function Home() {
       descricao: row.descricao,
       cnpjCliente: row.cnpjCliente,
       quantidade: row.quantidade || null,
-      nacionalizacao: row.nacionalizacao || null,
-      rfid: row.rfid || null,
+      combo: servicesOf(row).combo || null,
+      nacionalizacao: servicesOf(row).nacionalizacao || null,
       tester: row.tester || null,
       confeccao: row.confeccao || null,
       numeroProcesso: row.numeroProcesso || '',
       versao: row.versao,
     })
-    setFormError('')
+    setFormError(servicesOf(row).rfidAvulso > 0
+      ? `Lançamento do modelo antigo com ${intLabel(servicesOf(row).rfidAvulso)} unidade(s) só com RFID/ADIPAC, opção que não existe mais. Ao salvar, elas deixam de ser cobradas.`
+      : '')
     setDialog(true)
   }
 
@@ -989,8 +1030,8 @@ export default function Home() {
         descricao: form.descricao.trim(),
         cnpjCliente: form.cnpjCliente,
         quantidade: form.quantidade ?? 0,
+        combo: form.combo ?? 0,
         nacionalizacao: form.nacionalizacao ?? 0,
-        rfid: form.rfid ?? 0,
         tester: form.tester ?? 0,
         confeccao: form.confeccao ?? 0,
         versao: form.versao,
@@ -1320,7 +1361,8 @@ export default function Home() {
           requestId: priceForm.requestId,
           vigenciaInicio: isoDate(priceForm.vigenciaInicio),
           valorNacionalizacao: priceForm.valorNacionalizacao,
-          valorRfidAdicional: priceForm.valorRfidAdicional,
+          valorCombo: priceForm.valorCombo,
+          valorRfidAdicional: 0,
           valorTester: priceForm.valorTester,
           valorConfeccao: priceForm.valorConfeccao,
           observacao: priceForm.observacao.trim(),
@@ -1380,16 +1422,16 @@ export default function Home() {
         'Processo',
         'Lote',
         'Qtd retrabalhada',
-        'Etiquetas Nacionalização',
-        'Etiquetas RFID/ADIPAC',
+        'Combo (nacionalização + RFID/ADIPAC)',
+        'Nacionalização',
         'Transformação em tester',
         'Etiquetas confeccionadas',
-        'Tarifa Nacionalização',
-        'Tarifa RFID/ADIPAC',
+        'Tarifa combo',
+        'Tarifa nacionalização',
         'Tarifa tester',
         'Tarifa etiqueta confeccionada',
-        'Valor Nacionalização',
-        'Valor RFID/ADIPAC',
+        'Valor combo',
+        'Valor nacionalização',
         'Valor tester',
         'Valor etiquetas confeccionadas',
         'Valor original cobrança',
@@ -1415,16 +1457,16 @@ export default function Home() {
         item.numeroProcesso || '',
         item.idLote || '',
         item.quantidade,
-        item.nacionalizacao,
-        item.rfid,
+        chargesOf(item).combo,
+        chargesOf(item).nacionalizacao,
         item.tester || 0,
         item.confeccao || 0,
-        item.precoNacionalizacaoUnit.toFixed(4).replace('.', ','),
-        item.precoRfidAdicionalUnit.toFixed(4).replace('.', ','),
+        chargesOf(item).precoCombo.toFixed(4).replace('.', ','),
+        chargesOf(item).precoNac.toFixed(4).replace('.', ','),
         Number(item.precoTesterUnit || 0).toFixed(4).replace('.', ','),
         Number(item.precoConfeccaoUnit || 0).toFixed(4).replace('.', ','),
-        item.valorNacionalizacao.toFixed(4).replace('.', ','),
-        item.valorRfidAdicional.toFixed(4).replace('.', ','),
+        chargesOf(item).valorCombo.toFixed(4).replace('.', ','),
+        chargesOf(item).valorNac.toFixed(4).replace('.', ','),
         Number(item.valorTester || 0).toFixed(4).replace('.', ','),
         Number(item.valorConfeccao || 0).toFixed(4).replace('.', ','),
         item.valorTotalCobranca.toFixed(4).replace('.', ','),
@@ -1528,18 +1570,18 @@ export default function Home() {
     if (!price) return null
 
     const nat = Number(form.nacionalizacao || 0) * Number(price.valorNacionalizacao || 0)
-    const rfid = Number(form.rfid || 0) * Number(price.valorRfidAdicional || 0)
+    const combo = Number(form.combo || 0) * Number(price.valorCombo || 0)
     const tester = Number(form.tester || 0) * Number(price.valorTester || 0)
     const confeccao = Number(form.confeccao || 0) * Number(price.valorConfeccao || 0)
     return {
       price,
       nat,
-      rfid,
+      combo,
       tester,
       confeccao,
-      total: nat + rfid + tester + confeccao,
+      total: nat + combo + tester + confeccao,
     }
-  }, [form.dataEfetivacao, form.nacionalizacao, form.rfid, form.tester, form.confeccao, prices])
+  }, [form.dataEfetivacao, form.nacionalizacao, form.combo, form.tester, form.confeccao, prices])
 
   // Lista de SKUs do processo filtrada pela busca (ignora acentos e maiúsculas).
   // Renderiza no máximo SKU_PICKER_LIMIT itens: sem rolagem virtual (que no Safari deixava
@@ -1569,14 +1611,14 @@ export default function Home() {
     const sum = (field: keyof BatchLine) => batch.lines.reduce((a, b) => a + Number(b[field] || 0), 0)
     const qty = {
       quantidade: sum('quantidade'),
+      combo: sum('combo'),
       nacionalizacao: sum('nacionalizacao'),
-      rfid: sum('rfid'),
       tester: sum('tester'),
       confeccao: sum('confeccao'),
     }
     const total = price
       ? qty.nacionalizacao * Number(price.valorNacionalizacao || 0)
-        + qty.rfid * Number(price.valorRfidAdicional || 0)
+        + qty.combo * Number(price.valorCombo || 0)
         + qty.tester * Number(price.valorTester || 0)
         + qty.confeccao * Number(price.valorConfeccao || 0)
       : null
@@ -2078,8 +2120,8 @@ export default function Home() {
                 <Column pt={cell('Filial')} field="filial" header="Filial" />
                 <Column pt={cell('CNPJ')} field="cnpjCliente" header="CNPJ" body={(row: Rework) => cnpjLabel(row.cnpjCliente)} />
                 <Column pt={cell('Qtd.')} field="quantidade" header="Qtd." body={(row: Rework) => intLabel(row.quantidade)} />
-                <Column pt={cell('Nacionalização')} field="nacionalizacao" header="Nacionalização" body={(row: Rework) => intLabel(row.nacionalizacao)} />
-                <Column pt={cell('RFID/ADIPAC')} field="rfid" header="RFID/ADIPAC" body={(row: Rework) => intLabel(row.rfid)} />
+                <Column pt={cell('Combo')} field="combo" header="Combo" body={(row: Rework) => intLabel(servicesOf(row).combo)} />
+                <Column pt={cell('Nacionalização')} field="nacionalizacao" header="Nacionalização" body={(row: Rework) => intLabel(servicesOf(row).nacionalizacao)} />
                 <Column pt={cell('Tester')} field="tester" header="Tester" body={(row: Rework) => intLabel(row.tester)} />
                 <Column pt={cell('Confecc.')} field="confeccao" header="Confecc." body={(row: Rework) => intLabel(row.confeccao)} />
                 <Column pt={cell('Cobrança')}
@@ -2299,35 +2341,35 @@ export default function Home() {
               {canManagePrices && (
                 <div className="price-create">
                   <label>Nova vigência<Calendar value={priceForm.vigenciaInicio} onChange={e => setPriceForm({ ...priceForm, vigenciaInicio: e.value as Date })} dateFormat="dd/mm/yy" /></label>
+                  <label>Combo (nacionalização + RFID ou ADIPAC)<InputNumber value={priceForm.valorCombo} onValueChange={e => setPriceForm({ ...priceForm, valorCombo: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label>Nacionalização<InputNumber value={priceForm.valorNacionalizacao} onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
-                  <label>RFID/ADIPAC<InputNumber value={priceForm.valorRfidAdicional} onValueChange={e => setPriceForm({ ...priceForm, valorRfidAdicional: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  
                   <label>Transformação em tester<InputNumber value={priceForm.valorTester} onValueChange={e => setPriceForm({ ...priceForm, valorTester: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
-                  <label>Etiqueta confeccionada<InputNumber value={priceForm.valorConfeccao} onValueChange={e => setPriceForm({ ...priceForm, valorConfeccao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>Confecção / impressão de etiqueta<InputNumber value={priceForm.valorConfeccao} onValueChange={e => setPriceForm({ ...priceForm, valorConfeccao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label className="price-observation">Observação<InputText value={priceForm.observacao} onChange={e => setPriceForm({ ...priceForm, observacao: e.target.value })} placeholder="Motivo ou referência da alteração" /></label>
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
                 </div>
               )}
               <div className="price-rule">
-                <strong>Regra de cobrança:</strong> o combo (nacionalização + RFID/ADIPAC na mesma unidade) é a soma das duas tarifas.
-                Por isso, em RFID/ADIPAC cadastre a diferença entre o valor do combo e o da nacionalização.
+                <strong>Regra de cobrança:</strong> cada unidade recebe um tipo de etiquetagem — <strong>combo</strong> (nacionalização + RFID ou ADIPAC)
+                ou <strong>só nacionalização</strong> — e pode ter <strong>tester</strong> e <strong>etiquetas confeccionadas</strong>. Cada serviço tem tarifa própria.
                 {currentPrice && (
                   <>
-                    {' '}Vigência atual: Nacionalização {rateMoney(currentPrice.valorNacionalizacao)};
-                    RFID/ADIPAC {rateMoney(currentPrice.valorRfidAdicional)};
-                    combo {rateMoney(currentPrice.valorNacionalizacao + currentPrice.valorRfidAdicional)};
-                    Etiqueta confeccionada {rateMoney(Number(currentPrice.valorConfeccao || 0))};
-                    Transformação em tester {Number(currentPrice.valorTester || 0) > 0 ? rateMoney(Number(currentPrice.valorTester)) : 'a definir'}.
+                    {' '}Vigência atual: Combo {rateMoney(Number(currentPrice.valorCombo || 0))};
+                    Nacionalização {rateMoney(currentPrice.valorNacionalizacao)};
+                    Tester {Number(currentPrice.valorTester || 0) > 0 ? rateMoney(Number(currentPrice.valorTester)) : 'a definir'};
+                    Confecção/impressão {rateMoney(Number(currentPrice.valorConfeccao || 0))}.
                   </>
                 )}
-                {' '}Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. As tarifas usam 4 casas decimais.
+                {' '}Combo + nacionalização e tester não podem passar da quantidade retrabalhada. As tarifas usam 4 casas decimais.
               </div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column pt={cell('Início', 'title')} field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column pt={cell('Fim')} field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
                 <Column pt={cell('Nacionalização')} field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => rateMoney(r.valorNacionalizacao)} />
-                <Column pt={cell('RFID/ADIPAC')} field="valorRfidAdicional" header="RFID/ADIPAC" body={(r: PriceRow) => rateMoney(r.valorRfidAdicional)} />
+                <Column pt={cell('Combo')} field="valorCombo" header="Combo" body={(r: PriceRow) => rateMoney(Number(r.valorCombo || 0))} />
                 <Column pt={cell('Tester')} field="valorTester" header="Tester" body={(r: PriceRow) => rateMoney(Number(r.valorTester || 0))} />
-                <Column pt={cell('Etq. confeccionada')} field="valorConfeccao" header="Etq. confeccionada" body={(r: PriceRow) => rateMoney(Number(r.valorConfeccao || 0))} />
+                <Column pt={cell('Etq. confeccionada')} field="valorConfeccao" header="Confecção" body={(r: PriceRow) => rateMoney(Number(r.valorConfeccao || 0))} />
                 <Column pt={cell('Observação', 'wide')} field="observacao" header="Observação" />
                 <Column pt={cell('Criado por')} field="criadoPor" header="Criado por" />
               </DataTable>
@@ -2474,10 +2516,10 @@ export default function Home() {
             />
           </label>
           <label>
-            Etiquetas nacionalização
+            Combo (nacionalização + RFID ou ADIPAC)
             <InputNumber
-              value={form.nacionalizacao}
-              onValueChange={e => setForm({ ...form, nacionalizacao: e.value ?? null })}
+              value={form.combo}
+              onValueChange={e => setForm({ ...form, combo: e.value ?? null })}
               placeholder="0"
               min={0}
               locale="pt-BR"
@@ -2485,10 +2527,10 @@ export default function Home() {
             />
           </label>
           <label>
-            Etiquetas RFID/ADIPAC
+            Só nacionalização
             <InputNumber
-              value={form.rfid}
-              onValueChange={e => setForm({ ...form, rfid: e.value ?? null })}
+              value={form.nacionalizacao}
+              onValueChange={e => setForm({ ...form, nacionalizacao: e.value ?? null })}
               placeholder="0"
               min={0}
               locale="pt-BR"
@@ -2507,7 +2549,7 @@ export default function Home() {
             />
           </label>
           <label>
-            Etiquetas confeccionadas
+            Confecção / impressão de etiqueta
             <InputNumber
               value={form.confeccao}
               onValueChange={e => setForm({ ...form, confeccao: e.value ?? null })}
@@ -2518,27 +2560,27 @@ export default function Home() {
             />
           </label>
           <p className="form-hint span-2">
-            * Obrigatórios. Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada.
-            RFID, ADIPAC ou ambos na mesma unidade são cobrados uma única vez.
+            * Obrigatórios. Cada unidade recebe combo ou só nacionalização: os dois somados e o tester não podem
+            passar da quantidade retrabalhada.
           </p>
         </div>
 
         <div className="billing-preview billing-preview-5">
           <div>
-            <span>Nacionalização</span>
-            <strong>{previewPrice ? money(previewPrice.nat) : 'Sem vigência'}</strong>
+            <span>Combo</span>
+            <strong>{previewPrice ? money(previewPrice.combo) : 'Sem vigência'}</strong>
             <small>
               {previewPrice
-                ? `${intLabel(form.nacionalizacao)} × ${rateMoney(previewPrice.price.valorNacionalizacao)}`
+                ? `${intLabel(form.combo)} × ${rateMoney(Number(previewPrice.price.valorCombo || 0))}`
                 : 'Cadastre uma tabela válida para a data.'}
             </small>
           </div>
           <div>
-            <span>RFID/ADIPAC</span>
-            <strong>{previewPrice ? money(previewPrice.rfid) : '—'}</strong>
+            <span>Nacionalização</span>
+            <strong>{previewPrice ? money(previewPrice.nat) : '—'}</strong>
             <small>
               {previewPrice
-                ? `${intLabel(form.rfid)} × ${rateMoney(previewPrice.price.valorRfidAdicional)}`
+                ? `${intLabel(form.nacionalizacao)} × ${rateMoney(previewPrice.price.valorNacionalizacao)}`
                 : '—'}
             </small>
           </div>
@@ -2723,10 +2765,10 @@ export default function Home() {
                   <th>SKU</th>
                   <th>Descrição</th>
                   <th>Qtd. retrabalhada *</th>
+                  <th>Combo</th>
                   <th>Nacionalização</th>
-                  <th>RFID/ADIPAC</th>
                   <th>Tester</th>
-                  <th>Confeccionadas</th>
+                  <th>Confecção</th>
                   <th />
                 </tr>
               </thead>
@@ -2739,10 +2781,10 @@ export default function Home() {
                       <td className="batch-sku" data-label="SKU">{line.sku}</td>
                       <td className="batch-desc" data-label="Descrição">{line.descricao}</td>
                       <td data-label="Qtd. retrabalhada *"><InputNumber value={line.quantidade} onValueChange={e => updateBatchLine(line.sku, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Combo"><InputNumber value={line.combo} onValueChange={e => updateBatchLine(line.sku, 'combo', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Nacionalização"><InputNumber value={line.nacionalizacao} onValueChange={e => updateBatchLine(line.sku, 'nacionalizacao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
-                      <td data-label="RFID/ADIPAC"><InputNumber value={line.rfid} onValueChange={e => updateBatchLine(line.sku, 'rfid', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Tester"><InputNumber value={line.tester} onValueChange={e => updateBatchLine(line.sku, 'tester', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
-                      <td data-label="Confeccionadas"><InputNumber value={line.confeccao} onValueChange={e => updateBatchLine(line.sku, 'confeccao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Confecção"><InputNumber value={line.confeccao} onValueChange={e => updateBatchLine(line.sku, 'confeccao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td className="batch-remove"><Button icon="pi pi-times" text rounded className="table-action" title="Remover SKU" aria-label={`Remover SKU ${line.sku}`} onClick={() => removeBatchLine(line.sku)} /></td>
                     </tr>
                   )
@@ -2757,14 +2799,15 @@ export default function Home() {
         <div className="batch-summary">
           <span><strong>{batch.lines.length}</strong> SKU(s)</span>
           <span>Retrabalhadas <strong>{intLabel(batchPreview.qty.quantidade)}</strong></span>
+          <span>Combo <strong>{intLabel(batchPreview.qty.combo)}</strong></span>
           <span>Nacionalização <strong>{intLabel(batchPreview.qty.nacionalizacao)}</strong></span>
-          <span>RFID/ADIPAC <strong>{intLabel(batchPreview.qty.rfid)}</strong></span>
           <span>Tester <strong>{intLabel(batchPreview.qty.tester)}</strong></span>
           <span>Confeccionadas <strong>{intLabel(batchPreview.qty.confeccao)}</strong></span>
           <span className="batch-total">Total previsto <strong>{batchPreview.total == null ? 'Sem vigência' : money(batchPreview.total)}</strong></span>
         </div>
         <p className="form-hint">
-          Nacionalização, RFID/ADIPAC e tester não podem passar da quantidade retrabalhada. Cada SKU precisa de ao menos um serviço.
+          Cada unidade recebe combo (nacionalização + RFID ou ADIPAC) ou só nacionalização: os dois somados e o tester não podem
+          passar da quantidade retrabalhada. Cada SKU precisa de ao menos um serviço.
           O valor definitivo é calculado pelo sistema com a tabela de preços vigente na data.
         </p>
 

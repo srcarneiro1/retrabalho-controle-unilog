@@ -43,7 +43,7 @@ const PriceService = (() => {
     return copy;
   }
 
-  const EXTRA_HEADERS = ['VALOR_TESTER', 'VALOR_CONFECCAO'];
+  const EXTRA_HEADERS = ['VALOR_TESTER', 'VALOR_CONFECCAO', 'VALOR_COMBO'];
 
   function map_(r) {
     return {
@@ -52,6 +52,13 @@ const PriceService = (() => {
       vigenciaFim: iso_(r.VIGENCIA_FIM),
       valorNacionalizacao: Number(r.VALOR_NACIONALIZACAO || 0),
       valorRfidAdicional: Number(r.VALOR_RFID_ADICIONAL || 0),
+      // Combo (nacionalização + RFID ou ADIPAC) é um serviço único desde 07/10/2026.
+      // Vigências antigas não têm VALOR_COMBO: o combo equivale a nacionalização + RFID adicional,
+      // que era exatamente o cobrado na época — assim nenhum lançamento antigo muda de valor.
+      valorCombo: Number(r.VALOR_COMBO || 0) > 0
+        ? Number(r.VALOR_COMBO)
+        : Number(r.VALOR_NACIONALIZACAO || 0) + Number(r.VALOR_RFID_ADICIONAL || 0),
+      comboLegado: !(Number(r.VALOR_COMBO || 0) > 0),
       valorValidade: Number(r.VALOR_VALIDADE || 0),
       valorTester: Number(r.VALOR_TESTER || 0),
       valorConfeccao: Number(r.VALOR_CONFECCAO || 0),
@@ -86,35 +93,37 @@ const PriceService = (() => {
     throw new Error('Não existe preço vigente para a data de efetivação informada.');
   }
 
-  function calculate(dateValue, nacionalizacao, rfid, validade, tester, confeccao, priceOverride) {
+  // q: { nacionalizacao, combo, tester, confeccao, rfid?, validade? } — quantidades por unidade.
+  // rfid e validade só existem em registros antigos (serviços descontinuados).
+  function calculate(dateValue, q, priceOverride) {
     const price = priceOverride || findByDate(dateValue);
-    const natQty = Number(nacionalizacao || 0);
-    const rfidQty = Number(rfid || 0);
-    const validadeQty = Number(validade || 0);
-    const testerQty = Number(tester || 0);
-    const confeccaoQty = Number(confeccao || 0);
+    const qty = k => Number((q && q[k]) || 0);
 
-    const valueNat = amount_(natQty * price.valorNacionalizacao, 'Valor de nacionalização');
-    const valueRfid = amount_(rfidQty * price.valorRfidAdicional, 'Valor RFID/ADIPAC');
-    const valueValidade = amount_(validadeQty * price.valorValidade, 'Valor de etiqueta de validade');
-    const valueTester = amount_(testerQty * price.valorTester, 'Valor de transformação em tester');
-    const valueConfeccao = amount_(confeccaoQty * price.valorConfeccao, 'Valor de etiquetas confeccionadas');
+    const valueNat = amount_(qty('nacionalizacao') * price.valorNacionalizacao, 'Valor de nacionalização');
+    const valueCombo = amount_(qty('combo') * price.valorCombo, 'Valor do combo');
+    const valueRfid = amount_(qty('rfid') * price.valorRfidAdicional, 'Valor RFID/ADIPAC (legado)');
+    const valueValidade = amount_(qty('validade') * price.valorValidade, 'Valor de etiqueta de validade');
+    const valueTester = amount_(qty('tester') * price.valorTester, 'Valor de transformação em tester');
+    const valueConfeccao = amount_(qty('confeccao') * price.valorConfeccao, 'Valor de etiquetas confeccionadas');
 
     return {
       idPreco: price.id,
       precoNacionalizacaoUnit: rate_(price.valorNacionalizacao, 'Tarifa de nacionalização'),
+      precoComboUnit: rate_(price.valorCombo, 'Tarifa do combo'),
       precoRfidAdicionalUnit: rate_(price.valorRfidAdicional, 'Tarifa RFID/ADIPAC'),
       precoValidadeUnit: rate_(price.valorValidade, 'Tarifa de etiqueta de validade'),
       precoTesterUnit: rate_(price.valorTester, 'Tarifa de transformação em tester'),
       precoConfeccaoUnit: rate_(price.valorConfeccao, 'Tarifa de etiquetas confeccionadas'),
       valorNacionalizacao: valueNat,
+      valorCombo: valueCombo,
       valorRfidAdicional: valueRfid,
       valorValidade: valueValidade,
       valorTester: valueTester,
       valorConfeccao: valueConfeccao,
-      valorTotalCobranca: amount_(valueNat + valueRfid + valueValidade + valueTester + valueConfeccao, 'Valor total')
+      valorTotalCobranca: amount_(valueNat + valueCombo + valueRfid + valueValidade + valueTester + valueConfeccao, 'Valor total')
     };
   }
+
 
   function create(input) {
     const requestId = text_(input.requestId);
@@ -125,7 +134,13 @@ const PriceService = (() => {
 
     const start = parseDate_(input.vigenciaInicio, 'Vigência inicial');
     const valueNat = rate_(input.valorNacionalizacao, 'Tarifa de nacionalização');
-    const valueRfid = rate_(input.valorRfidAdicional, 'Tarifa RFID/ADIPAC');
+    // RFID/ADIPAC avulso foi descontinuado (07/10/2026): vira parte do combo. Novas vigências gravam 0.
+    const valueRfid = rate_(
+      input.valorRfidAdicional == null || input.valorRfidAdicional === '' ? 0 : input.valorRfidAdicional,
+      'Tarifa RFID/ADIPAC'
+    );
+    const valueCombo = rate_(input.valorCombo, 'Tarifa do combo');
+    if (!(valueCombo > 0)) throw new Error('Informe a tarifa do combo (nacionalização + RFID ou ADIPAC).');
     // Etiqueta de Validade foi descontinuada: novas vigências gravam 0 quando não informada.
     const valueValidade = rate_(
       input.valorValidade == null || input.valorValidade === '' ? 0 : input.valorValidade,
@@ -181,7 +196,8 @@ const PriceService = (() => {
       REQUEST_ID: requestId,
       VALOR_VALIDADE: valueValidade,
       VALOR_TESTER: valueTester,
-      VALOR_CONFECCAO: valueConfeccao
+      VALOR_CONFECCAO: valueConfeccao,
+      VALOR_COMBO: valueCombo
     };
 
     Repository.append('TABELA_PRECOS', record, ['ID_PRECO','CRIADO_POR','REQUEST_ID']);
