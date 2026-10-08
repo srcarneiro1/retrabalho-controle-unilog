@@ -738,3 +738,25 @@ Necessidade: corrigir uma vigência cadastrada com valor errado, sem precisar cr
 - ao tentar criar vigência na mesma data da atual, a mensagem indica o botão Corrigir.
 
 Testes: 13 no simulador do Apps Script (recálculo de tester de R$ 0 para R$ 60,00, combo mantido, conversão de lançamento antigo com valor preservado, auditoria, versão, motivo, perfil, vigência antiga bloqueada) e 7 na interface (botão só na mais recente e só para ADMIN, valores pré-preenchidos, motivo obrigatório, ESC não fecha, envio e confirmação).
+
+## ➕ Novos serviços e reajuste — 08/10/2026 (API 2026.10.08.1)
+
+Atualização comercial: entram **só ADIPAC**, **etiqueta EAN (insumo cliente)** e **troca de celofane/embalagem**; o **tester** passa a R$ 0,7052. Os serviços anteriores continuam.
+
+| Serviço | Tarifa | Campo |
+|---|---|---|
+| Combo (nacionalização + RFID ou ADIPAC) | R$ 0,6000 | `combo` / `QTD_COMBO` |
+| Só nacionalização | R$ 0,4114 | `nacionalizacao` |
+| **Só ADIPAC** | **R$ 0,2351** | `adipac` / `QTD_ADIPAC` |
+| **Etiqueta EAN (insumo cliente)** | **R$ 0,4114** | `ean` / `QTD_EAN` |
+| Transformação em tester | **R$ 0,7052** | `tester` |
+| **Troca de celofane/embalagem** | **R$ 0,7052** | `celofane` / `QTD_CELOFANE` |
+| Confecção/impressão de etiqueta | R$ 0,1500 | `confeccao` |
+
+Regras (os serviços se somam): combo + só nacionalização + só ADIPAC ≤ quantidade (variações da mesma etiquetagem, uma por unidade); EAN, tester e celofane, cada um ≤ quantidade; confecção livre; ao menos um serviço. `TOTAL_ETIQUETAS` = nacionalização + 2 × combo + só ADIPAC + EAN + confeccionadas.
+
+Backend: `TABELA_PRECOS.VALOR_ADIPAC/VALOR_EAN/VALOR_CELOFANE` (opcionais; vigências anteriores valem 0); `RETRABALHOS.QTD_/PRECO_*_UNIT/VALOR_` para ADIPAC, EAN e CELOFANE; criação, correção de vigência e recálculo incluem os novos serviços.
+Frontend: lote, edição, prévia, histórico, CSV, Preços (formulário, tabela, regra) e Corrigir vigência com as 7 tarifas.
+Testes: 15 no simulador (cálculo somado R$ 165,107; só ADIPAC; EAN + tester; regras; vigência anterior intacta; correção recalcula) e 9 na interface (lote total R$ 188,03; bloqueio de EAN; envio; Preços e Corrigir com 7 tarifas).
+
+**Cadastro após publicar:** em Preços, nova vigência (ou Corrigir a atual, se os valores já valiam hoje): Combo 0,6000; Nacionalização 0,4114; Só ADIPAC 0,2351; EAN 0,4114; Tester 0,7052; Celofane 0,7052; Confecção 0,1500.

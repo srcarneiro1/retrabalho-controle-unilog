@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.07.2';
+const API_VERSION = '2026.10.08.1';
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();

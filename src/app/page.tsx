@@ -75,6 +75,15 @@ type Rework = {
   combo?: number
   precoComboUnit?: number
   valorCombo?: number
+  adipac?: number
+  ean?: number
+  celofane?: number
+  precoAdipacUnit?: number
+  precoEanUnit?: number
+  precoCelofaneUnit?: number
+  valorAdipac?: number
+  valorEan?: number
+  valorCelofane?: number
   validade: number
   tester?: number
   confeccao?: number
@@ -132,7 +141,10 @@ type BatchLine = {
   quantidade: number | null
   combo: number | null
   nacionalizacao: number | null
+  adipac: number | null
+  ean: number | null
   tester: number | null
+  celofane: number | null
   confeccao: number | null
 }
 
@@ -140,21 +152,25 @@ const MAX_BATCH_SKUS = 100
 const SKU_PICKER_LIMIT = 200
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
-// Serviços por SKU (modelo de 07/10/2026; espelha o backend):
-// combo (nacionalização + RFID ou ADIPAC), nacionalização (só a etiqueta), tester e confeccionadas.
-// Cada unidade recebe combo OU nacionalização: combo + nacionalização ≤ quantidade.
-type ServiceQty = { quantidade: number | null; combo: number | null; nacionalizacao: number | null; tester: number | null; confeccao: number | null }
+// Serviços por SKU (modelo de 08/10/2026; espelha o backend — os serviços se somam):
+// combo, só nacionalização e só ADIPAC são variações da mesma etiquetagem (uma por unidade);
+// EAN, tester e celofane somam a qualquer outro (cada um ≤ quantidade); confecção é livre.
+type ServiceQty = {
+  quantidade: number | null; combo: number | null; nacionalizacao: number | null; adipac?: number | null
+  ean?: number | null; tester: number | null; celofane?: number | null; confeccao: number | null
+}
 
 function lineError(line: ServiceQty) {
-  const qtd = Number(line.quantidade || 0)
-  const combo = Number(line.combo || 0)
-  const nat = Number(line.nacionalizacao || 0)
-  const tester = Number(line.tester || 0)
-  const conf = Number(line.confeccao || 0)
+  const n = (v: number | null | undefined) => Number(v || 0)
+  const qtd = n(line.quantidade)
   if (qtd < 1) return 'informe a quantidade retrabalhada'
-  if (combo + nat > qtd) return 'combo + nacionalização maior que a quantidade retrabalhada'
-  if (tester > qtd) return 'tester maior que a quantidade retrabalhada'
-  if (combo + nat + tester + conf <= 0) return 'informe ao menos um serviço'
+  if (n(line.combo) + n(line.nacionalizacao) + n(line.adipac) > qtd) return 'combo + nacionalização + só ADIPAC maior que a quantidade retrabalhada'
+  if (n(line.ean) > qtd) return 'etiqueta EAN maior que a quantidade retrabalhada'
+  if (n(line.tester) > qtd) return 'tester maior que a quantidade retrabalhada'
+  if (n(line.celofane) > qtd) return 'troca de celofane maior que a quantidade retrabalhada'
+  if (n(line.combo) + n(line.nacionalizacao) + n(line.adipac) + n(line.ean) + n(line.tester) + n(line.celofane) + n(line.confeccao) <= 0) {
+    return 'informe ao menos um serviço'
+  }
   return null
 }
 
@@ -238,6 +254,9 @@ type PriceRow = {
   valorRfidAdicional: number
   valorCombo?: number
   comboLegado?: boolean
+  valorAdipac?: number
+  valorEan?: number
+  valorCelofane?: number
   valorValidade: number
   valorTester?: number
   valorConfeccao?: number
@@ -275,7 +294,10 @@ function createForm() {
     quantidade: null as number | null,
     combo: null as number | null,
     nacionalizacao: null as number | null,
+    adipac: null as number | null,
+    ean: null as number | null,
     tester: null as number | null,
+    celofane: null as number | null,
     confeccao: null as number | null,
     numeroProcesso: '',
     versao: 0,
@@ -326,13 +348,16 @@ function nextPriceStart(latestStart?: string) {
   return next > today ? next : today
 }
 
-function createPriceForm(base?: { valorNacionalizacao: number; valorCombo?: number; valorTester?: number; valorConfeccao?: number; vigenciaInicio?: string }) {
+function createPriceForm(base?: { valorNacionalizacao: number; valorCombo?: number; valorTester?: number; valorConfeccao?: number; valorAdipac?: number; valorEan?: number; valorCelofane?: number; vigenciaInicio?: string }) {
   return {
     requestId: crypto.randomUUID(),
     vigenciaInicio: nextPriceStart(base?.vigenciaInicio),
     valorNacionalizacao: base ? Number(base.valorNacionalizacao || 0) : 0,
     valorCombo: base ? Number(base.valorCombo || 0) : 0,
     valorTester: base ? Number(base.valorTester || 0) : 0,
+    valorAdipac: base ? Number(base.valorAdipac || 0) : 0,
+    valorEan: base ? Number(base.valorEan || 0) : 0,
+    valorCelofane: base ? Number(base.valorCelofane || 0) : 0,
     valorConfeccao: base ? Number(base.valorConfeccao || 0) : 0,
     observacao: '',
   }
@@ -534,7 +559,7 @@ export default function Home() {
   const [priceSuccess, setPriceSuccess] = useState('')
   // Correção (sobrescrita) da vigência mais recente.
   const [correctTarget, setCorrectTarget] = useState<PriceRow | null>(null)
-  const [correctForm, setCorrectForm] = useState({ valorCombo: 0, valorNacionalizacao: 0, valorTester: 0, valorConfeccao: 0, observacao: '', motivo: '' })
+  const [correctForm, setCorrectForm] = useState({ valorCombo: 0, valorNacionalizacao: 0, valorAdipac: 0, valorEan: 0, valorTester: 0, valorCelofane: 0, valorConfeccao: 0, observacao: '', motivo: '' })
   const [correctError, setCorrectError] = useState('')
 
   const [processes, setProcesses] = useState<ProcessRow[]>([])
@@ -869,7 +894,10 @@ export default function Home() {
         quantidade: null,
         combo: null,
         nacionalizacao: null,
+        adipac: null,
+        ean: null,
         tester: null,
+        celofane: null,
         confeccao: null,
       })
       return { ...current, skus: limited, lines }
@@ -928,7 +956,10 @@ export default function Home() {
             quantidade: line.quantidade ?? 0,
             combo: line.combo ?? 0,
             nacionalizacao: line.nacionalizacao ?? 0,
+            adipac: line.adipac ?? 0,
+            ean: line.ean ?? 0,
             tester: line.tester ?? 0,
+            celofane: line.celofane ?? 0,
             confeccao: line.confeccao ?? 0,
           })),
         }),
@@ -1016,7 +1047,10 @@ export default function Home() {
       quantidade: row.quantidade || null,
       combo: servicesOf(row).combo || null,
       nacionalizacao: servicesOf(row).nacionalizacao || null,
+      adipac: row.adipac || null,
+      ean: row.ean || null,
       tester: row.tester || null,
+      celofane: row.celofane || null,
       confeccao: row.confeccao || null,
       numeroProcesso: row.numeroProcesso || '',
       versao: row.versao,
@@ -1048,7 +1082,10 @@ export default function Home() {
         quantidade: form.quantidade ?? 0,
         combo: form.combo ?? 0,
         nacionalizacao: form.nacionalizacao ?? 0,
+        adipac: form.adipac ?? 0,
+        ean: form.ean ?? 0,
         tester: form.tester ?? 0,
+        celofane: form.celofane ?? 0,
         confeccao: form.confeccao ?? 0,
         versao: form.versao,
       }
@@ -1190,6 +1227,9 @@ export default function Home() {
       valorCombo: Number(row.valorCombo || 0),
       valorNacionalizacao: Number(row.valorNacionalizacao || 0),
       valorTester: Number(row.valorTester || 0),
+      valorAdipac: Number(row.valorAdipac || 0),
+      valorEan: Number(row.valorEan || 0),
+      valorCelofane: Number(row.valorCelofane || 0),
       valorConfeccao: Number(row.valorConfeccao || 0),
       observacao: row.observacao || '',
       motivo: '',
@@ -1213,6 +1253,9 @@ export default function Home() {
           valorCombo: correctForm.valorCombo,
           valorNacionalizacao: correctForm.valorNacionalizacao,
           valorTester: correctForm.valorTester,
+          valorAdipac: correctForm.valorAdipac,
+          valorEan: correctForm.valorEan,
+          valorCelofane: correctForm.valorCelofane,
           valorConfeccao: correctForm.valorConfeccao,
           observacao: correctForm.observacao.trim(),
           motivo: correctForm.motivo.trim(),
@@ -1446,6 +1489,9 @@ export default function Home() {
           valorCombo: priceForm.valorCombo,
           valorRfidAdicional: 0,
           valorTester: priceForm.valorTester,
+          valorAdipac: priceForm.valorAdipac,
+          valorEan: priceForm.valorEan,
+          valorCelofane: priceForm.valorCelofane,
           valorConfeccao: priceForm.valorConfeccao,
           observacao: priceForm.observacao.trim(),
         }),
@@ -1510,15 +1556,24 @@ export default function Home() {
         'Qtd retrabalhada',
         'Combo (nacionalização + RFID/ADIPAC)',
         'Nacionalização',
+        'Só ADIPAC',
+        'Etiqueta EAN (insumo cliente)',
         'Transformação em tester',
+        'Troca de celofane/embalagem',
         'Etiquetas confeccionadas',
         'Tarifa combo',
         'Tarifa nacionalização',
+        'Tarifa só ADIPAC',
+        'Tarifa EAN',
         'Tarifa tester',
+        'Tarifa celofane',
         'Tarifa etiqueta confeccionada',
         'Valor combo',
         'Valor nacionalização',
+        'Valor só ADIPAC',
+        'Valor EAN',
         'Valor tester',
+        'Valor celofane',
         'Valor etiquetas confeccionadas',
         'Valor original cobrança',
         'Valor efetivo cobrança',
@@ -1545,15 +1600,24 @@ export default function Home() {
         item.quantidade,
         chargesOf(item).combo,
         chargesOf(item).nacionalizacao,
+        item.adipac || 0,
+        item.ean || 0,
         item.tester || 0,
+        item.celofane || 0,
         item.confeccao || 0,
         chargesOf(item).precoCombo.toFixed(4).replace('.', ','),
         chargesOf(item).precoNac.toFixed(4).replace('.', ','),
+        Number(item.precoAdipacUnit || 0).toFixed(4).replace('.', ','),
+        Number(item.precoEanUnit || 0).toFixed(4).replace('.', ','),
         Number(item.precoTesterUnit || 0).toFixed(4).replace('.', ','),
+        Number(item.precoCelofaneUnit || 0).toFixed(4).replace('.', ','),
         Number(item.precoConfeccaoUnit || 0).toFixed(4).replace('.', ','),
         chargesOf(item).valorCombo.toFixed(4).replace('.', ','),
         chargesOf(item).valorNac.toFixed(4).replace('.', ','),
+        Number(item.valorAdipac || 0).toFixed(4).replace('.', ','),
+        Number(item.valorEan || 0).toFixed(4).replace('.', ','),
         Number(item.valorTester || 0).toFixed(4).replace('.', ','),
+        Number(item.valorCelofane || 0).toFixed(4).replace('.', ','),
         Number(item.valorConfeccao || 0).toFixed(4).replace('.', ','),
         item.valorTotalCobranca.toFixed(4).replace('.', ','),
         item.valorCobrancaEfetiva.toFixed(4).replace('.', ','),
@@ -1658,6 +1722,9 @@ export default function Home() {
     const nat = Number(form.nacionalizacao || 0) * Number(price.valorNacionalizacao || 0)
     const combo = Number(form.combo || 0) * Number(price.valorCombo || 0)
     const tester = Number(form.tester || 0) * Number(price.valorTester || 0)
+    const adipac = Number(form.adipac || 0) * Number(price.valorAdipac || 0)
+    const ean = Number(form.ean || 0) * Number(price.valorEan || 0)
+    const celofane = Number(form.celofane || 0) * Number(price.valorCelofane || 0)
     const confeccao = Number(form.confeccao || 0) * Number(price.valorConfeccao || 0)
     return {
       price,
@@ -1665,9 +1732,12 @@ export default function Home() {
       combo,
       tester,
       confeccao,
-      total: nat + combo + tester + confeccao,
+      adipac,
+      ean,
+      celofane,
+      total: nat + combo + adipac + ean + tester + celofane + confeccao,
     }
-  }, [form.dataEfetivacao, form.nacionalizacao, form.combo, form.tester, form.confeccao, prices])
+  }, [form.dataEfetivacao, form.nacionalizacao, form.combo, form.adipac, form.ean, form.tester, form.celofane, form.confeccao, prices])
 
   // Lista de SKUs do processo filtrada pela busca (ignora acentos e maiúsculas).
   // Renderiza no máximo SKU_PICKER_LIMIT itens: sem rolagem virtual (que no Safari deixava
@@ -1705,12 +1775,18 @@ export default function Home() {
       combo: sum('combo'),
       nacionalizacao: sum('nacionalizacao'),
       tester: sum('tester'),
+      adipac: sum('adipac'),
+      ean: sum('ean'),
+      celofane: sum('celofane'),
       confeccao: sum('confeccao'),
     }
     const total = price
       ? qty.nacionalizacao * Number(price.valorNacionalizacao || 0)
         + qty.combo * Number(price.valorCombo || 0)
         + qty.tester * Number(price.valorTester || 0)
+        + qty.adipac * Number(price.valorAdipac || 0)
+        + qty.ean * Number(price.valorEan || 0)
+        + qty.celofane * Number(price.valorCelofane || 0)
         + qty.confeccao * Number(price.valorConfeccao || 0)
       : null
     return { price, qty, total }
@@ -2213,7 +2289,10 @@ export default function Home() {
                 <Column pt={cell('Qtd.')} field="quantidade" header="Qtd." body={(row: Rework) => intLabel(row.quantidade)} />
                 <Column pt={cell('Combo')} field="combo" header="Combo" body={(row: Rework) => intLabel(servicesOf(row).combo)} />
                 <Column pt={cell('Nacionalização')} field="nacionalizacao" header="Nacionalização" body={(row: Rework) => intLabel(servicesOf(row).nacionalizacao)} />
+                <Column pt={cell('Só ADIPAC')} field="adipac" header="Só ADIPAC" body={(row: Rework) => intLabel(row.adipac)} />
+                <Column pt={cell('EAN')} field="ean" header="EAN" body={(row: Rework) => intLabel(row.ean)} />
                 <Column pt={cell('Tester')} field="tester" header="Tester" body={(row: Rework) => intLabel(row.tester)} />
+                <Column pt={cell('Celofane')} field="celofane" header="Celofane" body={(row: Rework) => intLabel(row.celofane)} />
                 <Column pt={cell('Confecc.')} field="confeccao" header="Confecc." body={(row: Rework) => intLabel(row.confeccao)} />
                 <Column pt={cell('Cobrança')}
                   field="valorCobrancaEfetiva"
@@ -2435,7 +2514,10 @@ export default function Home() {
                   <label>Combo (nacionalização + RFID ou ADIPAC)<InputNumber value={priceForm.valorCombo} onValueChange={e => setPriceForm({ ...priceForm, valorCombo: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label>Nacionalização<InputNumber value={priceForm.valorNacionalizacao} onValueChange={e => setPriceForm({ ...priceForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   
+                  <label>Só ADIPAC<InputNumber value={priceForm.valorAdipac} onValueChange={e => setPriceForm({ ...priceForm, valorAdipac: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>Etiqueta EAN (insumo cliente)<InputNumber value={priceForm.valorEan} onValueChange={e => setPriceForm({ ...priceForm, valorEan: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label>Transformação em tester<InputNumber value={priceForm.valorTester} onValueChange={e => setPriceForm({ ...priceForm, valorTester: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
+                  <label>Troca de celofane / embalagem<InputNumber value={priceForm.valorCelofane} onValueChange={e => setPriceForm({ ...priceForm, valorCelofane: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label>Confecção / impressão de etiqueta<InputNumber value={priceForm.valorConfeccao} onValueChange={e => setPriceForm({ ...priceForm, valorConfeccao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} /></label>
                   <label className="price-observation">Observação<InputText value={priceForm.observacao} onChange={e => setPriceForm({ ...priceForm, observacao: e.target.value })} placeholder="Motivo ou referência da alteração" /></label>
                   <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={saving} onClick={createPrice} />
@@ -2444,24 +2526,31 @@ export default function Home() {
               {priceError && <div className="error"><i className="pi pi-exclamation-circle" />{priceError}</div>}
               {priceSuccess && <div className="success-note"><i className="pi pi-check-circle" />{priceSuccess}</div>}
               <div className="price-rule">
-                <strong>Regra de cobrança:</strong> cada unidade recebe um tipo de etiquetagem — <strong>combo</strong> (nacionalização + RFID ou ADIPAC)
-                ou <strong>só nacionalização</strong> — e pode ter <strong>tester</strong> e <strong>etiquetas confeccionadas</strong>. Cada serviço tem tarifa própria.
+                <strong>Regra de cobrança:</strong> cada serviço tem tarifa própria e eles se somam. <strong>Combo</strong> (nacionalização + RFID ou ADIPAC),
+                <strong> só nacionalização</strong> e <strong>só ADIPAC</strong> são variações da mesma etiquetagem: cada unidade recebe no máximo uma delas.
+                <strong> Etiqueta EAN</strong>, <strong>tester</strong> e <strong>troca de celofane/embalagem</strong> podem se somar a qualquer outro serviço.
                 {currentPrice && (
                   <>
                     {' '}Vigência atual: Combo {rateMoney(Number(currentPrice.valorCombo || 0))};
                     Nacionalização {rateMoney(currentPrice.valorNacionalizacao)};
-                    Tester {Number(currentPrice.valorTester || 0) > 0 ? rateMoney(Number(currentPrice.valorTester)) : 'a definir'};
+                    Só ADIPAC {rateMoney(Number(currentPrice.valorAdipac || 0))};
+                    EAN {rateMoney(Number(currentPrice.valorEan || 0))};
+                    Tester {rateMoney(Number(currentPrice.valorTester || 0))};
+                    Celofane {rateMoney(Number(currentPrice.valorCelofane || 0))};
                     Confecção/impressão {rateMoney(Number(currentPrice.valorConfeccao || 0))}.
                   </>
                 )}
-                {' '}Combo + nacionalização e tester não podem passar da quantidade retrabalhada. As tarifas usam 4 casas decimais.
+                {' '}As tarifas usam 4 casas decimais.
               </div>
               <DataTable className="mobile-record-table price-record-table" value={prices} paginator rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
                 <Column pt={cell('Início', 'title')} field="vigenciaInicio" header="Início" body={(r: PriceRow) => dateLabel(r.vigenciaInicio)} />
                 <Column pt={cell('Fim')} field="vigenciaFim" header="Fim" body={(r: PriceRow) => r.vigenciaFim ? dateLabel(r.vigenciaFim) : 'Vigente'} />
                 <Column pt={cell('Nacionalização')} field="valorNacionalizacao" header="Nacionalização" body={(r: PriceRow) => rateMoney(r.valorNacionalizacao)} />
                 <Column pt={cell('Combo')} field="valorCombo" header="Combo" body={(r: PriceRow) => rateMoney(Number(r.valorCombo || 0))} />
+                <Column pt={cell('Só ADIPAC')} field="valorAdipac" header="Só ADIPAC" body={(r: PriceRow) => rateMoney(Number(r.valorAdipac || 0))} />
+                <Column pt={cell('EAN')} field="valorEan" header="EAN" body={(r: PriceRow) => rateMoney(Number(r.valorEan || 0))} />
                 <Column pt={cell('Tester')} field="valorTester" header="Tester" body={(r: PriceRow) => rateMoney(Number(r.valorTester || 0))} />
+                <Column pt={cell('Celofane')} field="valorCelofane" header="Celofane" body={(r: PriceRow) => rateMoney(Number(r.valorCelofane || 0))} />
                 <Column pt={cell('Etq. confeccionada')} field="valorConfeccao" header="Confecção" body={(r: PriceRow) => rateMoney(Number(r.valorConfeccao || 0))} />
                 <Column pt={cell('Observação', 'wide')} field="observacao" header="Observação" />
                 <Column pt={cell('Criado por')} field="criadoPor" header="Criado por" />
@@ -2642,10 +2731,43 @@ export default function Home() {
             />
           </label>
           <label>
+            Só ADIPAC
+            <InputNumber
+              value={form.adipac}
+              onValueChange={e => setForm({ ...form, adipac: e.value ?? null })}
+              placeholder="0"
+              min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
+            />
+          </label>
+          <label>
+            Etiqueta EAN (insumo cliente)
+            <InputNumber
+              value={form.ean}
+              onValueChange={e => setForm({ ...form, ean: e.value ?? null })}
+              placeholder="0"
+              min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
+            />
+          </label>
+          <label>
             Transformação em tester
             <InputNumber
               value={form.tester}
               onValueChange={e => setForm({ ...form, tester: e.value ?? null })}
+              placeholder="0"
+              min={0}
+              locale="pt-BR"
+              maxFractionDigits={0}
+            />
+          </label>
+          <label>
+            Troca de celofane / embalagem
+            <InputNumber
+              value={form.celofane}
+              onValueChange={e => setForm({ ...form, celofane: e.value ?? null })}
               placeholder="0"
               min={0}
               locale="pt-BR"
@@ -2664,8 +2786,8 @@ export default function Home() {
             />
           </label>
           <p className="form-hint span-2">
-            * Obrigatórios. Cada unidade recebe combo ou só nacionalização: os dois somados e o tester não podem
-            passar da quantidade retrabalhada.
+            * Obrigatórios. Combo, só nacionalização e só ADIPAC: uma por unidade (a soma não passa da quantidade).
+            EAN, tester e celofane: cada um até a quantidade retrabalhada.
           </p>
         </div>
 
@@ -2689,9 +2811,24 @@ export default function Home() {
             </small>
           </div>
           <div>
+            <span>Só ADIPAC</span>
+            <strong>{previewPrice ? money(previewPrice.adipac) : '—'}</strong>
+            <small>{previewPrice ? `${intLabel(form.adipac)} × ${rateMoney(Number(previewPrice.price.valorAdipac || 0))}` : '—'}</small>
+          </div>
+          <div>
+            <span>EAN</span>
+            <strong>{previewPrice ? money(previewPrice.ean) : '—'}</strong>
+            <small>{previewPrice ? `${intLabel(form.ean)} × ${rateMoney(Number(previewPrice.price.valorEan || 0))}` : '—'}</small>
+          </div>
+          <div>
             <span>Tester</span>
             <strong>{previewPrice ? money(previewPrice.tester) : '—'}</strong>
             <small>{previewPrice ? `${intLabel(form.tester)} × ${rateMoney(Number(previewPrice.price.valorTester || 0))}` : '—'}</small>
+          </div>
+          <div>
+            <span>Celofane</span>
+            <strong>{previewPrice ? money(previewPrice.celofane) : '—'}</strong>
+            <small>{previewPrice ? `${intLabel(form.celofane)} × ${rateMoney(Number(previewPrice.price.valorCelofane || 0))}` : '—'}</small>
           </div>
           <div>
             <span>Confeccionadas</span>
@@ -2871,7 +3008,10 @@ export default function Home() {
                   <th>Qtd. retrabalhada *</th>
                   <th>Combo</th>
                   <th>Nacionalização</th>
+                  <th>Só ADIPAC</th>
+                  <th>EAN</th>
                   <th>Tester</th>
+                  <th>Celofane</th>
                   <th>Confecção</th>
                   <th />
                 </tr>
@@ -2887,7 +3027,10 @@ export default function Home() {
                       <td data-label="Qtd. retrabalhada *"><InputNumber value={line.quantidade} onValueChange={e => updateBatchLine(line.sku, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Combo"><InputNumber value={line.combo} onValueChange={e => updateBatchLine(line.sku, 'combo', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Nacionalização"><InputNumber value={line.nacionalizacao} onValueChange={e => updateBatchLine(line.sku, 'nacionalizacao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Só ADIPAC"><InputNumber value={line.adipac} onValueChange={e => updateBatchLine(line.sku, 'adipac', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="EAN"><InputNumber value={line.ean} onValueChange={e => updateBatchLine(line.sku, 'ean', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Tester"><InputNumber value={line.tester} onValueChange={e => updateBatchLine(line.sku, 'tester', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Celofane"><InputNumber value={line.celofane} onValueChange={e => updateBatchLine(line.sku, 'celofane', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Confecção"><InputNumber value={line.confeccao} onValueChange={e => updateBatchLine(line.sku, 'confeccao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td className="batch-remove"><Button icon="pi pi-times" text rounded className="table-action" title="Remover SKU" aria-label={`Remover SKU ${line.sku}`} onClick={() => removeBatchLine(line.sku)} /></td>
                     </tr>
@@ -2905,13 +3048,16 @@ export default function Home() {
           <span>Retrabalhadas <strong>{intLabel(batchPreview.qty.quantidade)}</strong></span>
           <span>Combo <strong>{intLabel(batchPreview.qty.combo)}</strong></span>
           <span>Nacionalização <strong>{intLabel(batchPreview.qty.nacionalizacao)}</strong></span>
+          <span>Só ADIPAC <strong>{intLabel(batchPreview.qty.adipac)}</strong></span>
+          <span>EAN <strong>{intLabel(batchPreview.qty.ean)}</strong></span>
           <span>Tester <strong>{intLabel(batchPreview.qty.tester)}</strong></span>
+          <span>Celofane <strong>{intLabel(batchPreview.qty.celofane)}</strong></span>
           <span>Confeccionadas <strong>{intLabel(batchPreview.qty.confeccao)}</strong></span>
           <span className="batch-total">Total previsto <strong>{batchPreview.total == null ? 'Sem vigência' : money(batchPreview.total)}</strong></span>
         </div>
         <p className="form-hint">
-          Cada unidade recebe combo (nacionalização + RFID ou ADIPAC) ou só nacionalização: os dois somados e o tester não podem
-          passar da quantidade retrabalhada. Cada SKU precisa de ao menos um serviço.
+          Combo, só nacionalização e só ADIPAC: uma por unidade (a soma não passa da quantidade retrabalhada).
+          EAN, tester e celofane podem se somar, cada um até a quantidade. Cada SKU precisa de ao menos um serviço.
           O valor definitivo é calculado pelo sistema com a tabela de preços vigente na data.
         </p>
 
@@ -2950,8 +3096,20 @@ export default function Home() {
             <InputNumber value={correctForm.valorNacionalizacao} onValueChange={e => setCorrectForm({ ...correctForm, valorNacionalizacao: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
           </label>
           <label>
+            Só ADIPAC
+            <InputNumber value={correctForm.valorAdipac} onValueChange={e => setCorrectForm({ ...correctForm, valorAdipac: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
+          </label>
+          <label>
+            Etiqueta EAN (insumo cliente)
+            <InputNumber value={correctForm.valorEan} onValueChange={e => setCorrectForm({ ...correctForm, valorEan: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
+          </label>
+          <label>
             Transformação em tester
             <InputNumber value={correctForm.valorTester} onValueChange={e => setCorrectForm({ ...correctForm, valorTester: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
+          </label>
+          <label>
+            Troca de celofane / embalagem
+            <InputNumber value={correctForm.valorCelofane} onValueChange={e => setCorrectForm({ ...correctForm, valorCelofane: e.value || 0 })} mode="currency" currency="BRL" locale="pt-BR" min={0} minFractionDigits={4} maxFractionDigits={4} />
           </label>
           <label>
             Confecção / impressão de etiqueta

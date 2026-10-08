@@ -50,7 +50,16 @@ const ReworkService = (() => {
     'VALOR_CONFECCAO',
     'QTD_COMBO',
     'PRECO_COMBO_UNIT',
-    'VALOR_COMBO'
+    'VALOR_COMBO',
+    'QTD_ADIPAC',
+    'PRECO_ADIPAC_UNIT',
+    'VALOR_ADIPAC',
+    'QTD_EAN',
+    'PRECO_EAN_UNIT',
+    'VALOR_EAN',
+    'QTD_CELOFANE',
+    'PRECO_CELOFANE_UNIT',
+    'VALOR_CELOFANE'
   ];
   const TEXT_FIELDS = ['ID_RETRABALHO','SKU','MATRICULA_CRIACAO','REQUEST_ID','ID_PRECO','CNPJ_CLIENTE','CANCELADO_POR','ID_PROCESSO','NUMERO_PROCESSO','ID_LOTE'];
   const MAX_BATCH = 100;
@@ -63,31 +72,36 @@ const ReworkService = (() => {
     return int_(v == null || v === '' ? 0 : v, label, true);
   }
 
-  // Serviços por SKU (modelo de 07/10/2026 — cada unidade recebe UM tipo de etiquetagem):
-  // - Combo: nacionalização + RFID ou ADIPAC, cobrado como um serviço único;
-  // - Nacionalização: só a etiqueta de nacionalização;
-  // - Tester: transformação em tester;
-  // - Confeccionadas: confecção/impressão de etiqueta de nacionalização.
+  // Serviços por SKU (modelo de 08/10/2026 — os serviços se somam):
+  // Etiquetagem de nacionalização/RFID/ADIPAC — variações excludentes na mesma unidade:
+  //   combo (nacionalização + RFID ou ADIPAC), só nacionalização, só ADIPAC;
+  // Demais serviços, que se somam a qualquer outro: etiqueta EAN (insumo do cliente),
+  //   transformação em tester, troca de celofane/embalagem; confecção/impressão de etiqueta (livre).
   // Regras:
   // - quantidade retrabalhada é obrigatória (>= 1);
-  // - combo + nacionalização não pode passar da quantidade (a unidade recebe um ou outro);
-  // - tester não pode passar da quantidade; confeccionadas são livres;
-  // - ao menos um serviço. RFID/ADIPAC avulso não existe mais (sempre 0 em gravações novas).
+  // - combo + só nacionalização + só ADIPAC <= quantidade (cada unidade recebe no máximo uma variação);
+  // - EAN, tester e celofane, cada um, <= quantidade; confecção sem limite;
+  // - ao menos um serviço. RFID avulso não existe (sempre 0 em gravações novas).
   function services_(input, prefix) {
     const p = prefix || '';
     const quantidade = int_(input.quantidade, p + 'Quantidade retrabalhada', false);
     const combo = optionalInt_(input.combo, p + 'Quantidade de combo (nacionalização + RFID/ADIPAC)');
     const nacionalizacao = optionalInt_(input.nacionalizacao, p + 'Quantidade de nacionalização');
+    const adipac = optionalInt_(input.adipac, p + 'Quantidade de só ADIPAC');
+    const ean = optionalInt_(input.ean, p + 'Quantidade de etiqueta EAN');
     const tester = optionalInt_(input.tester, p + 'Quantidade de transformação em tester');
+    const celofane = optionalInt_(input.celofane, p + 'Quantidade de troca de celofane/embalagem');
     const confeccao = optionalInt_(input.confeccao, p + 'Quantidade de etiquetas confeccionadas');
-    if (combo + nacionalizacao > quantidade) {
-      throw new Error(p + 'Combo + nacionalização não pode ser maior que a quantidade retrabalhada (cada unidade recebe um ou outro).');
+    if (combo + nacionalizacao + adipac > quantidade) {
+      throw new Error(p + 'Combo + nacionalização + só ADIPAC não pode ser maior que a quantidade retrabalhada (cada unidade recebe uma dessas etiquetagens).');
     }
+    if (ean > quantidade) throw new Error(p + 'Etiqueta EAN não pode ser maior que a quantidade retrabalhada.');
     if (tester > quantidade) throw new Error(p + 'Transformação em tester não pode ser maior que a quantidade retrabalhada.');
-    if (combo + nacionalizacao + tester + confeccao <= 0) {
-      throw new Error(p + 'Informe ao menos um serviço: combo, nacionalização, tester ou etiquetas confeccionadas.');
+    if (celofane > quantidade) throw new Error(p + 'Troca de celofane/embalagem não pode ser maior que a quantidade retrabalhada.');
+    if (combo + nacionalizacao + adipac + ean + tester + celofane + confeccao <= 0) {
+      throw new Error(p + 'Informe ao menos um serviço.');
     }
-    return { quantidade, combo, nacionalizacao, rfid: 0, tester, confeccao };
+    return { quantidade, combo, nacionalizacao, adipac, ean, rfid: 0, tester, celofane, confeccao };
   }
 
   // Recalcula todos os lançamentos que usam a vigência informada (após correção de preço).
@@ -118,7 +132,10 @@ const ReworkService = (() => {
           quantidade: Number(r.QTD_RETRABALHADA || 0),
           combo, nacionalizacao: nat, rfid,
           tester: Number(r.QTD_TESTER || 0),
-          confeccao: Number(r.ETIQUETAS_CONFECCIONADAS || 0)
+          confeccao: Number(r.ETIQUETAS_CONFECCIONADAS || 0),
+          adipac: Number(r.QTD_ADIPAC || 0),
+          ean: Number(r.QTD_EAN || 0),
+          celofane: Number(r.QTD_CELOFANE || 0)
         };
         const validade = Number(r.ETIQUETAS_VALIDADE || 0);
         const charge = PriceService.calculate(null, Object.assign({}, services, { validade }), price);
@@ -151,21 +168,32 @@ const ReworkService = (() => {
       ETIQUETAS_NACIONALIZACAO: services.nacionalizacao,
       ETIQUETAS_RFID: services.rfid,
       QTD_COMBO: services.combo,
+      QTD_ADIPAC: Number(services.adipac || 0),
+      QTD_EAN: Number(services.ean || 0),
+      QTD_CELOFANE: Number(services.celofane || 0),
       ETIQUETAS_VALIDADE: validade,
       QTD_TESTER: services.tester,
       ETIQUETAS_CONFECCIONADAS: services.confeccao,
       // Cada combo aplica 2 etiquetas (nacionalização + RFID/ADIPAC).
-      TOTAL_ETIQUETAS: services.nacionalizacao + 2 * services.combo + services.rfid + services.confeccao + validade,
+      // Etiquetas aplicadas: combo = 2 (nacionalização + RFID/ADIPAC); só ADIPAC, EAN e confeccionadas = 1 cada.
+      TOTAL_ETIQUETAS: services.nacionalizacao + 2 * services.combo + Number(services.adipac || 0)
+        + Number(services.ean || 0) + services.rfid + services.confeccao + validade,
       ID_PRECO: price.idPreco,
       PRECO_NACIONALIZACAO_UNIT: price.precoNacionalizacaoUnit,
       PRECO_RFID_ADICIONAL_UNIT: price.precoRfidAdicionalUnit,
       PRECO_COMBO_UNIT: price.precoComboUnit,
+      PRECO_ADIPAC_UNIT: price.precoAdipacUnit,
+      PRECO_EAN_UNIT: price.precoEanUnit,
+      PRECO_CELOFANE_UNIT: price.precoCelofaneUnit,
       PRECO_VALIDADE_UNIT: price.precoValidadeUnit,
       PRECO_TESTER_UNIT: price.precoTesterUnit,
       PRECO_CONFECCAO_UNIT: price.precoConfeccaoUnit,
       VALOR_NACIONALIZACAO: price.valorNacionalizacao,
       VALOR_RFID_ADICIONAL: price.valorRfidAdicional,
       VALOR_COMBO: price.valorCombo,
+      VALOR_ADIPAC: price.valorAdipac,
+      VALOR_EAN: price.valorEan,
+      VALOR_CELOFANE: price.valorCelofane,
       VALOR_VALIDADE: price.valorValidade,
       VALOR_TESTER: price.valorTester,
       VALOR_CONFECCAO: price.valorConfeccao,
@@ -193,6 +221,15 @@ const ReworkService = (() => {
       nacionalizacao: Number(r.ETIQUETAS_NACIONALIZACAO || 0),
       rfid: Number(r.ETIQUETAS_RFID || 0),
       combo: Number(r.QTD_COMBO || 0),
+      adipac: Number(r.QTD_ADIPAC || 0),
+      ean: Number(r.QTD_EAN || 0),
+      celofane: Number(r.QTD_CELOFANE || 0),
+      precoAdipacUnit: Number(r.PRECO_ADIPAC_UNIT || 0),
+      precoEanUnit: Number(r.PRECO_EAN_UNIT || 0),
+      precoCelofaneUnit: Number(r.PRECO_CELOFANE_UNIT || 0),
+      valorAdipac: Number(r.VALOR_ADIPAC || 0),
+      valorEan: Number(r.VALOR_EAN || 0),
+      valorCelofane: Number(r.VALOR_CELOFANE || 0),
       precoComboUnit: Number(r.PRECO_COMBO_UNIT || 0),
       valorCombo: Number(r.VALOR_COMBO || 0),
       validade: Number(r.ETIQUETAS_VALIDADE || 0),

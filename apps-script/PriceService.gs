@@ -44,7 +44,11 @@ const PriceService = (() => {
     return copy;
   }
 
-  const EXTRA_HEADERS = ['VALOR_TESTER', 'VALOR_CONFECCAO', 'VALOR_COMBO'];
+  const EXTRA_HEADERS = ['VALOR_TESTER', 'VALOR_CONFECCAO', 'VALOR_COMBO', 'VALOR_ADIPAC', 'VALOR_EAN', 'VALOR_CELOFANE'];
+
+  function optRate_(v, label) {
+    return rate_(v == null || v === '' ? 0 : v, label);
+  }
 
   function map_(r) {
     return {
@@ -60,6 +64,10 @@ const PriceService = (() => {
         ? Number(r.VALOR_COMBO)
         : Number(r.VALOR_NACIONALIZACAO || 0) + Number(r.VALOR_RFID_ADICIONAL || 0),
       comboLegado: !(Number(r.VALOR_COMBO || 0) > 0),
+      // Serviços incluídos em 08/10/2026 (vigências anteriores valem 0).
+      valorAdipac: Number(r.VALOR_ADIPAC || 0),
+      valorEan: Number(r.VALOR_EAN || 0),
+      valorCelofane: Number(r.VALOR_CELOFANE || 0),
       valorValidade: Number(r.VALOR_VALIDADE || 0),
       valorTester: Number(r.VALOR_TESTER || 0),
       valorConfeccao: Number(r.VALOR_CONFECCAO || 0),
@@ -106,6 +114,9 @@ const PriceService = (() => {
     const valueValidade = amount_(qty('validade') * price.valorValidade, 'Valor de etiqueta de validade');
     const valueTester = amount_(qty('tester') * price.valorTester, 'Valor de transformação em tester');
     const valueConfeccao = amount_(qty('confeccao') * price.valorConfeccao, 'Valor de etiquetas confeccionadas');
+    const valueAdipac = amount_(qty('adipac') * Number(price.valorAdipac || 0), 'Valor de só ADIPAC');
+    const valueEan = amount_(qty('ean') * Number(price.valorEan || 0), 'Valor de etiqueta EAN');
+    const valueCelofane = amount_(qty('celofane') * Number(price.valorCelofane || 0), 'Valor de troca de celofane/embalagem');
 
     return {
       idPreco: price.id,
@@ -115,13 +126,20 @@ const PriceService = (() => {
       precoValidadeUnit: rate_(price.valorValidade, 'Tarifa de etiqueta de validade'),
       precoTesterUnit: rate_(price.valorTester, 'Tarifa de transformação em tester'),
       precoConfeccaoUnit: rate_(price.valorConfeccao, 'Tarifa de etiquetas confeccionadas'),
+      precoAdipacUnit: rate_(Number(price.valorAdipac || 0), 'Tarifa de só ADIPAC'),
+      precoEanUnit: rate_(Number(price.valorEan || 0), 'Tarifa de etiqueta EAN'),
+      precoCelofaneUnit: rate_(Number(price.valorCelofane || 0), 'Tarifa de troca de celofane/embalagem'),
       valorNacionalizacao: valueNat,
       valorCombo: valueCombo,
       valorRfidAdicional: valueRfid,
       valorValidade: valueValidade,
       valorTester: valueTester,
       valorConfeccao: valueConfeccao,
-      valorTotalCobranca: amount_(valueNat + valueCombo + valueRfid + valueValidade + valueTester + valueConfeccao, 'Valor total')
+      valorAdipac: valueAdipac,
+      valorEan: valueEan,
+      valorCelofane: valueCelofane,
+      valorTotalCobranca: amount_(valueNat + valueCombo + valueRfid + valueValidade + valueTester + valueConfeccao
+        + valueAdipac + valueEan + valueCelofane, 'Valor total')
     };
   }
 
@@ -198,7 +216,10 @@ const PriceService = (() => {
       VALOR_VALIDADE: valueValidade,
       VALOR_TESTER: valueTester,
       VALOR_CONFECCAO: valueConfeccao,
-      VALOR_COMBO: valueCombo
+      VALOR_COMBO: valueCombo,
+      VALOR_ADIPAC: optRate_(input.valorAdipac, 'Tarifa de só ADIPAC'),
+      VALOR_EAN: optRate_(input.valorEan, 'Tarifa de etiqueta EAN'),
+      VALOR_CELOFANE: optRate_(input.valorCelofane, 'Tarifa de troca de celofane/embalagem')
     };
 
     Repository.append('TABELA_PRECOS', record, ['ID_PRECO','CRIADO_POR','REQUEST_ID']);
@@ -240,6 +261,9 @@ const PriceService = (() => {
       VALOR_RFID_ADICIONAL: 0,
       VALOR_TESTER: rate_(input.valorTester == null || input.valorTester === '' ? 0 : input.valorTester, 'Tarifa de transformação em tester'),
       VALOR_CONFECCAO: rate_(input.valorConfeccao == null || input.valorConfeccao === '' ? 0 : input.valorConfeccao, 'Tarifa de etiquetas confeccionadas'),
+      VALOR_ADIPAC: optRate_(input.valorAdipac, 'Tarifa de só ADIPAC'),
+      VALOR_EAN: optRate_(input.valorEan, 'Tarifa de etiqueta EAN'),
+      VALOR_CELOFANE: optRate_(input.valorCelofane, 'Tarifa de troca de celofane/embalagem'),
       OBSERVACAO: text_(input.observacao),
       VERSAO: nextVersion,
       ATUALIZADO_EM: new Date(),
