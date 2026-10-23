@@ -78,13 +78,13 @@ const ReworkService = (() => {
   // Demais serviços, que se somam a qualquer outro: etiqueta EAN (insumo do cliente),
   //   transformação em tester, troca de celofane/embalagem; confecção/impressão de etiqueta (livre).
   // Regras:
-  // - quantidade retrabalhada é obrigatória (>= 1);
+  // - quantidade é obrigatória (>= 1);
   // - combo + só nacionalização + só ADIPAC <= quantidade (cada unidade recebe no máximo uma variação);
   // - EAN, tester e celofane, cada um, <= quantidade; confecção sem limite;
   // - ao menos um serviço. RFID avulso não existe (sempre 0 em gravações novas).
   function services_(input, prefix) {
     const p = prefix || '';
-    const quantidade = int_(input.quantidade, p + 'Quantidade retrabalhada', false);
+    const quantidade = int_(input.quantidade, p + 'Quantidade', false);
     const combo = optionalInt_(input.combo, p + 'Quantidade de combo (nacionalização + RFID/ADIPAC)');
     const nacionalizacao = optionalInt_(input.nacionalizacao, p + 'Quantidade de nacionalização');
     const adipac = optionalInt_(input.adipac, p + 'Quantidade de só ADIPAC');
@@ -93,11 +93,11 @@ const ReworkService = (() => {
     const celofane = optionalInt_(input.celofane, p + 'Quantidade de troca de celofane/embalagem');
     const confeccao = optionalInt_(input.confeccao, p + 'Quantidade de etiquetas confeccionadas');
     if (combo + nacionalizacao + adipac > quantidade) {
-      throw new Error(p + 'Combo + nacionalização + só ADIPAC não pode ser maior que a quantidade retrabalhada (cada unidade recebe uma dessas etiquetagens).');
+      throw new Error(p + 'Combo + nacionalização + só ADIPAC não pode ser maior que a quantidade (cada unidade recebe uma dessas etiquetagens).');
     }
-    if (ean > quantidade) throw new Error(p + 'Etiqueta EAN não pode ser maior que a quantidade retrabalhada.');
-    if (tester > quantidade) throw new Error(p + 'Transformação em tester não pode ser maior que a quantidade retrabalhada.');
-    if (celofane > quantidade) throw new Error(p + 'Troca de celofane/embalagem não pode ser maior que a quantidade retrabalhada.');
+    if (ean > quantidade) throw new Error(p + 'Etiqueta EAN não pode ser maior que a quantidade.');
+    if (tester > quantidade) throw new Error(p + 'Transformação em tester não pode ser maior que a quantidade.');
+    if (celofane > quantidade) throw new Error(p + 'Troca de celofane/embalagem não pode ser maior que a quantidade.');
     if (combo + nacionalizacao + adipac + ean + tester + celofane + confeccao <= 0) {
       throw new Error(p + 'Informe ao menos um serviço.');
     }
@@ -430,7 +430,7 @@ const ReworkService = (() => {
     const id = text_(input.id);
     const author = text_(input.matriculaAutor);
     const perfil = upper_(input.perfilAutor);
-    if (perfil === 'OPERACIONAL' || perfil === 'CLIENTE') {
+    if (perfil === 'CLIENTE') {
       throw new Error('Seu perfil não pode editar registros.');
     }
 
@@ -449,6 +449,18 @@ const ReworkService = (() => {
     const informedVersion = Number(input.versao || 0);
     if (informedVersion !== currentVersion) {
       throw new Error('O registro foi alterado por outro usuário. Atualize a lista antes de editar.');
+    }
+
+    // OPERACIONAL (22/10/2026): edita só a quantidade e os serviços. Data, filial, SKU e descrição
+    // ficam como estão — a tela já trava esses campos; aqui a regra é conferida de novo.
+    if (perfil === 'OPERACIONAL') {
+      const sameDate = text_(input.dataEfetivacao) === text_(current.dataEfetivacao);
+      const sameSku = text_(input.sku) === text_(current.sku);
+      const sameDescription = text_(input.descricao) === text_(current.descricao);
+      const sameBranch = !input.cnpjCliente || text_(input.cnpjCliente).replace(/\D/g, '') === text_(current.cnpjCliente).replace(/\D/g, '');
+      if (!sameDate || !sameSku || !sameDescription || !sameBranch) {
+        throw new Error('Seu perfil pode alterar apenas a quantidade e os serviços do lançamento.');
+      }
     }
 
     const before = current;

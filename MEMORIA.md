@@ -760,3 +760,14 @@ Frontend: lote, edição, prévia, histórico, CSV, Preços (formulário, tabela
 Testes: 15 no simulador (cálculo somado R$ 165,107; só ADIPAC; EAN + tester; regras; vigência anterior intacta; correção recalcula) e 9 na interface (lote total R$ 188,03; bloqueio de EAN; envio; Preços e Corrigir com 7 tarifas).
 
 **Cadastro após publicar:** em Preços, nova vigência (ou Corrigir a atual, se os valores já valiam hoje): Combo 0,6000; Nacionalização 0,4114; Só ADIPAC 0,2351; EAN 0,4114; Tester 0,7052; Celofane 0,7052; Confecção 0,1500.
+
+## Início de uso — ajustes pedidos pela operação (22/10/2026, API 2026.10.22.1)
+
+Fase 1 (implementada):
+- **"Qtd. retrabalhada" → "Quantidade"** em toda a tela (lote, edição, histórico, celular, CSV, ajuda) e nas mensagens do servidor; indicador "Unidades retrabalhadas" → "Quantidade total". Motivo: "retrabalho" também é nome de serviço e confundia. A coluna da planilha continua `QTD_RETRABALHADA` (sem impacto nos dados).
+- **Operacionais editam lançamentos**, só **quantidade e serviços**: data, filial, SKU e descrição ficam travados na tela e conferidos de novo no `ReworkService.edit` (recusa com "Seu perfil pode alterar apenas a quantidade e os serviços do lançamento."). Mantidos: só filiais do usuário, versão otimista, cancelados não editáveis, auditoria. **Cancelar cobrança** e **editar mão de obra** continuam com SUPERVISOR/ADMIN. Permissões: `canEditRework`/`editLimited` em `page.tsx`, `onRequestPut` em `functions/api/retrabalhos.ts`, `ReworkService.edit`.
+- Testes: 12 no simulador do Apps Script e 10 na interface (operacional e supervisor).
+
+Fase 2 (aguardando o comercial) — ADIPAC/RFID aplicado depois da nacionalização:
+- decisão da operação: a cobrança vai para o **mês em que o complemento foi aplicado** → não editar o lançamento original (ele mantém a data e a competência originais); o complemento será um **lançamento novo, com a data do dia, vinculado ao original**;
+- falta definir o preço: (A) diferença para o combo (R$ 0,60 − R$ 0,4114 = R$ 0,1886/un.) → exige serviço/tarifa nova; ou (B) "Só ADIPAC" (R$ 0,2351/un.) → já funciona com um lançamento novo; para RFID aplicado depois falta tarifa ("só RFID" não existe).

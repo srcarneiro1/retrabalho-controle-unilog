@@ -182,7 +182,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const user = await identity(request, env)
-    if (user.perfil === 'OPERACIONAL' || user.perfil === 'CLIENTE') {
+    // OPERACIONAL edita só quantidades e serviços (regra conferida no Apps Script); CLIENTE é só leitura.
+    if (user.perfil === 'CLIENTE') {
       return json({
         ok: false,
         error: { message: 'Seu perfil não pode editar registros.' },

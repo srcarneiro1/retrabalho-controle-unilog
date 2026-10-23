@@ -163,11 +163,11 @@ type ServiceQty = {
 function lineError(line: ServiceQty) {
   const n = (v: number | null | undefined) => Number(v || 0)
   const qtd = n(line.quantidade)
-  if (qtd < 1) return 'informe a quantidade retrabalhada'
-  if (n(line.combo) + n(line.nacionalizacao) + n(line.adipac) > qtd) return 'combo + nacionalização + só ADIPAC maior que a quantidade retrabalhada'
-  if (n(line.ean) > qtd) return 'etiqueta EAN maior que a quantidade retrabalhada'
-  if (n(line.tester) > qtd) return 'tester maior que a quantidade retrabalhada'
-  if (n(line.celofane) > qtd) return 'troca de celofane maior que a quantidade retrabalhada'
+  if (qtd < 1) return 'informe a quantidade'
+  if (n(line.combo) + n(line.nacionalizacao) + n(line.adipac) > qtd) return 'combo + nacionalização + só ADIPAC maior que a quantidade'
+  if (n(line.ean) > qtd) return 'etiqueta EAN maior que a quantidade'
+  if (n(line.tester) > qtd) return 'tester maior que a quantidade'
+  if (n(line.celofane) > qtd) return 'troca de celofane maior que a quantidade'
   if (n(line.combo) + n(line.nacionalizacao) + n(line.adipac) + n(line.ean) + n(line.tester) + n(line.celofane) + n(line.confeccao) <= 0) {
     return 'informe ao menos um serviço'
   }
@@ -618,6 +618,10 @@ export default function Home() {
   const isClient = user?.perfil === 'CLIENTE'
   const canCreate = Boolean(user && user.perfil !== 'CLIENTE')
   const canEdit = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN'
+  // Edição de lançamentos (22/10/2026): operacionais também editam, mas só quantidades e serviços.
+  // Cancelar cobrança e editar mão de obra continuam com SUPERVISOR/ADMIN (canEdit).
+  const canEditRework = canEdit || user?.perfil === 'OPERACIONAL'
+  const editLimited = user?.perfil === 'OPERACIONAL'
   const canAudit = user?.perfil === 'SUPERVISOR' || user?.perfil === 'ADMIN' || user?.perfil === 'CLIENTE'
   const canUsers = user?.perfil === 'ADMIN'
   const canManagePrices = user?.perfil === 'ADMIN'
@@ -1036,7 +1040,7 @@ export default function Home() {
   }
 
   function openEdit(row: Rework) {
-    if (!canEdit || row.cobrancaCancelada) return
+    if (!canEditRework || row.cobrancaCancelada) return
     setForm({
       id: row.id,
       requestId: row.requestId || '',
@@ -1553,7 +1557,7 @@ export default function Home() {
         'CNPJ',
         'Processo',
         'Lote',
-        'Qtd retrabalhada',
+        'Quantidade',
         'Combo (nacionalização + RFID/ADIPAC)',
         'Nacionalização',
         'Só ADIPAC',
@@ -2240,7 +2244,7 @@ export default function Home() {
             )}
             <div className="metrics metrics-4">
               <article><i className="pi pi-list" /><div><span>Registros</span><strong>{totals.registros}</strong></div></article>
-              <article><i className="pi pi-box" /><div><span>Unidades retrabalhadas</span><strong>{totals.unidades.toLocaleString('pt-BR')}</strong></div></article>
+              <article><i className="pi pi-box" /><div><span>Quantidade total</span><strong>{totals.unidades.toLocaleString('pt-BR')}</strong></div></article>
               <article><i className="pi pi-tags" /><div><span>Etiquetas aplicadas</span><strong>{totals.etiquetas.toLocaleString('pt-BR')}</strong></div></article>
               <article><i className="pi pi-wallet" /><div><span>{chargeStatus === 'CANCELADOS' ? 'Valor cancelado' : 'Valor a cobrar'}</span><strong>{money(totals.valor)}</strong></div></article>
             </div>
@@ -2304,10 +2308,10 @@ export default function Home() {
                 <Column pt={cell('Criado por')} field="matriculaCriacao" header="Criado por" />
                 <Column pt={cell('Ações', 'actions')}
                   header=""
-                  body={(row: Rework) => canEdit ? (
+                  body={(row: Rework) => canEditRework ? (
                     <div className="row-actions">
-                      <Button icon="pi pi-pencil" text rounded className="table-action" disabled={row.cobrancaCancelada} onClick={() => openEdit(row)} />
-                      <Button
+                      <Button icon="pi pi-pencil" text rounded className="table-action" title="Editar" disabled={row.cobrancaCancelada} onClick={() => openEdit(row)} />
+                      {canEdit && <Button
                         icon="pi pi-ban"
                         text
                         rounded
@@ -2315,7 +2319,7 @@ export default function Home() {
                         disabled={row.cobrancaCancelada}
                         title={row.cobrancaCancelada ? 'Cobrança já cancelada' : 'Cancelar cobrança'}
                         onClick={() => { setCancelError(''); setCancelReason(''); setCancelTarget(row) }}
-                      />
+                      />}
                     </div>
                   ) : null}
                 />
@@ -2664,6 +2668,7 @@ export default function Home() {
           <label>
             Data de efetivação *
             <Calendar
+              disabled={editLimited}
               value={form.dataEfetivacao}
               onChange={e => setForm({ ...form, dataEfetivacao: e.value as Date })}
               dateFormat="dd/mm/yy"
@@ -2679,7 +2684,7 @@ export default function Home() {
               optionValue="value"
               placeholder="Selecione a filial"
               onChange={e => setForm({ ...form, cnpjCliente: String(e.value ?? '') })}
-              disabled={Boolean(form.numeroProcesso)}
+              disabled={Boolean(form.numeroProcesso) || editLimited}
               required
             />
           </label>
@@ -2691,14 +2696,14 @@ export default function Home() {
           )}
           <label>
             SKU *
-            <InputText value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} disabled={Boolean(form.numeroProcesso)} />
+            <InputText value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} disabled={Boolean(form.numeroProcesso) || editLimited} />
           </label>
           <label className="span-2">
             Descrição *
-            <InputText value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} disabled={Boolean(form.numeroProcesso)} />
+            <InputText value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} disabled={Boolean(form.numeroProcesso) || editLimited} />
           </label>
           <label>
-            Quantidade retrabalhada *
+            Quantidade *
             <InputNumber
               value={form.quantidade}
               onValueChange={e => setForm({ ...form, quantidade: e.value ?? null })}
@@ -2787,7 +2792,7 @@ export default function Home() {
           </label>
           <p className="form-hint span-2">
             * Obrigatórios. Combo, só nacionalização e só ADIPAC: uma por unidade (a soma não passa da quantidade).
-            EAN, tester e celofane: cada um até a quantidade retrabalhada.
+            EAN, tester e celofane: cada um até a quantidade.
           </p>
         </div>
 
@@ -3005,7 +3010,7 @@ export default function Home() {
                   <th>#</th>
                   <th>SKU</th>
                   <th>Descrição</th>
-                  <th>Qtd. retrabalhada *</th>
+                  <th>Quantidade *</th>
                   <th>Combo</th>
                   <th>Nacionalização</th>
                   <th>Só ADIPAC</th>
@@ -3024,7 +3029,7 @@ export default function Home() {
                       <td className="batch-index" data-label="#">{index + 1}</td>
                       <td className="batch-sku" data-label="SKU">{line.sku}</td>
                       <td className="batch-desc" data-label="Descrição">{line.descricao}</td>
-                      <td data-label="Qtd. retrabalhada *"><InputNumber value={line.quantidade} onValueChange={e => updateBatchLine(line.sku, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      <td data-label="Quantidade *"><InputNumber value={line.quantidade} onValueChange={e => updateBatchLine(line.sku, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Combo"><InputNumber value={line.combo} onValueChange={e => updateBatchLine(line.sku, 'combo', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Nacionalização"><InputNumber value={line.nacionalizacao} onValueChange={e => updateBatchLine(line.sku, 'nacionalizacao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
                       <td data-label="Só ADIPAC"><InputNumber value={line.adipac} onValueChange={e => updateBatchLine(line.sku, 'adipac', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
@@ -3045,7 +3050,7 @@ export default function Home() {
 
         <div className="batch-summary">
           <span><strong>{batch.lines.length}</strong> SKU(s)</span>
-          <span>Retrabalhadas <strong>{intLabel(batchPreview.qty.quantidade)}</strong></span>
+          <span>Quantidade <strong>{intLabel(batchPreview.qty.quantidade)}</strong></span>
           <span>Combo <strong>{intLabel(batchPreview.qty.combo)}</strong></span>
           <span>Nacionalização <strong>{intLabel(batchPreview.qty.nacionalizacao)}</strong></span>
           <span>Só ADIPAC <strong>{intLabel(batchPreview.qty.adipac)}</strong></span>
@@ -3056,7 +3061,7 @@ export default function Home() {
           <span className="batch-total">Total previsto <strong>{batchPreview.total == null ? 'Sem vigência' : money(batchPreview.total)}</strong></span>
         </div>
         <p className="form-hint">
-          Combo, só nacionalização e só ADIPAC: uma por unidade (a soma não passa da quantidade retrabalhada).
+          Combo, só nacionalização e só ADIPAC: uma por unidade (a soma não passa da quantidade).
           EAN, tester e celofane podem se somar, cada um até a quantidade. Cada SKU precisa de ao menos um serviço.
           O valor definitivo é calculado pelo sistema com a tabela de preços vigente na data.
         </p>
