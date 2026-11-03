@@ -513,6 +513,94 @@ const ReworkService = (() => {
     return { ok: true, data: after };
   }
 
+  // Edição em massa, linha por linha (23/10/2026): altera só quantidade e serviços de vários
+  // lançamentos de uma vez. Data, SKU e filial não mudam (vale para todos os perfis, inclusive
+  // OPERACIONAL). Tudo ou nada: valida todas as linhas antes de gravar; uma gravação em bloco
+  // (Repository.updateMany) e uma auditoria por linha alterada. Linhas sem mudança são ignoradas.
+  const MAX_BULK_EDIT = 200;
+  const SERVICE_KEYS = ['quantidade', 'combo', 'nacionalizacao', 'adipac', 'ean', 'tester', 'celofane', 'confeccao'];
+
+  function editMany(input) {
+    const author = text_(input.matriculaAutor);
+    const perfil = upper_(input.perfilAutor);
+    if (perfil === 'CLIENTE') throw new Error('Seu perfil não pode editar registros.');
+    const linhas = Array.isArray(input.linhas) ? input.linhas : [];
+    if (!linhas.length) throw new Error('Nenhuma linha para atualizar.');
+    if (linhas.length > MAX_BULK_EDIT) throw new Error('Atualize no máximo ' + MAX_BULK_EDIT + ' linhas por vez.');
+
+    ensureColumns_();
+    const scope = allowedSet_(author, perfil);
+    const byId = {};
+    Repository.list('RETRABALHOS').forEach(function (x) { byId[text_(x.record.ID_RETRABALHO)] = x; });
+
+    const errors = [];
+    const changes = [];
+    const audits = [];
+    const now = new Date();
+    const seen = {};
+
+    linhas.forEach(function (line, index) {
+      const id = text_(line.id);
+      const hit = byId[id];
+      const label = 'Linha ' + (index + 1) + (hit ? ' (' + text_(hit.record.SKU) + ')' : '') + ': ';
+      if (!hit) { errors.push(label + 'registro não encontrado.'); return; }
+      if (seen[id]) { errors.push(label + 'registro repetido na atualização.'); return; }
+      seen[id] = true;
+      const current = map_(hit.record);
+      if (current.cobrancaCancelada) { errors.push(label + 'a cobrança foi cancelada; não pode ser editado.'); return; }
+      if (!scope[current.cnpjCliente]) { errors.push(label + 'você não possui acesso a este registro.'); return; }
+      const version = Number(hit.record.VERSAO || 0);
+      if (Number(line.versao || 0) !== version) { errors.push(label + 'foi alterado por outro usuário. Atualize a lista.'); return; }
+
+      let services;
+      try {
+        services = services_(line, label);
+      } catch (error) {
+        errors.push(error.message);
+        return;
+      }
+      const unchanged = SERVICE_KEYS.every(function (key) {
+        return Number(services[key] || 0) === Number(current[key === 'quantidade' ? 'quantidade' : key] || 0);
+      }) && Number(current.rfid || 0) === 0;
+      if (unchanged) return;
+
+      const validade = Number(hit.record.ETIQUETAS_VALIDADE || 0);
+      let price;
+      try {
+        price = PriceService.calculate(current.dataEfetivacao, Object.assign({}, services, { validade: validade }));
+      } catch (error) {
+        errors.push(label + error.message);
+        return;
+      }
+      const updates = Object.assign({
+        MATRICULA_ATUALIZACAO: author,
+        ATUALIZADO_EM: now,
+        VERSAO: version + 1
+      }, chargeFields_(services, validade, price));
+      changes.push({ rowNumber: hit.rowNumber, updates: updates });
+      audits.push({
+        entity: 'RETRABALHO', id: id, action: 'EDITAR_LOTE', author: author,
+        before: current, after: map_(Object.assign({}, hit.record, updates)),
+        oldVersion: version, newVersion: version + 1
+      });
+    });
+
+    if (errors.length) {
+      const extra = errors.length > 5 ? ' (e mais ' + (errors.length - 5) + ')' : '';
+      throw new Error('Nada foi gravado. ' + errors.slice(0, 5).join(' ') + extra);
+    }
+    if (changes.length) {
+      Repository.updateMany('RETRABALHOS', changes, ['ID_PRECO', 'MATRICULA_ATUALIZACAO']);
+      AuditService.logMany(audits);
+    }
+    return {
+      ok: true,
+      alterados: changes.length,
+      semAlteracao: linhas.length - changes.length,
+      data: audits.map(function (a) { return a.after; })
+    };
+  }
+
   function cancelCharge(input) {
     const id = text_(input.id);
     const author = text_(input.matriculaAutor);
@@ -554,5 +642,5 @@ const ReworkService = (() => {
     return { ok:true, data:after };
   }
 
-  return { list, months, idsForScope, create, createBatch, edit, cancelCharge, recalculateForPrice };
+  return { list, months, idsForScope, create, createBatch, edit, editMany, cancelCharge, recalculateForPrice };
 })();

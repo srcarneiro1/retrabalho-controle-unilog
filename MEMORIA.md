@@ -771,3 +771,11 @@ Fase 1 (implementada):
 Fase 2 (aguardando o comercial) — ADIPAC/RFID aplicado depois da nacionalização:
 - decisão da operação: a cobrança vai para o **mês em que o complemento foi aplicado** → não editar o lançamento original (ele mantém a data e a competência originais); o complemento será um **lançamento novo, com a data do dia, vinculado ao original**;
 - falta definir o preço: (A) diferença para o combo (R$ 0,60 − R$ 0,4114 = R$ 0,1886/un.) → exige serviço/tarifa nova; ou (B) "Só ADIPAC" (R$ 0,2351/un.) → já funciona com um lançamento novo; para RFID aplicado depois falta tarifa ("só RFID" não existe).
+
+## Filtros por processo e EAN + edição em massa (23/10/2026, API 2026.10.23.1)
+
+Histórico de lançamentos (perfis internos):
+- **filtros** por **processo** (lista dos processos carregados + "Sem processo") e por **EAN** (código de barras, completo ou parte), aplicados junto com status e mês; o CSV exporta o que estiver filtrado;
+- **Editar em massa (N)**: abre as linhas filtradas (até 200, sem cobrança cancelada) numa tabela editável — quantidade, combo, nacionalização, só ADIPAC, EAN, tester, celofane, confecção. Linhas alteradas destacadas, com erro em vermelho (mesmas regras do lançamento); rodapé com quantidade alterada e total previsto antes → depois (tarifa da vigência da data de cada linha). Só as linhas alteradas são enviadas. ESC não fecha.
+- Backend `ReworkService.editMany` (ação `EDITAR_LOTE`, `PUT /api/retrabalhos` com `linhas`): só quantidade e serviços (data, SKU e filial não mudam — vale para OPERACIONAL); **tudo ou nada** (valida todas antes; mensagem "Nada foi gravado. Linha N (SKU): …"); filial do usuário, versão por linha, cancelados bloqueados, repetidos recusados, máx. 200; uma gravação em bloco (`Repository.updateMany`) e auditoria `EDITAR_LOTE` por linha; linhas sem mudança ignoradas. Gateway confirma resposta ambígua pela versão de todas as linhas.
+- Testes: 13 no simulador do Apps Script e 15 na interface (filtros, edição, erro bloqueando, envio só das alteradas, cliente sem acesso, celular).

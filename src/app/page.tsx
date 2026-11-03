@@ -176,6 +176,14 @@ function lineError(line: ServiceQty) {
 
 // Lançamentos do modelo antigo (nacionalização + RFID adicional) vistos no modelo novo:
 // unidades com as duas etiquetas viram combo; o restante da nacionalização fica como "só nacionalização".
+// Edição em massa (23/10/2026): linhas editáveis com os valores originais para comparar.
+const MASS_KEYS = ['quantidade', 'combo', 'nacionalizacao', 'adipac', 'ean', 'tester', 'celofane', 'confeccao'] as const
+type MassKey = typeof MASS_KEYS[number]
+type MassValues = Record<MassKey, number | null>
+type MassRow = MassValues & { id: string; versao: number; sku: string; descricao: string; dataEfetivacao: string; original: MassValues }
+const MAX_MASS_EDIT = 200
+const NO_PROCESS = '__SEM_PROCESSO__'
+
 function servicesOf(item: Rework) {
   if (Number(item.combo || 0) > 0 || Number(item.rfid || 0) === 0) {
     return { combo: Number(item.combo || 0), nacionalizacao: Number(item.nacionalizacao || 0), rfidAvulso: 0 }
@@ -543,6 +551,12 @@ export default function Home() {
   const [reworkMonth, setReworkMonth] = useState('')
   // Padrão: só cobranças ativas. Cancelados ficam acessíveis pelo filtro de status.
   const [chargeStatus, setChargeStatus] = useState<ChargeStatus>('ATIVOS')
+  // Filtros do histórico por processo e EAN (código de barras) e edição em massa.
+  const [processFilter, setProcessFilter] = useState('')
+  const [eanFilter, setEanFilter] = useState('')
+  const [massRows, setMassRows] = useState<MassRow[] | null>(null)
+  const [massError, setMassError] = useState('')
+  const [massNote, setMassNote] = useState('')
   const [loading, setLoading] = useState(false)
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [workspaceReady, setWorkspaceReady] = useState(false)
@@ -1281,6 +1295,54 @@ export default function Home() {
     }
   }
 
+  function openMassEdit() {
+    if (!canEditRework || !massEditable.length || massEditable.length > MAX_MASS_EDIT) return
+    setMassError('')
+    setMassNote('')
+    setMassRows(massEditable.map(item => {
+      const sv = servicesOf(item)
+      const values: MassValues = {
+        quantidade: Number(item.quantidade || 0), combo: sv.combo, nacionalizacao: sv.nacionalizacao,
+        adipac: Number(item.adipac || 0), ean: Number(item.ean || 0), tester: Number(item.tester || 0),
+        celofane: Number(item.celofane || 0), confeccao: Number(item.confeccao || 0),
+      }
+      return { ...values, original: values, id: item.id, versao: item.versao, sku: item.sku, descricao: item.descricao, dataEfetivacao: item.dataEfetivacao }
+    }))
+  }
+
+  function updateMassRow(id: string, key: MassKey, value: number | null) {
+    setMassRows(rows => rows ? rows.map(row => row.id === id ? { ...row, [key]: value } : row) : rows)
+  }
+
+  async function saveMassEdit() {
+    if (!massRows || saving) return
+    const changed = massRows.filter(massChanged)
+    if (!changed.length) return setMassError('Nenhuma linha foi alterada.')
+    const bad = changed.find(row => lineError(row))
+    if (bad) return setMassError(`SKU ${bad.sku}: ${lineError(bad)}.`)
+    setSaving(true)
+    setMassError('')
+    try {
+      const result = await api('/api/retrabalhos', {
+        method: 'PUT',
+        body: JSON.stringify({
+          linhas: changed.map(row => ({
+            id: row.id, versao: row.versao,
+            ...Object.fromEntries(MASS_KEYS.map(k => [k, Number(row[k] || 0)])),
+          })),
+        }),
+      })
+      const n = Number(result?.alterados ?? changed.length)
+      setMassRows(null)
+      setMassNote(`${n} lançamento(s) atualizado(s) na edição em massa.`)
+      await loadItems(reworkMonth || undefined)
+    } catch (error) {
+      setMassError(error instanceof Error ? error.message : 'Não foi possível salvar a edição em massa.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   function exportLabor() {
     downloadCsv(
       `mao-de-obra-unilog-${laborMonth || 'completo'}.csv`,
@@ -1683,9 +1745,15 @@ export default function Home() {
         || (chargeStatus === 'CANCELADOS' ? item.cobrancaCancelada : !item.cobrancaCancelada)
     )
     if (!isClient) {
-      return reworkMonth
+      const byMonth = reworkMonth
         ? byStatus.filter(item => item.dataEfetivacao.slice(0, 7) === reworkMonth)
         : byStatus
+      const ean = eanFilter.replace(/\s/g, '')
+      return byMonth.filter(item => {
+        if (processFilter === NO_PROCESS ? Boolean(item.numeroProcesso) : (processFilter && item.numeroProcesso !== processFilter)) return false
+        if (ean && !String(item.sku || '').includes(ean)) return false
+        return true
+      })
     }
     const query = clientSearch.trim().toLowerCase()
     return byStatus.filter(item => {
@@ -1699,7 +1767,46 @@ export default function Home() {
         item.cnpjCliente,
       ].some(value => String(value || '').toLowerCase().includes(query))
     })
-  }, [items, isClient, reworkMonth, chargeStatus, effectiveClientBranchFilter, clientSearch])
+  }, [items, isClient, reworkMonth, chargeStatus, effectiveClientBranchFilter, clientSearch, processFilter, eanFilter])
+
+  const processOptions = useMemo(() => {
+    const scoped = reworkMonth ? items.filter(item => item.dataEfetivacao.slice(0, 7) === reworkMonth) : items
+    const numbers = [...new Set(scoped.map(item => item.numeroProcesso).filter(Boolean) as string[])].sort().reverse()
+    const options = [{ label: 'Todos os processos', value: '' }, ...numbers.map(n => ({ label: `Processo ${n}`, value: n }))]
+    if (scoped.some(item => !item.numeroProcesso)) options.push({ label: 'Sem processo', value: NO_PROCESS })
+    return options
+  }, [items, reworkMonth])
+
+  const massEditable = useMemo(() => visibleItems.filter(item => !item.cobrancaCancelada), [visibleItems])
+
+  // Preço vigente numa data (para o total antes/depois da edição em massa).
+  function priceOn(date: string) {
+    return prices.find(p => p.vigenciaInicio <= date && (!p.vigenciaFim || p.vigenciaFim >= date))
+  }
+
+  function massValue(values: MassValues, date: string) {
+    const p = priceOn(date)
+    if (!p) return 0
+    const n = (k: MassKey) => Number(values[k] || 0)
+    return n('combo') * Number(p.valorCombo || 0) + n('nacionalizacao') * Number(p.valorNacionalizacao || 0)
+      + n('adipac') * Number(p.valorAdipac || 0) + n('ean') * Number(p.valorEan || 0)
+      + n('tester') * Number(p.valorTester || 0) + n('celofane') * Number(p.valorCelofane || 0)
+      + n('confeccao') * Number(p.valorConfeccao || 0)
+  }
+
+  const massChanged = (row: MassRow) => MASS_KEYS.some(k => Number(row[k] || 0) !== Number(row.original[k] || 0))
+
+  const massSummary = useMemo(() => {
+    const rows = massRows || []
+    const changed = rows.filter(massChanged)
+    const invalid = changed.filter(row => lineError(row))
+    return {
+      changed: changed.length,
+      invalid: invalid.length,
+      before: changed.reduce((t, r) => t + massValue(r.original, r.dataEfetivacao), 0),
+      after: changed.reduce((t, r) => t + massValue(r, r.dataEfetivacao), 0),
+    }
+  }, [massRows, prices])
 
   const totals = useMemo(() => {
     // Em "Todos os status", cancelados aparecem na tabela mas não entram nos cards
@@ -2282,6 +2389,42 @@ export default function Home() {
                   <Button icon="pi pi-refresh" text rounded onClick={() => void loadItems(isClient ? selectedMonth : (reworkMonth || undefined))} loading={loading} />
                 </div>
               </div>
+              {!isClient && (
+                <div className="history-filters">
+                  <Dropdown
+                    aria-label="Processo"
+                    value={processFilter}
+                    options={processOptions}
+                    optionLabel="label"
+                    optionValue="value"
+                    filter={processOptions.length > 8}
+                    onChange={e => setProcessFilter(String(e.value ?? ''))}
+                  />
+                  <span className="history-ean">
+                    <i className="pi pi-barcode" aria-hidden="true" />
+                    <InputText
+                      value={eanFilter}
+                      onChange={e => setEanFilter(e.target.value)}
+                      placeholder="EAN (código de barras)"
+                      inputMode="numeric"
+                      aria-label="Filtrar por EAN"
+                    />
+                    {eanFilter && <button type="button" className="history-ean-clear" aria-label="Limpar EAN" onClick={() => setEanFilter('')}><i className="pi pi-times" aria-hidden="true" /></button>}
+                  </span>
+                  {canEditRework && (
+                    <Button
+                      label={`Editar em massa (${massEditable.length})`}
+                      icon="pi pi-table"
+                      outlined
+                      className="history-mass-button"
+                      disabled={!massEditable.length || massEditable.length > MAX_MASS_EDIT}
+                      title={massEditable.length > MAX_MASS_EDIT ? `Filtre por processo ou EAN: no máximo ${MAX_MASS_EDIT} linhas por vez.` : 'Editar quantidades e serviços das linhas filtradas'}
+                      onClick={openMassEdit}
+                    />
+                  )}
+                </div>
+              )}
+              {massNote && <div className="success-note history-note"><i className="pi pi-check-circle" />{massNote}</div>}
               <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage={chargeStatus === 'CANCELADOS' ? 'Nenhuma cobrança cancelada no período.' : 'Nenhum retrabalho registrado para o período.'} onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
                 <Column pt={cell('Data')} field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
                 <Column pt={cell('Processo')} field="numeroProcesso" header="Processo" body={(row: Rework) => row.numeroProcesso || '—'} />
@@ -3135,6 +3278,74 @@ export default function Home() {
         <div className="dialog-actions">
           <Button label="Voltar" text disabled={saving} onClick={() => setCorrectTarget(null)} />
           <Button label="Corrigir e recalcular" icon="pi pi-check" className="primary" loading={saving} onClick={correctPrice} />
+        </div>
+      </Dialog>
+
+      <Dialog
+        header="Edição em massa"
+        visible={Boolean(massRows)}
+        onHide={() => !saving && setMassRows(null)}
+        closeOnEscape={false}
+        style={{ width: 'min(1320px, 98vw)' }}
+        className="mass-edit-dialog"
+      >
+        {massRows && (
+          <>
+            <p className="form-hint mass-edit-scope">
+              {massRows.length} linha(s){processFilter ? ` · ${processFilter === NO_PROCESS ? 'sem processo' : `processo ${processFilter}`}` : ''}{eanFilter ? ` · EAN ${eanFilter}` : ''}{reworkMonth ? ` · ${monthLabel(reworkMonth)}` : ''}.
+              Altere quantidades e serviços linha por linha; data, SKU e filial não mudam. Só as linhas alteradas são salvas.
+            </p>
+            <div className="batch-lines mass-edit-lines">
+              <table>
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Descrição</th>
+                    <th>Data</th>
+                    <th>Quantidade *</th>
+                    <th>Combo</th>
+                    <th>Nacionalização</th>
+                    <th>Só ADIPAC</th>
+                    <th>EAN</th>
+                    <th>Tester</th>
+                    <th>Celofane</th>
+                    <th>Confecção</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {massRows.map(row => {
+                    const changed = massChanged(row)
+                    const problem = changed ? lineError(row) : null
+                    return (
+                      <tr key={row.id} className={problem ? 'has-error' : changed ? 'is-changed' : ''} title={problem || undefined}>
+                        <td className="batch-sku" data-label="SKU">{row.sku}</td>
+                        <td className="batch-desc" data-label="Descrição">{row.descricao}</td>
+                        <td data-label="Data">{dateLabel(row.dataEfetivacao)}</td>
+                        <td data-label="Quantidade *"><InputNumber value={row.quantidade} onValueChange={e => updateMassRow(row.id, 'quantidade', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                        <td data-label="Combo"><InputNumber value={row.combo} onValueChange={e => updateMassRow(row.id, 'combo', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                        <td data-label="Nacionalização"><InputNumber value={row.nacionalizacao} onValueChange={e => updateMassRow(row.id, 'nacionalizacao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                        <td data-label="Só ADIPAC"><InputNumber value={row.adipac} onValueChange={e => updateMassRow(row.id, 'adipac', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                        <td data-label="EAN"><InputNumber value={row.ean} onValueChange={e => updateMassRow(row.id, 'ean', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                        <td data-label="Tester"><InputNumber value={row.tester} onValueChange={e => updateMassRow(row.id, 'tester', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                        <td data-label="Celofane"><InputNumber value={row.celofane} onValueChange={e => updateMassRow(row.id, 'celofane', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                        <td data-label="Confecção"><InputNumber value={row.confeccao} onValueChange={e => updateMassRow(row.id, 'confeccao', e.value ?? null)} placeholder="0" min={0} locale="pt-BR" maxFractionDigits={0} inputClassName="batch-input" /></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="batch-summary mass-edit-summary">
+              <span><strong>{massSummary.changed}</strong> linha(s) alterada(s)</span>
+              {massSummary.invalid > 0 && <span className="mass-edit-invalid">{massSummary.invalid} com erro</span>}
+              <span className="batch-total">Total previsto das alteradas: {money(massSummary.before)} → <strong>{money(massSummary.after)}</strong></span>
+            </div>
+            {massError && <div className="error"><i className="pi pi-exclamation-circle" />{massError}</div>}
+          </>
+        )}
+        <div className="dialog-actions">
+          <Button label="Cancelar" text disabled={saving} onClick={() => setMassRows(null)} />
+          <Button label={`Salvar ${massSummary.changed} alteração(ões)`} icon="pi pi-check" className="primary" loading={saving} disabled={!massSummary.changed || massSummary.invalid > 0} onClick={saveMassEdit} />
         </div>
       </Dialog>
 

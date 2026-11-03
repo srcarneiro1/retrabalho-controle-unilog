@@ -89,6 +89,14 @@ async function mutation_(
     if (found) return { ok: true, data: found, reconciled: true }
   }
 
+  if (action === 'EDITAR_LOTE') {
+    // Confirma pela versão: toda linha enviada precisa estar com versão maior que a informada.
+    const linhas = Array.isArray(payload.linhas) ? payload.linhas : []
+    const byId = new Map(items.map((x: any) => [String(x.id || ''), Number(x.versao || 0)]))
+    const allNewer = linhas.length > 0 && linhas.every((l: any) => (byId.get(String(l.id || '')) || 0) > Number(l.versao || 0))
+    if (allNewer) return { ok: true, data: [], reconciled: true }
+  }
+
   if (action === 'CANCELAR_COBRANCA') {
     const id = String(payload.id || '')
     const found = items.find(
@@ -191,9 +199,10 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const body = await request.json() as Record<string, unknown>
+    // Com "linhas", é a edição em massa (só quantidades e serviços); sem, edição de um registro.
     return json(await mutation_(env, user, {
       ...body,
-      acao: 'EDITAR',
+      acao: Array.isArray(body.linhas) ? 'EDITAR_LOTE' : 'EDITAR',
     }))
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Falha ao atualizar.'
