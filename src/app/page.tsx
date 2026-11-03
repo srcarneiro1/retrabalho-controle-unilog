@@ -184,6 +184,10 @@ type MassRow = MassValues & { id: string; versao: number; sku: string; descricao
 const MAX_MASS_EDIT = 200
 const NO_PROCESS = '__SEM_PROCESSO__'
 
+function eanTerms(value: string) {
+  return [...new Set(String(value || '').split(/[,;\s]+/).map(term => term.trim()).filter(Boolean))]
+}
+
 function servicesOf(item: Rework) {
   if (Number(item.combo || 0) > 0 || Number(item.rfid || 0) === 0) {
     return { combo: Number(item.combo || 0), nacionalizacao: Number(item.nacionalizacao || 0), rfidAvulso: 0 }
@@ -457,9 +461,9 @@ const CLIENT_COPY: SectionCopy = {
 
 // Atributos da célula para o modo cartão no celular (≤ 820 px):
 // o rótulo vem da coluna, então incluir/remover colunas nunca desalinha os nomes.
-type CellRole = 'title' | 'actions' | 'wide'
+type CellRole = 'title' | 'actions' | 'wide' | 'select'
 function cell(label: string, role?: CellRole) {
-  const className = role === 'title' ? 'card-title' : role === 'actions' ? 'card-actions' : role === 'wide' ? 'card-wide' : undefined
+  const className = role === 'title' ? 'card-title' : role === 'actions' ? 'card-actions' : role === 'wide' ? 'card-wide' : role === 'select' ? 'card-select' : undefined
   return { bodyCell: { 'data-label': label, className } as unknown as React.HTMLAttributes<HTMLTableCellElement> }
 }
 
@@ -557,6 +561,8 @@ export default function Home() {
   const [massRows, setMassRows] = useState<MassRow[] | null>(null)
   const [massError, setMassError] = useState('')
   const [massNote, setMassNote] = useState('')
+  // Seleção de linhas no histórico (03/11/2026): marcar tudo, desmarcar uma a uma ou marcar só algumas.
+  const [selectedRows, setSelectedRows] = useState<Rework[]>([])
   const [loading, setLoading] = useState(false)
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [workspaceReady, setWorkspaceReady] = useState(false)
@@ -1296,10 +1302,10 @@ export default function Home() {
   }
 
   function openMassEdit() {
-    if (!canEditRework || !massEditable.length || massEditable.length > MAX_MASS_EDIT) return
+    if (!canEditRework || !massSource.length || massSource.length > MAX_MASS_EDIT) return
     setMassError('')
     setMassNote('')
-    setMassRows(massEditable.map(item => {
+    setMassRows(massSource.map(item => {
       const sv = servicesOf(item)
       const values: MassValues = {
         quantidade: Number(item.quantidade || 0), combo: sv.combo, nacionalizacao: sv.nacionalizacao,
@@ -1334,6 +1340,7 @@ export default function Home() {
       })
       const n = Number(result?.alterados ?? changed.length)
       setMassRows(null)
+      setSelectedRows([])
       setMassNote(`${n} lançamento(s) atualizado(s) na edição em massa.`)
       await loadItems(reworkMonth || undefined)
     } catch (error) {
@@ -1748,10 +1755,12 @@ export default function Home() {
       const byMonth = reworkMonth
         ? byStatus.filter(item => item.dataEfetivacao.slice(0, 7) === reworkMonth)
         : byStatus
-      const ean = eanFilter.replace(/\s/g, '')
+      // Vários EAN (03/11/2026): separados por vírgula, ponto e vírgula, espaço ou quebra de linha
+      // (colar uma coluna do Excel também funciona); cada um vale como código completo ou parte dele.
+      const eans = eanTerms(eanFilter)
       return byMonth.filter(item => {
         if (processFilter === NO_PROCESS ? Boolean(item.numeroProcesso) : (processFilter && item.numeroProcesso !== processFilter)) return false
-        if (ean && !String(item.sku || '').includes(ean)) return false
+        if (eans.length && !eans.some(term => String(item.sku || '').includes(term))) return false
         return true
       })
     }
@@ -1778,6 +1787,13 @@ export default function Home() {
   }, [items, reworkMonth])
 
   const massEditable = useMemo(() => visibleItems.filter(item => !item.cobrancaCancelada), [visibleItems])
+  // Só valem as selecionadas que continuam visíveis com os filtros atuais.
+  const selectedVisible = useMemo(() => {
+    const ids = new Set(selectedRows.map(row => row.id))
+    return massEditable.filter(item => ids.has(item.id))
+  }, [selectedRows, massEditable])
+  // Edição em massa: as selecionadas; sem seleção, todas as filtradas.
+  const massSource = selectedVisible.length ? selectedVisible : massEditable
 
   // Preço vigente numa data (para o total antes/depois da edição em massa).
   function priceOn(date: string) {
@@ -2405,27 +2421,38 @@ export default function Home() {
                     <InputText
                       value={eanFilter}
                       onChange={e => setEanFilter(e.target.value)}
-                      placeholder="EAN (código de barras)"
-                      inputMode="numeric"
+                      placeholder="EAN — vários: separe por vírgula"
+                      inputMode="text"
                       aria-label="Filtrar por EAN"
                     />
                     {eanFilter && <button type="button" className="history-ean-clear" aria-label="Limpar EAN" onClick={() => setEanFilter('')}><i className="pi pi-times" aria-hidden="true" /></button>}
                   </span>
+                  {eanTerms(eanFilter).length > 1 && <span className="history-ean-count">{eanTerms(eanFilter).length} EAN</span>}
+                  {canEditRework && selectedVisible.length > 0 && (
+                    <Button label={`Limpar seleção (${selectedVisible.length})`} icon="pi pi-times-circle" text className="history-clear-selection" onClick={() => setSelectedRows([])} />
+                  )}
                   {canEditRework && (
                     <Button
-                      label={`Editar em massa (${massEditable.length})`}
+                      label={selectedVisible.length ? `Editar selecionados (${selectedVisible.length})` : `Editar em massa (${massEditable.length})`}
                       icon="pi pi-table"
                       outlined
                       className="history-mass-button"
-                      disabled={!massEditable.length || massEditable.length > MAX_MASS_EDIT}
-                      title={massEditable.length > MAX_MASS_EDIT ? `Filtre por processo ou EAN: no máximo ${MAX_MASS_EDIT} linhas por vez.` : 'Editar quantidades e serviços das linhas filtradas'}
+                      disabled={!massSource.length || massSource.length > MAX_MASS_EDIT}
+                      title={massSource.length > MAX_MASS_EDIT
+                        ? `Selecione ou filtre no máximo ${MAX_MASS_EDIT} linhas por vez.`
+                        : selectedVisible.length ? 'Editar quantidades e serviços das linhas selecionadas' : 'Editar quantidades e serviços das linhas filtradas (ou selecione algumas)'}
                       onClick={openMassEdit}
                     />
                   )}
                 </div>
               )}
               {massNote && <div className="success-note history-note"><i className="pi pi-check-circle" />{massNote}</div>}
-              <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage={chargeStatus === 'CANCELADOS' ? 'Nenhuma cobrança cancelada no período.' : 'Nenhum retrabalho registrado para o período.'} onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable>
+              <DataTable className="mobile-record-table rework-record-table" value={visibleItems} loading={loading} paginator rows={15} dataKey="id" emptyMessage={chargeStatus === 'CANCELADOS' ? 'Nenhuma cobrança cancelada no período.' : 'Nenhum retrabalho registrado para o período.'} onRowDoubleClick={e => openEdit(e.data as Rework)} stripedRows scrollable
+                selectionMode="checkbox"
+                selection={selectedVisible}
+                onSelectionChange={e => setSelectedRows(e.value as Rework[])}
+                isDataSelectable={e => canEditRework && !(e.data as Rework).cobrancaCancelada}>
+                {canEditRework && <Column selectionMode="multiple" pt={cell('Selecionar', 'select')} headerStyle={{ width: '2.75rem' }} />}
                 <Column pt={cell('Data')} field="dataEfetivacao" header="Data" body={(row: Rework) => dateLabel(row.dataEfetivacao)} />
                 <Column pt={cell('Processo')} field="numeroProcesso" header="Processo" body={(row: Rework) => row.numeroProcesso || '—'} />
                 <Column pt={cell('SKU', 'wide')} field="sku" header="SKU" />
@@ -3292,7 +3319,7 @@ export default function Home() {
         {massRows && (
           <>
             <p className="form-hint mass-edit-scope">
-              {massRows.length} linha(s){processFilter ? ` · ${processFilter === NO_PROCESS ? 'sem processo' : `processo ${processFilter}`}` : ''}{eanFilter ? ` · EAN ${eanFilter}` : ''}{reworkMonth ? ` · ${monthLabel(reworkMonth)}` : ''}.
+              {massRows.length} linha(s){selectedVisible.length ? ' selecionada(s)' : ''}{processFilter ? ` · ${processFilter === NO_PROCESS ? 'sem processo' : `processo ${processFilter}`}` : ''}{eanFilter ? ` · EAN ${eanFilter}` : ''}{reworkMonth ? ` · ${monthLabel(reworkMonth)}` : ''}.
               Altere quantidades e serviços linha por linha; data, SKU e filial não mudam. Só as linhas alteradas são salvas.
             </p>
             <div className="batch-lines mass-edit-lines">
