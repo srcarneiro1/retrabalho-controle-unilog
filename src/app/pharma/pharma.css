@@ -1,0 +1,50 @@
+/* Fluxo PHARMAESTETICS — só classes pharma-*; não altera as telas da Acess. */
+.pharma-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; margin-bottom: 14px; }
+.pharma-form label, .pharma-qtds label, .pharma-ean, .pharma-motivo { display: grid; gap: 6px; }
+.pharma-form label > span, .pharma-qtds label > span, .pharma-ean > span, .pharma-canal > span, .pharma-motivo > span { font-size: 11px; font-weight: 600; color: #6d6e78; }
+.pharma-form .p-dropdown, .pharma-form .p-inputtext, .pharma-form .p-inputnumber, .pharma-qtds .p-inputnumber, .pharma-ean .p-dropdown, .pharma-motivo .p-inputtext { width: 100%; }
+.pharma-canal { display: grid; gap: 6px; } .pharma-canal > div { display: flex; gap: 8px; } .pharma-canal .p-button { min-width: 72px; justify-content: center; }
+.pharma-item { border: 1px solid #ededee; border-radius: 8px; padding: 10px 14px 14px; margin: 0 0 12px; display: grid; gap: 10px; }
+.pharma-item legend { font-size: 11px; font-weight: 700; color: #6d6e78; padding: 0 6px; }
+.pharma-qtds { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.pharma-rodape { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-top: 6px; }
+.pharma-previa small { color: #6d6e78; }
+.pharma-produto { display: grid; gap: 2px; margin: 0; } .pharma-produto small { color: #6d6e78; }
+.pharma-cancelado { text-decoration: line-through; color: #9a9ba5; }
+.pharma-acoes { display: flex; gap: 2px; justify-content: flex-end; }
+.pharma-importacoes { margin: 0; padding-left: 18px; color: #6d6e78; font-size: 12px; display: grid; gap: 4px; }
+.pharma-dica { color: #6d6e78; font-size: 12px; }
+.pharma-vigencia { margin-top: 14px; }
+@media (max-width: 760px) {
+  .pharma-form, .pharma-qtds { grid-template-columns: 1fr; }
+  .pharma-rodape { flex-direction: column; align-items: stretch; }
+  .pharma-form .p-inputtext, .pharma-qtds input, .pharma-motivo input { font-size: 16px; }
+}
+/* Barra de filtros da lista: quebra em linhas em vez de cortar botões; "Remover" do item no tamanho do conteúdo. */
+.pharma-head-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; max-width: 100%; }
+.pharma-head-actions .p-dropdown { min-width: 150px; }
+.pharma-head-actions .p-input-icon-left { min-width: 200px; flex: 1 1 200px; } .pharma-head-actions .p-input-icon-left input { width: 100%; }
+.pharma-item > .p-button { justify-self: start; }
+.panel-head:has(.pharma-head-actions) { flex-wrap: wrap; gap: 12px; }
+@media (max-width: 760px) { .pharma-head-actions { justify-content: stretch; } .pharma-head-actions > * { flex: 1 1 100%; } }
+/* iPhone: campos com menos de 16 px dão zoom ao tocar. Vale para filtros, listas e busca dentro das listas. */
+@media (max-width: 760px) {
+  .pharma-head-actions input, .pharma-head-actions .p-dropdown-label, .pharma-form .p-dropdown-label, .pharma-ean .p-dropdown-label,
+  .pharma-qtds input, .p-dropdown-panel .p-dropdown-filter, .panel .p-input-icon-left input, .pharma-form input, .pharma-motivo input { font-size: 16px !important; }
+}
+/* Busca com ícone: texto começa depois da lupa. */
+/* O sistema visual do app fixa o recuo dos campos com !important; as buscas do próprio app usam o mesmo recurso. */
+.pharma-head-actions .p-input-icon-left > input, .panel-head .p-input-icon-left > input { padding-left: 36px !important; }
+
+/* Seletor "Cliente" no topo de Lançamentos (Retrabalho por processo × PHARMAESTETICS) e rodapé da janela de NF. */
+.pharma-cliente { min-width: 220px; }
+.pharma-rodape-botoes { display: inline-flex; gap: 8px; margin-left: auto; }
+.p-dialog .pharma-rodape { margin-top: 0; }
+@media (max-width: 760px) { .pharma-cliente { width: 100%; } .pharma-rodape-botoes { width: 100%; justify-content: flex-end; } }
+/* Busca da faixa de filtros: mesma posição do ícone da busca por EAN da Acess (.history-ean > .pi-barcode). */
+.history-ean > .pi-search { position: absolute; left: 12px; font-size: 13px; color: #8a9099; pointer-events: none; }
+/* Seletor "Cliente" no topo de Lançamentos: proporcional aos botões ao lado. */
+.pharma-cliente { width: auto; max-width: 320px; }
+@media (max-width: 760px) { .pharma-cliente { max-width: none; } }
+/* iPhone: a busca precisa de 16 px para não dar zoom (o sistema visual do app trava a fonte com !important). */
+@media (max-width: 760px) { .pharma-busca .p-inputtext { font-size: 16px !important; } }

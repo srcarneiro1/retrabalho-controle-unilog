@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from 'primereact/button'
 import { Calendar } from 'primereact/calendar'
 import { Column } from 'primereact/column'
@@ -12,6 +12,7 @@ import { InputText } from 'primereact/inputtext'
 import { MultiSelect } from 'primereact/multiselect'
 import { Password } from 'primereact/password'
 import { Tag } from 'primereact/tag'
+import { PharmaCatalogo, PharmaLancamentos, PharmaNovaNota, PharmaTarifas, carregarPharmaConfig, type PharmaConfig } from './pharma/PharmaSection'
 
 type Profile = 'OPERACIONAL' | 'SUPERVISOR' | 'ADMIN' | 'CLIENTE'
 type Section = 'lancamentos' | 'processos' | 'maoDeObra' | 'auditoria' | 'precos' | 'usuarios'
@@ -541,6 +542,13 @@ export default function Home() {
   const [authError, setAuthError] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [section, setSection] = useState<Section>('lancamentos')
+  // PHARMAESTETICS (lançamento por NF): integrado às seções Lançamentos, Processos e Preços.
+  const [pharmaConfig, setPharmaConfig] = useState<PharmaConfig | null>(null)
+  const [pharmaCnpj, setPharmaCnpj] = useState('')
+  const [pharmaNovo, setPharmaNovo] = useState(false)
+  const [pharmaRecarga, setPharmaRecarga] = useState(0)
+  const pharmaExportar = useRef<(() => void) | null>(null)
+  const [pharmaQtd, setPharmaQtd] = useState(0)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -791,6 +799,15 @@ export default function Home() {
     if (!user || user.trocaSenhaObrigatoria) return
     void initializeWorkspace(user)
   }, [user])
+
+  // Configuração do fluxo PHARMAESTETICS (filiais habilitadas no escopo, catálogo, tarifas e permissões).
+  // Só para quem lança; se o Apps Script publicado ainda não tiver o fluxo, nada aparece (sem erro para a Acess).
+  useEffect(() => {
+    if (!workspaceReady || !user || user.perfil === 'CLIENTE') return
+    void carregarPharmaConfig().then(setPharmaConfig)
+  }, [workspaceReady, user])
+  async function recarregarPharma() { setPharmaConfig(await carregarPharmaConfig()); setPharmaRecarga(n => n + 1) }
+  const pharmaFiliais = pharmaConfig?.filiais || []
 
   async function initializeWorkspace(currentUser: User) {
     if (currentUser.trocaSenhaObrigatoria) return
@@ -2305,7 +2322,24 @@ export default function Home() {
                 />
               </label>
             )}
-            {section === 'lancamentos' && canExport && (
+            {section === 'lancamentos' && canCreate && pharmaFiliais.length > 0 && (
+              <Dropdown
+                aria-label="Cliente"
+                className="compact pharma-cliente"
+                value={pharmaCnpj}
+                options={[
+                  { label: 'Retrabalho por processo', value: '' },
+                  ...pharmaFiliais.map(f => ({ label: `${f.nomeCliente} · ${f.filial}`, value: f.cnpj })),
+                ]}
+                optionLabel="label"
+                optionValue="value"
+                onChange={e => setPharmaCnpj(String(e.value ?? ''))}
+              />
+            )}
+            {section === 'lancamentos' && canExport && pharmaCnpj && (
+              <Button label="Exportar" icon="pi pi-download" outlined className="compact" onClick={() => pharmaExportar.current?.()} disabled={!pharmaQtd} />
+            )}
+            {section === 'lancamentos' && canExport && !pharmaCnpj && (
               <Button
                 label={isClient ? 'Baixar CSV' : 'Exportar'}
                 icon={isClient ? 'pi pi-file-export' : 'pi pi-download'}
@@ -2315,7 +2349,10 @@ export default function Home() {
                 disabled={!visibleItems.length}
               />
             )}
-            {section === 'lancamentos' && canCreate && (
+            {section === 'lancamentos' && canCreate && pharmaCnpj && pharmaConfig && (
+              <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={() => setPharmaNovo(true)} disabled={!pharmaConfig.permissoes.lancar} />
+            )}
+            {section === 'lancamentos' && canCreate && !pharmaCnpj && (
               <Button label="Novo lançamento" icon="pi pi-plus" className="primary compact" onClick={openNew} disabled={!branches.length || !processes.length} title={!processes.length ? 'Envie a planilha de um processo antes de lançar.' : undefined} />
             )}
             {section === 'maoDeObra' && canExport && (
@@ -2329,7 +2366,15 @@ export default function Home() {
             )}
           </div>
         </div>
-        {section === 'lancamentos' && (
+        {section === 'lancamentos' && pharmaCnpj && pharmaConfig && (
+          <PharmaLancamentos config={pharmaConfig} cnpj={pharmaCnpj} recarga={pharmaRecarga} exportarRef={pharmaExportar} onContagem={setPharmaQtd} />
+        )}
+        {pharmaConfig && pharmaNovo && (
+          <PharmaNovaNota config={pharmaConfig} cnpjInicial={pharmaCnpj} visivel={pharmaNovo} onFechar={() => setPharmaNovo(false)}
+            onSalvo={() => { setPharmaNovo(false); setPharmaRecarga(n => n + 1) }} />
+        )}
+
+        {section === 'lancamentos' && !pharmaCnpj && (
           <>
             {isClient && (
               <div className={`client-dashboard-filters ${branches.length <= 1 ? 'single-filter' : ''}`}>
@@ -2559,6 +2604,9 @@ export default function Home() {
             </div>
           </section>
         )}
+        {section === 'processos' && canLabor && pharmaConfig && pharmaFiliais.length > 0 && (
+          <PharmaCatalogo config={pharmaConfig} onAlterado={() => void recarregarPharma()} />
+        )}
 
         {section === 'maoDeObra' && canLabor && (
           <>
@@ -2742,6 +2790,9 @@ export default function Home() {
               </DataTable>
             </div>
           </section>
+        )}
+        {section === 'precos' && user && pharmaConfig && (pharmaFiliais.length > 0 || user.perfil === 'ADMIN') && (
+          <PharmaTarifas config={pharmaConfig} perfil={user.perfil} onAlterado={() => void recarregarPharma()} />
         )}
 
         {section === 'usuarios' && canUsers && (
