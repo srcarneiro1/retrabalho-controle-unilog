@@ -1,4 +1,4 @@
-const API_VERSION = '2026.10.23.1';
+const API_VERSION = '2026.11.17.1'; // + fluxo PHARMAESTETICS (rota pharma)
 
 function doGet(e) {
   const route = String((e && e.parameter && e.parameter.route) || '').trim().toLowerCase();
@@ -29,7 +29,8 @@ const READ_ONLY_ACTIONS_ = {
   precos: ['LISTAR'],
   usuarios: ['LISTAR'],
   filiais: ['LISTAR', 'LISTAR_TODAS'],
-  audit: ['LISTAR']
+  audit: ['LISTAR'],
+  pharma: ['CONFIG', 'LISTAR', 'MESES']
 };
 
 function isReadOnly_(route, action) {
@@ -71,6 +72,19 @@ function doPost(e) {
 }
 
 function route_(route, action, payload) {
+  // Fluxo PHARMAESTETICS: serviço próprio, grava só nas abas PE_* (não altera o fluxo da Acess).
+  if (route === 'pharma') {
+    if (action === 'CONFIG') return ok_({ data: PharmaService.config(payload) });
+    if (action === 'LISTAR') return ok_({ data: PharmaService.listar(payload) });
+    if (action === 'MESES') return ok_({ data: PharmaService.meses(payload) });
+    if (action === 'CRIAR_LOTE') return ok_({ data: PharmaService.criarLote(payload) });
+    if (action === 'EDITAR') return ok_({ data: PharmaService.editar(payload) });
+    if (action === 'CANCELAR') return ok_({ data: PharmaService.cancelar(payload) });
+    if (action === 'IMPORTAR_PRODUTOS') return ok_({ data: PharmaService.importarProdutos(payload) });
+    if (action === 'CRIAR_VIGENCIA') return ok_({ data: PharmaService.criarVigencia(payload) });
+    if (action === 'HABILITAR_FILIAL') return ok_({ data: PharmaService.habilitarFilial(payload) });
+    throw new Error('Ação PHARMAESTETICS inválida.');
+  }
   if (route === 'auth') {
     if (action === 'LOGIN') return ok_({ user: UserService.authenticate(payload) });
     if (action === 'TROCAR_SENHA') return ok_(UserService.changePassword(payload));
