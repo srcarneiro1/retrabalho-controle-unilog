@@ -137,7 +137,7 @@
   height:var(--ui-action-h)!important;
   padding:0 14px!important;
   gap:7px!important;
-  font-size:11px!important;
+  font-size:12px!important;
   line-height:1!important;
   white-space:nowrap;
 }
@@ -155,7 +155,7 @@
   height:var(--ui-action-compact-h)!important;
   min-height:var(--ui-action-compact-h)!important;
   padding:0 13px!important;
-  font-size:11px!important;
+  font-size:12px!important;
 }
 
 .form-submit.p-button,
@@ -184,7 +184,7 @@
   gap:10px!important;
   padding:14px!important;
   border:1px solid var(--unilog-border)!important;
-  border-radius:12px!important;
+  border-radius:8px!important;
   background:var(--unilog-surface-soft)!important;
 }
 .user-form{
@@ -201,7 +201,7 @@
   gap:6px!important;
   min-width:0!important;
   margin:0!important;
-  font-size:9px!important;
+  font-size:12px!important;
   font-weight:750!important;
   color:#59616c!important;
 }
@@ -358,7 +358,7 @@
   padding:10px 12px!important;
   margin:0!important;
   border:0!important;
-  border-radius:10px!important;
+  border-radius:8px!important;
   background:transparent!important;
   box-sizing:border-box!important;
 }
@@ -420,7 +420,7 @@
   margin:0 0 12px;
   padding:10px 12px;
   border:1px solid #eadb9f;
-  border-radius:10px;
+  border-radius:8px;
   background:#fff8df;
   color:#765b08;
   font-size:10px;
@@ -445,7 +445,7 @@
   gap:12px;
   padding:30px 26px;
   border:1px solid var(--unilog-border);
-  border-radius:16px;
+  border-radius:8px;
   background:#fff;
   box-shadow:var(--unilog-shadow);
   text-align:center;
@@ -454,8 +454,8 @@
   width:112px;
   height:auto;
   padding:9px 12px;
-  border-radius:10px;
-  background:linear-gradient(135deg,#171b24,#202632);
+  border-radius:8px;
+  background:#202632;
 }
 .workspace-gate-spinner,
 .workspace-gate-error-icon{
@@ -546,7 +546,7 @@
   background:transparent!important;
 }
 .danger-action.p-button.p-button-text:hover{
-  color:#b8070f!important;
+  color:#b00610!important;
   background:#fff3f4!important;
 }
 .danger-action.p-button.p-button-text:focus{
@@ -569,7 +569,7 @@
 .cancel-charge>p{
   margin:0;
   padding:10px 12px;
-  border-radius:10px;
+  border-radius:8px;
   background:#fff7ed;
   color:#8a4b08;
   font-size:10px;
@@ -589,7 +589,7 @@
   align-items:center;
   padding:12px;
   border:1px solid var(--unilog-border);
-  border-radius:10px;
+  border-radius:8px;
   background:var(--unilog-surface-soft);
 }
 .cancel-summary span{
@@ -706,7 +706,7 @@
   min-width:320px!important;
   padding:10px!important;
   border:1px solid var(--unilog-border)!important;
-  border-radius:12px!important;
+  border-radius:8px!important;
   background:#fff!important;
   box-shadow:0 16px 38px rgba(18,24,34,.14)!important;
   font-size:11px!important;
@@ -768,7 +768,7 @@
 
 /* Dialogs: same corner language as cards, with clean clipping. */
 .p-dialog{
-  border-radius:14px!important;
+  border-radius:8px!important;
   overflow:hidden!important;
   border:1px solid var(--unilog-border)!important;
   background:#fff!important;
@@ -809,17 +809,23 @@
   border-radius:0!important;
 }
 
-/* User creation action must read as a compact form action, not a large CTA. */
+/* Reserva espaço para texto, ícone e spinner de loading, sem invadir outros campos. */
 .user-submit.p-button{
-  width:auto!important;
-  min-width:112px!important;
-  max-width:132px!important;
-  height:36px!important;
-  min-height:36px!important;
-  padding:0 12px!important;
-  justify-self:end!important;
+  width:100%!important;
+  min-width:148px!important;
+  max-width:none!important;
+  height:var(--ui-control-h)!important;
+  min-height:var(--ui-control-h)!important;
+  padding:0 14px!important;
+  justify-self:stretch!important;
   align-self:end!important;
-  font-size:10px!important;
+  font-size:12px!important;
+  overflow:hidden!important;
+}
+.user-submit.p-button .p-button-loading-icon{
+  width:14px!important;
+  height:14px!important;
+  flex:0 0 14px!important;
 }
 .user-submit.p-button .p-button-icon{
   width:13px!important;
@@ -874,12 +880,7 @@
     minmax(110px,.72fr)
     minmax(140px,.85fr)
     minmax(210px,1.45fr)
-    118px!important;
-}
-.user-submit.p-button{
-  width:118px!important;
-  min-width:118px!important;
-  max-width:118px!important;
+    minmax(148px,max-content)!important;
 }
 
 /* Intermediate desktop density. Avoid jumping directly from a six-column
@@ -930,4 +931,84 @@
     max-width:none!important;
     justify-self:stretch!important;
   }
+}
+
+/* Uploads: o input nativo continua funcional, mas o texto visível é localizado em PT-BR. */
+.file-picker{
+  position:relative!important;
+  min-width:0!important;
+  cursor:pointer;
+}
+.file-picker-control{
+  min-width:0;
+  min-height:var(--ui-control-h);
+  display:flex;
+  align-items:center;
+  border:1px solid #d9dde3;
+  border-radius:var(--unilog-control-radius);
+  background:#fff;
+  overflow:hidden;
+  color:var(--unilog-ink-2);
+}
+.file-picker-action{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  gap:7px;
+  padding:0 11px;
+  min-height:calc(var(--ui-control-h) - 2px);
+  border-right:1px solid var(--unilog-border);
+  background:#f3f4f6;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.file-picker-action .pi{font-size:13px}
+.file-picker-name{
+  min-width:0;
+  flex:1 1 auto;
+  display:block;
+  padding:0 11px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:12px;
+  font-weight:400;
+}
+.file-picker-native.file-input{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  min-height:0!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  opacity:0!important;
+  overflow:hidden!important;
+  clip-path:inset(50%)!important;
+}
+.file-picker:focus-within .file-picker-control{
+  border-color:var(--unilog-red);
+  outline:2px solid rgba(219,8,18,.2);
+  outline-offset:2px;
+}
+@media(max-width:760px){
+  .file-picker-control{min-height:44px}
+  .file-picker-action{min-height:42px}
+  .file-picker-name{font-size:12px}
+}
+
+
+/* Rótulos de formulários: mesma escala do Extra Cost (12 px). */
+.process-upload label,
+.form-grid label,
+.password-form label,
+.login-form label,
+.pharma-form label > span,
+.pharma-qtds label > span,
+.pharma-ean > span,
+.pharma-canal > span,
+.pharma-motivo > span{
+  font-size:12px!important;
 }

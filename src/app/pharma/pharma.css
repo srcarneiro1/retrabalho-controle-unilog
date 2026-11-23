@@ -55,5 +55,23 @@
 /* Catálogo em Processos: mesma caixa de envio da Acess (process-upload), com 3 colunas: busca | arquivo | botão. */
 .process-upload.pharma-upload { grid-template-columns: minmax(200px, 1fr) minmax(220px, 1.2fr) auto; }
 .process-upload.pharma-upload.somente-busca { grid-template-columns: minmax(200px, 420px); }
-.pharma-resumo { margin: 0 0 10px; }
+/* O resumo mantém todos os dados, agora separado em blocos com quebra de linhas. */
+.pharma-resumo {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:baseline;
+  gap:5px 14px;
+  margin:0 0 12px;
+  padding:10px 12px;
+  border:1px solid var(--unilog-border);
+  border-radius:8px;
+  background:var(--unilog-surface-soft);
+  color:var(--unilog-graphite-2);
+  font-size:12px;
+  line-height:1.5;
+}
+.pharma-resumo-total { flex:0 0 auto; font-weight:700; color:var(--unilog-graphite); }
+.pharma-resumo-detalhes { min-width:0; overflow-wrap:anywhere; }
+.pharma-resumo-arquivo { color:var(--unilog-ink-2); font-weight:600; }
+@media(max-width:760px){ .pharma-resumo { display:grid; gap:4px; } .pharma-resumo-total{flex:none} }
 @media (max-width: 760px) { .process-upload.pharma-upload, .process-upload.pharma-upload.somente-busca { grid-template-columns: 1fr; } .process-upload.pharma-upload input { font-size: 16px !important; } }

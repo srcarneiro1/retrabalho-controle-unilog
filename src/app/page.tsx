@@ -2544,7 +2544,7 @@ export default function Home() {
         )}
 
         {section === 'processos' && canLabor && (
-          <section className="panel workspace-page">
+          <section className="panel workspace-page process-page">
             <div className="panel-head">
               <div>
                 <small className="panel-eyebrow">ENVIO</small>
@@ -2572,11 +2572,17 @@ export default function Home() {
                     filter
                   />
                 </label>
-                <label>
+                <label className="file-picker">
                   Planilha do cliente (.xlsx, .xls ou .csv) *
+                  <span className="file-picker-control" aria-hidden="true">
+                    <span className="file-picker-action"><i className="pi pi-folder-open" /> Selecionar arquivo</span>
+                    <span className="file-picker-name" title={uploadForm.file?.name || 'Nenhum arquivo selecionado'}>
+                      {uploadForm.file?.name || 'Nenhum arquivo selecionado'}
+                    </span>
+                  </span>
                   <input
                     key={uploadInputKey}
-                    className="file-input"
+                    className="file-input file-picker-native"
                     type="file"
                     accept=".xlsx,.xls,.csv"
                     onChange={e => setUploadForm({ ...uploadForm, file: e.target.files?.[0] || null })}

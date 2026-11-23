@@ -276,16 +276,31 @@ export function PharmaCatalogo({ config, onAlterado }: { config: Config; onAlter
         <div className={`process-upload pharma-upload ${config.permissoes.importar ? '' : 'somente-busca'}`}>
           <label>Buscar no catálogo<InputText value={busca} onChange={e => setBusca(e.target.value)} placeholder="EAN ou descrição" /></label>
           {config.permissoes.importar && <>
-            <label>
+            <label className="file-picker">
               Planilha do BI (.xlsx ou .xls) *
-              <input key={chave} className="file-input" type="file" accept=".xlsx,.xls" onChange={e => setArquivo(e.target.files?.[0] || null)} />
+              <span className="file-picker-control" aria-hidden="true">
+                <span className="file-picker-action"><i className="pi pi-folder-open" /> Selecionar arquivo</span>
+                <span className="file-picker-name" title={arquivo?.name || 'Nenhum arquivo selecionado'}>
+                  {arquivo?.name || 'Nenhum arquivo selecionado'}
+                </span>
+              </span>
+              <input key={chave} className="file-input file-picker-native" type="file" accept=".xlsx,.xls" onChange={e => setArquivo(e.target.files?.[0] || null)} />
             </label>
             <Button label="Importar catálogo" icon="pi pi-upload" className="primary" loading={enviando} onClick={() => void importar()} />
           </>}
         </div>
         {erro && <div className="error"><i className="pi pi-exclamation-circle" />{erro}</div>}
         {sucesso && <div className="success-note"><i className="pi pi-check-circle" />{sucesso}</div>}
-        <p className="pharma-dica pharma-resumo">{config.produtos.length} produto(s) disponíveis para lançamento.{ultima ? ` Última importação: ${ultima.arquivo} (${ultima.novos} novo(s), ${ultima.atualizados} atualizado(s))${ultima.em ? ` em ${new Date(ultima.em).toLocaleString('pt-BR')}` : ''}.` : ''}</p>
+        <div className="pharma-resumo" role="status">
+          <span className="pharma-resumo-total">{config.produtos.length} produto(s) disponíveis para lançamento.</span>
+          {ultima && (
+            <span className="pharma-resumo-detalhes">
+              Última importação: <strong className="pharma-resumo-arquivo">{ultima.arquivo}</strong>
+              {' '}({ultima.novos} novo(s), {ultima.atualizados} atualizado(s))
+              {ultima.em ? ` em ${new Date(ultima.em).toLocaleString('pt-BR')}` : ''}.
+            </span>
+          )}
+        </div>
         <DataTable className="mobile-record-table process-record-table" value={lista} paginator rows={15} dataKey="ean" stripedRows emptyMessage="Nenhum produto no catálogo.">
           <Column pt={cell('EAN', 'title')} field="ean" header="EAN" />
           <Column pt={cell('Descrição', 'wide')} field="descricao" header="Descrição" />
