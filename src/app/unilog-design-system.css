@@ -2,7 +2,7 @@
    Aligned with Extra Cost Control + BI Logistico V2 after visual parity merges. */
 :root{
   --unilog-red:#db0812;
-  --unilog-red-dark:#b8070f;
+  --unilog-red-dark:#b00610;
   --unilog-red-soft:#fdecee;
   --unilog-ink:#171b24;
   --unilog-ink-2:#242a36;
@@ -17,8 +17,8 @@
   --unilog-success:#3f7c59;
   --unilog-warning:#a87900;
   --unilog-danger:#c91a23;
-  --unilog-radius:14px;
-  --unilog-control-radius:10px;
+  --unilog-radius:8px;
+  --unilog-control-radius:6px;
   --unilog-shadow:0 6px 22px rgba(18,24,34,.045);
   --unilog-shadow-raised:0 18px 44px rgba(18,24,34,.12);
 
@@ -32,7 +32,7 @@
 html{
   min-width:320px;
   background:var(--unilog-canvas);
-  font-family:Roboto,Arial,Helvetica,sans-serif;
+  font-family:Roboto,Verdana,Arial,sans-serif;
   font-synthesis:none;
   text-rendering:optimizeLegibility;
 }
@@ -41,13 +41,13 @@ body{
   min-height:100vh;
   background:var(--unilog-canvas)!important;
   color:var(--unilog-ink-2);
-  font-family:Roboto,Arial,Helvetica,sans-serif;
+  font-family:Roboto,Verdana,Arial,sans-serif;
   font-synthesis:none;
   text-rendering:optimizeLegibility;
   -webkit-font-smoothing:antialiased;
 }
 button,input,select,textarea{font:inherit}
-.p-component{font-family:Roboto,Arial,Helvetica,sans-serif!important}
+.p-component{font-family:Roboto,Verdana,Arial,sans-serif!important}
 
 /* PrimeReact normalization: Lara remains only the technical base.
    No indigo/blue theme color may remain visible. */
@@ -131,7 +131,7 @@ button,input,select,textarea{font:inherit}
 .p-datatable .p-sortable-column:focus{box-shadow:inset 0 0 0 2px rgba(219,8,18,.10)!important}
 .p-dialog{
   border:1px solid var(--unilog-border)!important;
-  border-radius:14px!important;
+  border-radius:8px!important;
   box-shadow:0 22px 58px rgba(18,24,34,.18)!important;
   overflow:hidden!important;
 }
@@ -155,16 +155,14 @@ button,input,select,textarea{font:inherit}
   display:grid!important;
   place-items:center!important;
   padding:32px!important;
-  background:
-    radial-gradient(circle at 15% 10%,rgba(219,8,18,.055),transparent 34%),
-    linear-gradient(180deg,#f8f9fb 0%,#f3f5f7 100%)!important;
+  background:var(--unilog-canvas)!important;
 }
 .login-card{
   width:min(1020px,100%)!important;
   min-height:590px!important;
   grid-template-columns:minmax(0,.96fr) minmax(0,1.04fr)!important;
   border:1px solid var(--unilog-border)!important;
-  border-radius:24px!important;
+  border-radius:8px!important;
   box-shadow:0 24px 70px rgba(15,23,42,.12)!important;
 }
 .login-brand{
@@ -172,7 +170,7 @@ button,input,select,textarea{font:inherit}
   overflow:hidden!important;
   gap:42px!important;
   padding:42px!important;
-  background:linear-gradient(150deg,#131722 0%,#232936 52%,#353d4e 100%)!important;
+  background:#202632!important;
 }
 .login-brand:before{
   content:'';
@@ -289,7 +287,7 @@ body:has(.app){
   height:100dvh!important;
   padding:18px 12px max(15px,env(safe-area-inset-bottom))!important;
   overflow:hidden!important;
-  background:linear-gradient(180deg,#171b24 0%,#202632 100%)!important;
+  background:#202632!important;
 }
 .sidebar-brand{
   height:54px!important;
@@ -313,9 +311,9 @@ body:has(.app){
   min-height:44px!important;
   gap:11px!important;
   padding:10px 12px!important;
-  border-radius:10px!important;
+  border-radius:8px!important;
   color:#e2e5e9!important;
-  font-family:Roboto,Arial,Helvetica,sans-serif!important;
+  font-family:Roboto,Verdana,Arial,sans-serif!important;
   font-size:12px!important;
   font-weight:650!important;
   line-height:1.2!important;
@@ -342,7 +340,7 @@ body:has(.app){
 .nav-caption{
   display:block;
   padding:18px 12px 7px;
-  font-family:Roboto,Arial,Helvetica,sans-serif;
+  font-family:Roboto,Verdana,Arial,sans-serif;
   font-size:8px;
   font-weight:800;
   letter-spacing:.09em;
@@ -356,12 +354,12 @@ body:has(.app){
 }
 .avatar{background:#515968!important}
 .user-card strong{
-  font-family:Roboto,Arial,Helvetica,sans-serif!important;
+  font-family:Roboto,Verdana,Arial,sans-serif!important;
   font-size:11px!important;
   color:#fff
 }
 .user-card span{
-  font-family:Roboto,Arial,Helvetica,sans-serif!important;
+  font-family:Roboto,Verdana,Arial,sans-serif!important;
   font-size:9px!important;
   color:#aeb4be!important
 }
@@ -369,7 +367,7 @@ body:has(.app){
 .user-actions button{
   width:40px!important;
   height:40px!important;
-  border-radius:10px!important;
+  border-radius:8px!important;
   color:#c8cdd5!important;
 }
 .user-actions button:hover{background:rgba(255,255,255,.07)!important;color:#fff!important}
@@ -422,7 +420,7 @@ body:has(.app){
 .panel-head{
   padding:16px 18px!important;
   border-bottom:1px solid var(--unilog-border-soft)!important;
-  background:linear-gradient(180deg,#fff 0%,#fcfcfd 100%);
+  background:#fff;
 }
 .panel-head h2{color:var(--unilog-ink-2)!important}
 .panel-head p{color:var(--unilog-graphite-2)!important}
@@ -512,7 +510,7 @@ body:has(.app){
   margin:4px 0 2px;
   padding:10px 12px;
   border:1px solid var(--unilog-border-soft);
-  border-radius:10px;
+  border-radius:8px;
   background:#fafbfc;
 }
 .password-rules span{
@@ -548,7 +546,7 @@ body:has(.app){
   display:grid;
   place-items:center;
   border:0;
-  border-radius:10px;
+  border-radius:8px;
   background:transparent;
   color:#aeb4be;
   cursor:pointer;
@@ -556,7 +554,7 @@ body:has(.app){
 .sidebar-collapse:hover{background:rgba(255,255,255,.07);color:#fff}
 .sidebar-mobile-close{display:none}
 .sidebar-backdrop{display:none}
-.mobile-menu-button{display:none;width:40px;height:40px;border:0;border-radius:10px;background:transparent;color:var(--unilog-graphite);place-items:center}
+.mobile-menu-button{display:none;width:40px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--unilog-graphite);place-items:center}
 .mobile-menu-button:hover{background:#f2f3f5;color:var(--unilog-ink)}
 .topbar-title{display:flex;align-items:center;gap:10px;min-width:0}
 
@@ -605,6 +603,8 @@ body:has(.app){
   color:var(--unilog-muted);
 }
 .workspace-page{min-height:420px}
+/* A tela de planilhas não deve reservar altura quando houver poucos registros. */
+.workspace-page.process-page{min-height:0}
 .page-body,.page-table{padding:16px 18px 18px}
 .page-table{padding-top:0}
 .workspace-page>.panel-head{margin-bottom:0}
@@ -612,9 +612,7 @@ body:has(.app){
 /* Auth/session loading */
 .session-loading{
   min-height:100dvh!important;
-  background:
-    radial-gradient(circle at 70% 22%,rgba(219,8,18,.045),transparent 32%),
-    var(--unilog-canvas)!important;
+  background:var(--unilog-canvas)!important;
   color:var(--unilog-graphite-2)!important;
   font-size:12px;
 }
@@ -675,7 +673,7 @@ body:has(.app){
     top:5px;
     width:44px;
     height:44px;
-    border-radius:10px;
+    border-radius:8px;
     background:rgba(255,255,255,.07);
     color:#fff;
     border:0;
@@ -714,7 +712,7 @@ body:has(.app){
 
 @media(max-width:760px){
   .login-page{place-items:stretch!important;padding:max(14px,env(safe-area-inset-top)) max(14px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))!important}
-  .login-card{grid-template-columns:1fr!important;min-height:auto!important;max-height:none!important;align-self:center;border-radius:18px!important}
+  .login-card{grid-template-columns:1fr!important;min-height:auto!important;max-height:none!important;align-self:center;border-radius:8px!important}
   .login-brand{display:flex!important;min-height:280px!important;padding:28px!important;gap:28px!important}
   .login-brand-copy h1{font-size:32px!important}
   .proof{display:none!important}
@@ -738,7 +736,7 @@ body:has(.app){
   margin-bottom:12px;
   padding:12px;
   border:1px solid var(--unilog-border);
-  border-radius:12px;
+  border-radius:8px;
   background:#fff;
   box-shadow:var(--unilog-shadow);
 }
@@ -760,7 +758,7 @@ body:has(.app){
   min-height:42px;
   height:42px;
   border:1px solid #d9dde3;
-  border-radius:10px;
+  border-radius:8px;
   background:#fff;
   color:var(--unilog-ink-2);
   font-size:12px;

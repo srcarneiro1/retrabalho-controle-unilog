@@ -47,7 +47,7 @@ body{-webkit-text-size-adjust:100%}
   .workspace-gate-card{
     width:100%!important;
     padding:24px 18px!important;
-    border-radius:14px!important;
+    border-radius:8px!important;
   }
   .workspace-gate-card h2{font-size:17px!important}
   .workspace-gate-card p{font-size:11px!important}
@@ -89,7 +89,7 @@ body{-webkit-text-size-adjust:100%}
     max-height:none!important;
     grid-template-columns:1fr!important;
     align-self:center!important;
-    border-radius:18px!important;
+    border-radius:8px!important;
   }
   .login-brand{
     display:flex!important;
@@ -174,7 +174,7 @@ body{-webkit-text-size-adjust:100%}
     padding:12px 14px!important;
   }
 
-  .panel{border-radius:12px!important}
+  .panel{border-radius:8px!important}
   .panel-head{
     min-height:0!important;
     display:grid!important;
@@ -197,7 +197,7 @@ body{-webkit-text-size-adjust:100%}
   .p-multiselect .p-multiselect-label{
     min-height:42px!important;
     padding:10px 12px!important;
-    font-size:14px!important;
+    font-size:16px!important;
   }
 
   .user-form>.form-submit,.price-create>.p-button{
@@ -255,7 +255,7 @@ body{-webkit-text-size-adjust:100%}
   .login-page{
     padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))!important;
   }
-  .login-card{border-radius:16px!important}
+  .login-card{border-radius:8px!important}
   .login-brand{min-height:250px!important;padding:24px!important}
   .login-brand-topline img{width:122px!important}
   .product-chip{font-size:8px!important;padding:6px 8px!important}
@@ -275,7 +275,7 @@ body{-webkit-text-size-adjust:100%}
   /* Overlay mobile parity: retain 16px text fields to prevent iOS focus zoom. */
   .p-multiselect-panel{
     max-width:calc(100vw - 20px)!important;
-    border-radius:12px!important;
+    border-radius:8px!important;
   }
   .p-multiselect-panel .p-multiselect-filter{
     height:40px!important;
@@ -291,7 +291,7 @@ body{-webkit-text-size-adjust:100%}
     width:min(320px,calc(100vw - 20px))!important;
     min-width:0!important;
     padding:10px!important;
-    border-radius:12px!important;
+    border-radius:8px!important;
   }
   .p-datepicker .p-datepicker-title button{font-size:12px!important}
   .p-datepicker table{font-size:11px!important}
@@ -303,7 +303,7 @@ body{-webkit-text-size-adjust:100%}
     font-size:12px!important;
   }
   .p-dialog{
-    border-radius:14px!important;
+    border-radius:8px!important;
     overflow:hidden!important;
   }
   .p-dialog .p-dialog-header{
@@ -317,7 +317,7 @@ body{-webkit-text-size-adjust:100%}
     height:44px!important;
     min-height:44px!important;
     justify-self:stretch!important;
-    font-size:11px!important;
+    font-size:12px!important;
   }
 }
 
@@ -328,5 +328,29 @@ body{-webkit-text-size-adjust:100%}
     height:44px!important;
     min-height:44px!important;
     justify-content:center!important;
+  }
+}
+
+/* Fonte móvel: seletores específicos prevalecem sobre a geometria com !important.
+   O tamanho de exibição de tabelas/botões não afeta o zoom de campos editáveis. */
+@media(max-width:760px){
+  input.p-inputtext,
+  input.p-password-input,
+  input.p-inputnumber-input,
+  .p-calendar input.p-inputtext,
+  .p-dialog input.p-inputtext,
+  .p-dialog input.p-password-input,
+  .p-dialog input.p-inputnumber-input,
+  input.p-dropdown-filter,
+  input.p-multiselect-filter,
+  textarea,
+  select,
+  .user-form select,
+  .form-grid select,
+  .month-control select,
+  .p-dropdown > .p-dropdown-label,
+  .p-dropdown > .p-dropdown-label.p-inputtext,
+  .p-multiselect .p-multiselect-label{
+    font-size:16px!important;
   }
 }
