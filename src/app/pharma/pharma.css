@@ -48,3 +48,12 @@
 @media (max-width: 760px) { .pharma-cliente { max-width: none; } }
 /* iPhone: a busca precisa de 16 px para não dar zoom (o sistema visual do app trava a fonte com !important). */
 @media (max-width: 760px) { .pharma-busca .p-inputtext { font-size: 16px !important; } }
+/* Painéis da PHARMAESTETICS abaixo dos da Acess (Preços e Processos): mesmo espaço entre blocos do app (16 px). */
+.pharma-painel { margin-top: 16px; }
+.pharma-filiais { margin-top: 16px; }
+.pharma-filiais .pharma-dica { grid-column: 1 / -1; margin: 0; }
+/* Catálogo em Processos: mesma caixa de envio da Acess (process-upload), com 3 colunas: busca | arquivo | botão. */
+.process-upload.pharma-upload { grid-template-columns: minmax(200px, 1fr) minmax(220px, 1.2fr) auto; }
+.process-upload.pharma-upload.somente-busca { grid-template-columns: minmax(200px, 420px); }
+.pharma-resumo { margin: 0 0 10px; }
+@media (max-width: 760px) { .process-upload.pharma-upload, .process-upload.pharma-upload.somente-busca { grid-template-columns: 1fr; } .process-upload.pharma-upload input { font-size: 16px !important; } }

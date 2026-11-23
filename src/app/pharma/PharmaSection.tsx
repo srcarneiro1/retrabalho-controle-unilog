@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from 'primereact/button'
 import { Column } from 'primereact/column'
 import { DataTable } from 'primereact/datatable'
+import { Calendar } from 'primereact/calendar'
 import { Dialog } from 'primereact/dialog'
 import { Dropdown } from 'primereact/dropdown'
 import { InputNumber } from 'primereact/inputnumber'
@@ -33,6 +34,7 @@ type Item = { chave: string; ean: string; qtdPecas: number | null; qtdDun14: num
 export type PharmaConfig = Config
 
 const brl = (v: number) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const tarifa = (v: number) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 4, maximumFractionDigits: 4 })
 const int = (v: number) => (Number(v) || 0).toLocaleString('pt-BR')
 const dataBr = (iso: string) => (iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—')
 const hoje = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
@@ -237,104 +239,143 @@ export function PharmaNovaNota({ config, cnpjInicial, visivel, onFechar, onSalvo
   )
 }
 
-/** Painel da seção Processos: catálogo de EANs PHARMAESTETICS (importação do Excel do BI). */
+/** Painel da seção Processos: catálogo de EANs PHARMAESTETICS (importação do Excel do BI).
+ *  Mesma marcação de "Planilhas enviadas" da Acess (process-upload em dois passos, tabela dentro do painel). */
 export function PharmaCatalogo({ config, onAlterado }: { config: Config; onAlterado: () => void }) {
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
-  const onImportado = (m: string) => { setSucesso(m); onAlterado() }
   useEffect(() => { if (!sucesso) return; const t = window.setTimeout(() => setSucesso(''), 5000); return () => window.clearTimeout(t) }, [sucesso])
-  const onErro = setErro
   const [busca, setBusca] = useState('')
+  const [arquivo, setArquivo] = useState<File | null>(null)
+  const [chave, setChave] = useState(0)
   const [enviando, setEnviando] = useState(false)
   const q = busca.trim().toUpperCase()
   const lista = q ? config.produtos.filter(x => x.ean.includes(q) || x.descricao.toUpperCase().includes(q)) : config.produtos
-  async function importar(arquivo: File | undefined) {
-    if (!arquivo) return
-    setEnviando(true); onErro('')
+  const ultima = config.importacoes[0]
+  async function importar() {
+    if (!arquivo) return setErro('Escolha o arquivo Excel exportado do BI.')
+    setEnviando(true); setErro('')
     try {
       const b64 = await new Promise<string>((ok, falha) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] || ''); r.onerror = () => falha(new Error('Não foi possível ler o arquivo.')); r.readAsDataURL(arquivo) })
-      const r = await gravar('IMPORTAR_PRODUTOS', { nomeArquivo: arquivo.name, conteudoBase64: b64 })
-      const d = r.data
-      onImportado(`Catálogo importado de ${d.arquivo}: ${d.novos} novo(s), ${d.atualizados} atualizado(s), ${d.ignorados} linha(s) ignorada(s).`)
-    } catch (e) { onErro((e as Error).message) } finally { setEnviando(false) }
+      const d = (await gravar('IMPORTAR_PRODUTOS', { nomeArquivo: arquivo.name, conteudoBase64: b64 })).data
+      setSucesso(`Catálogo importado de ${d.arquivo}: ${d.novos} novo(s), ${d.atualizados} atualizado(s), ${d.ignorados} linha(s) ignorada(s).`)
+      setArquivo(null); setChave(k => k + 1); onAlterado()
+    } catch (e) { setErro((e as Error).message) } finally { setEnviando(false) }
   }
   return (
-    <>
-      {erro && <div className="error"><i className="pi pi-exclamation-circle" />{erro}</div>}
-      {sucesso && <div className="success-note"><i className="pi pi-check-circle" />{sucesso}</div>}
-      {config.permissoes.importar && <section className="panel">
-        <div className="panel-head"><div><small className="panel-eyebrow">PHARMAESTETICS</small><h2>Catálogo de EANs — importar Excel do BI</h2>
-          <p>Relatório de ocupação exportado do BI (colunas “Produto Codigo” e “Produto”). Importe o B2B e o B2C: o catálogo é um só e a segunda importação só acrescenta o que faltar.</p></div>
-          <label className={`p-button p-component ${enviando ? 'p-disabled' : ''}`}><i className={`pi ${enviando ? 'pi-spin pi-spinner' : 'pi-upload'}`} />&nbsp;{enviando ? 'Importando…' : 'Escolher arquivo Excel'}
-            <input type="file" accept=".xlsx,.xls" hidden disabled={enviando} onChange={e => { void importar(e.target.files?.[0]); e.target.value = '' }} /></label>
+    <section className="panel workspace-page pharma-painel">
+      <div className="panel-head">
+        <div>
+          <small className="panel-eyebrow">CATÁLOGO · PHARMAESTETICS</small>
+          <h2>Catálogo de EANs</h2>
+          <p>Relatório de ocupação exportado do BI (colunas “Produto Codigo” e “Produto”). Importe o B2B e o B2C: o catálogo é um só.</p>
         </div>
-        {config.importacoes.length > 0 && <ul className="pharma-importacoes">{config.importacoes.map((x, i) => <li key={i}><strong>{x.arquivo}</strong> — {x.novos} novo(s), {x.atualizados} atualizado(s), {x.ignorados} ignorado(s){x.em ? ` · ${new Date(x.em).toLocaleString('pt-BR')}` : ''}</li>)}</ul>}
-      </section>}
-      <section className="panel">
-        <div className="panel-head"><div><small className="panel-eyebrow">PHARMAESTETICS</small><h2>Catálogo de EANs</h2><p>{config.produtos.length} produto(s) disponíveis para lançamento.</p></div>
-          <span className="p-input-icon-left"><i className="pi pi-search" /><InputText placeholder="EAN ou descrição" value={busca} onChange={e => setBusca(e.target.value)} /></span></div>
-        <DataTable className="mobile-record-table" value={lista} paginator rows={20} dataKey="ean" stripedRows emptyMessage="Nenhum produto no catálogo.">
+        <Button icon="pi pi-refresh" text rounded aria-label="Atualizar" onClick={onAlterado} />
+      </div>
+      <div className="page-body">
+        <div className={`process-upload pharma-upload ${config.permissoes.importar ? '' : 'somente-busca'}`}>
+          <label>Buscar no catálogo<InputText value={busca} onChange={e => setBusca(e.target.value)} placeholder="EAN ou descrição" /></label>
+          {config.permissoes.importar && <>
+            <label>
+              Planilha do BI (.xlsx ou .xls) *
+              <input key={chave} className="file-input" type="file" accept=".xlsx,.xls" onChange={e => setArquivo(e.target.files?.[0] || null)} />
+            </label>
+            <Button label="Importar catálogo" icon="pi pi-upload" className="primary" loading={enviando} onClick={() => void importar()} />
+          </>}
+        </div>
+        {erro && <div className="error"><i className="pi pi-exclamation-circle" />{erro}</div>}
+        {sucesso && <div className="success-note"><i className="pi pi-check-circle" />{sucesso}</div>}
+        <p className="pharma-dica pharma-resumo">{config.produtos.length} produto(s) disponíveis para lançamento.{ultima ? ` Última importação: ${ultima.arquivo} (${ultima.novos} novo(s), ${ultima.atualizados} atualizado(s))${ultima.em ? ` em ${new Date(ultima.em).toLocaleString('pt-BR')}` : ''}.` : ''}</p>
+        <DataTable className="mobile-record-table process-record-table" value={lista} paginator rows={15} dataKey="ean" stripedRows emptyMessage="Nenhum produto no catálogo.">
           <Column pt={cell('EAN', 'title')} field="ean" header="EAN" />
           <Column pt={cell('Descrição', 'wide')} field="descricao" header="Descrição" />
         </DataTable>
-      </section>
-    </>
+      </div>
+    </section>
   )
 }
 
-/** Painel da seção Preços: tarifas PHARMAESTETICS e, para o ADMIN, habilitação de filial. */
+/** Painel da seção Preços: tarifas PHARMAESTETICS e, para o ADMIN, habilitação de filial.
+ *  Mesma marcação do painel de preços da Acess (price-create, price-rule, price-record-table). */
 export function PharmaTarifas({ config, perfil, onAlterado }: { config: Config; perfil: string; onAlterado: () => void }) {
   const [erro, setErro] = useState('')
   const [sucesso, setSucesso] = useState('')
-  const onSalvo = (m: string) => { setSucesso(m); onAlterado() }
   useEffect(() => { if (!sucesso) return; const t = window.setTimeout(() => setSucesso(''), 5000); return () => window.clearTimeout(t) }, [sucesso])
-  const onErro = setErro
-  const [inicio, setInicio] = useState('')
+  const [inicio, setInicio] = useState<Date | null>(null)
   const [dun14, setDun14] = useState<number | null>(config.tarifaVigente?.dun14 ?? null)
   const [ean, setEan] = useState<number | null>(config.tarifaVigente?.eanCartucho ?? null)
   const [pallet, setPallet] = useState<number | null>(config.tarifaVigente?.descargaPallet ?? null)
+  const [observacao, setObservacao] = useState('')
+  const [salvando, setSalvando] = useState(false)
   const [todas, setTodas] = useState<{ cnpj: string; nomeCliente: string; filial: string }[]>([])
   const [cnpj, setCnpj] = useState('')
   const admin = perfil === 'ADMIN'
   useEffect(() => { if (admin) api('/api/filiais?all=1').then(r => setTodas(r.data || [])).catch(() => setTodas([])) }, [admin])
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const habilitadas = new Set(config.filiais.map(f => f.cnpj))
   async function criar() {
-    onErro('')
-    try { await gravar('CRIAR_VIGENCIA', { vigenciaInicio: inicio, dun14, eanCartucho: ean, descargaPallet: pallet }); onSalvo('Nova vigência de tarifas cadastrada.'); setInicio('') }
-    catch (e) { onErro((e as Error).message) }
+    if (!inicio) return setErro('Informe o início da nova vigência.')
+    setSalvando(true); setErro('')
+    try {
+      await gravar('CRIAR_VIGENCIA', { vigenciaInicio: iso(inicio), dun14, eanCartucho: ean, descargaPallet: pallet, observacao })
+      setSucesso('Nova vigência de tarifas PHARMAESTETICS cadastrada.'); setInicio(null); setObservacao(''); onAlterado()
+    } catch (e) { setErro((e as Error).message) } finally { setSalvando(false) }
   }
   async function habilitar() {
-    onErro('')
-    try { const r = await gravar('HABILITAR_FILIAL', { cnpj }); onSalvo(r.data?.jaHabilitada ? 'Esta filial já estava habilitada.' : 'Filial habilitada para o fluxo PHARMAESTETICS.'); setCnpj('') }
-    catch (e) { onErro((e as Error).message) }
+    setSalvando(true); setErro('')
+    try {
+      const r = await gravar('HABILITAR_FILIAL', { cnpj })
+      setSucesso(r.data?.jaHabilitada ? 'Esta filial já estava habilitada.' : 'Filial habilitada para o lançamento por NF.'); setCnpj(''); onAlterado()
+    } catch (e) { setErro((e as Error).message) } finally { setSalvando(false) }
   }
+  const moeda = { mode: 'currency' as const, currency: 'BRL', locale: 'pt-BR', min: 0, minFractionDigits: 4, maxFractionDigits: 4 }
   return (
-    <>
-      {erro && <div className="error"><i className="pi pi-exclamation-circle" />{erro}</div>}
-      {sucesso && <div className="success-note"><i className="pi pi-check-circle" />{sucesso}</div>}
-      <section className="panel">
-        <div className="panel-head"><div><small className="panel-eyebrow">PHARMAESTETICS</small><h2>Tarifas PHARMAESTETICS</h2><p>DUN-14 por etiqueta, EAN no cartucho por unidade e descarga por pallet. Cada lançamento usa a vigência da sua data.</p></div></div>
-        <DataTable className="mobile-record-table" value={[...config.tarifas].reverse()} dataKey="id" stripedRows emptyMessage="Nenhuma tarifa cadastrada.">
-          <Column pt={cell('Vigência', 'title')} header="Vigência" body={(x: Tarifa) => `${dataBr(x.inicio)} a ${x.fim ? dataBr(x.fim) : 'atual'}`} />
-          <Column pt={cell('DUN-14')} header="DUN-14 / etiqueta" body={(x: Tarifa) => brl(x.dun14)} />
-          <Column pt={cell('EAN cartucho')} header="EAN no cartucho / un." body={(x: Tarifa) => brl(x.eanCartucho)} />
-          <Column pt={cell('Descarga')} header="Descarga / pallet" body={(x: Tarifa) => brl(x.descargaPallet)} />
-        </DataTable>
-        {admin && <div className="pharma-form pharma-vigencia">
-          <label><span>Nova vigência a partir de</span><InputText type="date" value={inicio} onChange={e => setInicio(e.target.value)} /></label>
-          <label><span>DUN-14 (R$)</span><InputNumber value={dun14} mode="decimal" minFractionDigits={2} maxFractionDigits={4} min={0} onValueChange={e => setDun14(e.value ?? null)} /></label>
-          <label><span>EAN no cartucho (R$)</span><InputNumber value={ean} mode="decimal" minFractionDigits={2} maxFractionDigits={4} min={0} onValueChange={e => setEan(e.value ?? null)} /></label>
-          <label><span>Descarga por pallet (R$)</span><InputNumber value={pallet} mode="decimal" minFractionDigits={2} maxFractionDigits={4} min={0} onValueChange={e => setPallet(e.value ?? null)} /></label>
-          <Button type="button" icon="pi pi-check" label="Criar vigência" disabled={!inicio || dun14 == null || ean == null || pallet == null} onClick={() => void criar()} />
-        </div>}
-      </section>
-      {admin && <section className="panel">
-        <div className="panel-head"><div><small className="panel-eyebrow">PHARMAESTETICS</small><h2>Filiais com lançamento por NF</h2><p>Habilite a filial (já cadastrada em CLIENTES_FILIAIS) para lançar PHARMAESTETICS. Habilitadas: {config.filiais.map(f => f.filial).join(', ') || 'nenhuma'}.</p></div></div>
-        <div className="pharma-form">
-          <label><span>Filial</span><Dropdown value={cnpj} options={todas.map(f => ({ label: `${f.nomeCliente} · ${f.filial}`, value: f.cnpj }))} optionLabel="label" optionValue="value" filter placeholder="Selecione" onChange={e => setCnpj(e.value)} /></label>
-          <Button type="button" icon="pi pi-check" label="Habilitar" disabled={!cnpj} onClick={() => void habilitar()} />
+    <section className="panel workspace-page pharma-painel">
+      <div className="panel-head">
+        <div>
+          <small className="panel-eyebrow">VIGÊNCIAS · PHARMAESTETICS</small>
+          <h2>Tarifas PHARMAESTETICS</h2>
+          <p>Lançamento por nota fiscal e EAN. Cada lançamento usa a vigência da sua data.</p>
         </div>
-      </section>}
-    </>
+        <Button icon="pi pi-refresh" text rounded aria-label="Atualizar" onClick={onAlterado} />
+      </div>
+      <div className="page-body">
+        {admin && (
+          <div className="price-create">
+            <label>Nova vigência<Calendar value={inicio} onChange={e => setInicio((e.value as Date) || null)} dateFormat="dd/mm/yy" placeholder="dd/mm/aaaa" /></label>
+            <label>Etiqueta DUN-14 (por etiqueta)<InputNumber value={dun14} onValueChange={e => setDun14(e.value ?? null)} {...moeda} /></label>
+            <label>EAN no cartucho (por unidade)<InputNumber value={ean} onValueChange={e => setEan(e.value ?? null)} {...moeda} /></label>
+            <label>Descarga paletizada (por pallet)<InputNumber value={pallet} onValueChange={e => setPallet(e.value ?? null)} {...moeda} /></label>
+            <label className="price-observation">Observação<InputText value={observacao} onChange={e => setObservacao(e.target.value)} placeholder="Motivo ou referência da alteração" /></label>
+            <Button label="Criar vigência" icon="pi pi-plus" className="primary" loading={salvando} disabled={dun14 == null || ean == null || pallet == null} onClick={() => void criar()} />
+          </div>
+        )}
+        {erro && <div className="error"><i className="pi pi-exclamation-circle" />{erro}</div>}
+        {sucesso && <div className="success-note"><i className="pi pi-check-circle" />{sucesso}</div>}
+        <div className="price-rule">
+          <strong>Regra de cobrança:</strong> <strong>etiqueta DUN-14</strong> por etiqueta aplicada, <strong>EAN no cartucho</strong> por unidade (peça)
+          e <strong>descarga paletizada</strong> por pallet recebido; os serviços se somam. <strong>B2B</strong> e <strong>B2C</strong> usam a mesma tarifa (só classificam o lançamento).
+        </div>
+        <DataTable className="mobile-record-table price-record-table" value={[...config.tarifas].reverse()} paginator={config.tarifas.length > 10} rows={10} dataKey="id" emptyMessage="Nenhuma vigência cadastrada.">
+          <Column pt={cell('Início', 'title')} header="Início" body={(x: Tarifa) => dataBr(x.inicio)} />
+          <Column pt={cell('Fim')} header="Fim" body={(x: Tarifa) => (x.fim ? dataBr(x.fim) : 'Vigente')} />
+          <Column pt={cell('DUN-14')} header="DUN-14 / etiqueta" body={(x: Tarifa) => tarifa(x.dun14)} />
+          <Column pt={cell('EAN no cartucho')} header="EAN no cartucho / un." body={(x: Tarifa) => tarifa(x.eanCartucho)} />
+          <Column pt={cell('Descarga')} header="Descarga / pallet" body={(x: Tarifa) => tarifa(x.descargaPallet)} />
+          <Column pt={cell('Observação', 'wide')} header="Observação" body={(x: Tarifa) => x.observacao || '—'} />
+        </DataTable>
+        {admin && (
+          <div className="price-create pharma-filiais">
+            <label>Habilitar filial para lançamento por NF
+              <Dropdown value={cnpj} options={todas.map(f => ({ label: `${f.nomeCliente} · ${f.filial}${habilitadas.has(f.cnpj) ? ' (habilitada)' : ''}`, value: f.cnpj }))}
+                optionLabel="label" optionValue="value" filter placeholder="Selecione a filial" onChange={e => setCnpj(e.value)} />
+            </label>
+            <Button label="Habilitar" icon="pi pi-check" className="primary" loading={salvando} disabled={!cnpj} onClick={() => void habilitar()} />
+            <p className="pharma-dica">Habilitadas: {config.filiais.map(f => `${f.nomeCliente} · ${f.filial}`).join(', ') || 'nenhuma'}.</p>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
 
