@@ -354,3 +354,19 @@ body{-webkit-text-size-adjust:100%}
     font-size:16px!important;
   }
 }
+
+/* Tablets e demais telas de toque (23/11/2026): o iPad também dá zoom ao focar campos com fonte abaixo de 16 px,
+   e as regras acima valem só até 760 px de largura. Aqui, só a FONTE dos campos de digitação, em qualquer largura,
+   apenas em aparelhos de toque (computador continua igual). Alturas e layout não mudam. */
+@media (hover:none) and (pointer:coarse){
+  html body :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+    select,
+    textarea,
+    .p-inputtext:not(.p-dropdown-label),
+    .p-password-input,
+    .p-inputnumber-input
+  ){
+    font-size:16px!important;
+  }
+}
